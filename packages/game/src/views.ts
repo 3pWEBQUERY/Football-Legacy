@@ -256,6 +256,7 @@ export async function playerDetail(careerId: string, accountId: string, playerId
     transfers: history,
     window: transferWindow(career.week, career.season_weeks),
     scoutLimit: scoutLimit(career),
+    budget: userClub?.transfer_budget ?? 0,
   };
 }
 

@@ -44,7 +44,9 @@ export function wageBill(players: Pick<Player, "contract">[]): number {
 export function financeProfile(club: { countryCode: string; reputation: number; capacity: number }, wages: number, tier: number): ClubFinanceProfile {
   const country = COUNTRY_BY_CODE[club.countryCode];
   const strength = country?.strength ?? 3;
-  const ticketPrice = Math.round(6 + strength * 4 + club.reputation / 6 - (tier - 1) * 3);
+  // Ticketerlöse sollen etwa ein Drittel der Gehälter decken – sonst wird der Ticketpreis gesenkt
+  const basePrice = Math.round(6 + strength * 4 + club.reputation / 6 - (tier - 1) * 3);
+  const ticketPrice = Math.max(5, Math.min(basePrice, Math.round((wages * 0.4) / Math.max(1, club.capacity * 0.35))));
   const avgTickets = club.capacity * 0.7 * ticketPrice * 0.5; // jede zweite Woche ein Heimspiel
   const target = wages * 1.12;
   const rest = Math.max(target - avgTickets, wages * 0.25);

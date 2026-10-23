@@ -116,7 +116,7 @@ export function generateWorld(seed: number, season: number, countries: CountryPr
         usedNames.add(name);
         const reputation = clamp(Math.round(rating * 1.05 - 8 + rng.normal(0, 3)), 1, 100);
         const capacity = Math.round(
-          clamp((1500 + Math.pow(Math.max(0, rating - 30), 2.05) * 32) * rng.range(0.7, 1.3), 800, 85_000) / 100,
+          clamp((900 + Math.pow(Math.max(0, rating - 30), 2.3) * 6) * rng.range(0.7, 1.3), 800, 85_000) / 100,
         ) * 100;
         clubs.push({
           leagueKey: key,

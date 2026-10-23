@@ -841,7 +841,7 @@ function shoot(
       if (pos === "DC" || pos === "DL" || pos === "DR") defTeam.players[idx].st.rating -= 0.12;
     }
     const assistText = assist && assist !== shooter ? ` Vorlage: ${assist.short}.` : "";
-    pushEvent(state, "goal", side, `TOR für ${team.short}! ${shooter.short} trifft ${where}.${assistText}`.replace("  ", " "), {
+    pushEvent(state, "goal", side, `TOR für ${team.short}! ${shooter.short} trifft${where ? ` ${where}` : ""}.${assistText}`, {
       playerId: shooter.id, playerName: shooter.name,
       assistId: assist && assist !== shooter ? assist.id : undefined,
       assistName: assist && assist !== shooter ? assist.name : undefined,
@@ -869,7 +869,7 @@ function shoot(
     }
   } else {
     if (xg > 0.15) {
-      pushEvent(state, "miss", side, `${shooter.short} vergibt ${where} – knapp vorbei.`.replace("  ", " "), {
+      pushEvent(state, "miss", side, `${shooter.short} vergibt${where ? ` ${where}` : ""} – knapp vorbei.`, {
         playerId: shooter.id, playerName: shooter.name, xg: round2(xg),
       });
     }

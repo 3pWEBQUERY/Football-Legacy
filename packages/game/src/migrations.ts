@@ -1,4 +1,8 @@
--- Football Legacy: Grundschema
+/** SQL-Migrationen, eingebettet, damit sie in jedem Build verfügbar sind. */
+export const MIGRATIONS: { name: string; sql: string }[] = [
+  {
+    name: "001_init.sql",
+    sql: `-- Football Legacy: Grundschema
 create extension if not exists pgcrypto;
 
 create table accounts (
@@ -195,3 +199,6 @@ create table season_results (
   created_at timestamptz not null default now()
 );
 create index season_results_ppg_idx on season_results(ppg desc);
+`,
+  },
+];
