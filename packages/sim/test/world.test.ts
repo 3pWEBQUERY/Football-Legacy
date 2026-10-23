@@ -1,0 +1,137 @@
+import { describe, expect, it } from "vitest";
+import {
+  COUNTRIES, Rng, computeStandings, createSchedule, evaluateFee, generatePlayer, generateSquad, generateWorld,
+  quickResult, roundsFor, transferWindow, dailyMissions, levelFromXp, xpForLevel, flagEmoji,
+} from "../src/index";
+
+describe("Weltgenerator", () => {
+  it("erzeugt alle Länder mit fiktiven Ligen und Vereinen", () => {
+    const w = generateWorld(1, 2026);
+    expect(new Set(w.leagues.map((l) => l.countryCode)).size).toBe(COUNTRIES.length);
+    const total = COUNTRIES.reduce((s, c) => s + c.tiers.reduce((a, b) => a + b, 0), 0);
+    expect(w.clubs.length).toBe(total);
+    // Namen pro Land eindeutig
+    for (const c of ["GER", "ENG", "BRA"]) {
+      const names = w.clubs.filter((x) => x.countryCode === c).map((x) => x.name);
+      expect(new Set(names).size).toBe(names.length);
+    }
+  });
+
+  it("ist reproduzierbar", () => {
+    expect(generateWorld(9, 2026).clubs.slice(0, 50)).toEqual(generateWorld(9, 2026).clubs.slice(0, 50));
+  });
+
+  it("stärkere Länder haben stärkere Ligen", () => {
+    const w = generateWorld(1, 2026);
+    const avg = (key: string) => {
+      const cs = w.clubs.filter((c) => c.leagueKey === key);
+      return cs.reduce((s, c) => s + c.rating, 0) / cs.length;
+    };
+    expect(avg("ENG-1")).toBeGreaterThan(avg("SUI-1"));
+    expect(avg("SUI-1")).toBeGreaterThan(avg("SMR-1"));
+    expect(avg("GER-1")).toBeGreaterThan(avg("GER-2"));
+  });
+
+  it("Kader haben 25 Spieler und eine passende Stärke", () => {
+    let id = 1;
+    const squad = generateSquad(1, { id: 5, countryCode: "ESP", rating: 70, reputation: 70 }, 2026, () => id++);
+    expect(squad.length).toBe(25);
+    expect(squad.filter((p) => p.position === "GK").length).toBe(3);
+    const avg = squad.reduce((s, p) => s + p.rating, 0) / squad.length;
+    expect(avg).toBeGreaterThan(62);
+    expect(avg).toBeLessThan(74);
+  });
+
+  it("Spieler-Stärke liegt nahe am Ziel", () => {
+    const rng = new Rng(3);
+    for (let i = 0; i < 50; i++) {
+      const p = generatePlayer(rng, { id: i, clubId: 1, nationality: "FRA", position: "MC", targetRating: 70, season: 2026, age: 26 });
+      expect(Math.abs(p.rating - 70)).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("Flaggen für Sonderfälle", () => {
+    expect(flagEmoji("GER")).toBe("🇩🇪");
+    expect(flagEmoji("ENG").length).toBeGreaterThan(4);
+  });
+});
+
+describe("Saison", () => {
+  it("Doppelrunde: jeder spielt zweimal gegen jeden, einmal zu Hause", () => {
+    const ids = Array.from({ length: 18 }, (_, i) => i + 1);
+    const s = createSchedule(ids, 34, new Rng(1));
+    expect(s.length).toBe(18 * 17);
+    expect(roundsFor(18)).toBe(34);
+    for (const a of ids) {
+      const home = s.filter((m) => m.homeId === a).length;
+      expect(home).toBe(17);
+      for (const b of ids) if (a !== b) expect(s.filter((m) => m.homeId === a && m.awayId === b).length).toBe(1);
+    }
+    // pro Woche spielt jeder höchstens einmal
+    for (let w = 1; w <= 34; w++) {
+      const wk = s.filter((m) => m.week === w);
+      const seen = new Set<number>();
+      for (const m of wk) {
+        expect(seen.has(m.homeId) || seen.has(m.awayId)).toBe(false);
+        seen.add(m.homeId).add(m.awayId);
+      }
+    }
+  });
+
+  it("grosse Ligen spielen auch unter der Woche", () => {
+    const ids = Array.from({ length: 24 }, (_, i) => i + 1);
+    const s = createSchedule(ids, 34, new Rng(1));
+    expect(Math.max(...s.map((m) => m.week))).toBe(34);
+    expect(new Set(s.map((m) => m.round)).size).toBe(46);
+  });
+
+  it("Tabelle sortiert nach Punkten und Tordifferenz", () => {
+    const t = computeStandings([1, 2, 3], [
+      { homeId: 1, awayId: 2, homeGoals: 2, awayGoals: 0 },
+      { homeId: 2, awayId: 3, homeGoals: 1, awayGoals: 1 },
+      { homeId: 3, awayId: 1, homeGoals: 3, awayGoals: 0 },
+    ]);
+    expect(t.map((r) => r.clubId)).toEqual([3, 1, 2]);
+    expect(t[0].points).toBe(4);
+  });
+
+  it("vereinfachte Simulation liegt im realistischen Torbereich", () => {
+    const rng = new Rng(11);
+    let goals = 0, home = 0, away = 0;
+    for (let i = 0; i < 5000; i++) {
+      const [h, a] = quickResult(rng, 60, 60);
+      goals += h + a;
+      if (h > a) home++;
+      if (a > h) away++;
+    }
+    expect(goals / 5000).toBeGreaterThan(2.4);
+    expect(goals / 5000).toBeLessThan(3.0);
+    expect(home).toBeGreaterThan(away);
+  });
+
+  it("Transferfenster", () => {
+    expect(transferWindow(0, 34).open).toBe(true);
+    expect(transferWindow(10, 34).open).toBe(false);
+    expect(transferWindow(17, 34).open).toBe(true);
+  });
+});
+
+describe("Transfers & Gamification", () => {
+  it("Ausstiegsklausel wird immer akzeptiert", () => {
+    const p = generatePlayer(new Rng(1), { id: 1, clubId: 1, nationality: "GER", position: "ST", targetRating: 75, season: 2026 });
+    p.contract!.releaseClause = 5_000_000;
+    const v = evaluateFee(p, 5_000_000, { season: 2026, squadRank: 1, squadSize: 25, sellerReputation: 80, isUserClub: false }, new Rng(1));
+    expect(v.kind).toBe("accept");
+  });
+
+  it("Level wachsen mit XP", () => {
+    expect(levelFromXp(0)).toBe(1);
+    expect(levelFromXp(xpForLevel(5))).toBe(5);
+    expect(levelFromXp(xpForLevel(5) - 1)).toBe(4);
+  });
+
+  it("Tagesmissionen sind pro Tag stabil", () => {
+    expect(dailyMissions(1, "2026-10-23")).toEqual(dailyMissions(1, "2026-10-23"));
+    expect(dailyMissions(1, "2026-10-23").length).toBe(3);
+  });
+});
