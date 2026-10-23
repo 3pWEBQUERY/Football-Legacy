@@ -21,6 +21,8 @@ export interface ManagerProfile {
   titleBadge: string | null;
   trainingBoostWeeks: number;
   history: SeasonRecord[];
+  autoSubs?: boolean;
+  streakRewardDay?: string;
 }
 
 export interface SeasonRecord {

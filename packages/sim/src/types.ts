@@ -98,6 +98,17 @@ export interface Player {
   wonderkid: boolean;
   /** Angesammelter Trainingsfortschritt (ab 1 steigt ein Attribut). */
   devProgress: number;
+  /** Abgeschlossene Saisons. */
+  history?: PlayerSeason[];
+}
+
+export interface PlayerSeason {
+  season: number;
+  clubName: string;
+  apps: number;
+  goals: number;
+  assists: number;
+  avgRating: number;
 }
 
 export interface ClubColors {
