@@ -21,7 +21,7 @@ export function PitchBoard({ slots, selected, onSelect, onMove }: {
   onMove?: (i: number, x: number, y: number) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ i: number; moved: boolean } | null>(null);
+  const drag = useRef<{ i: number; moved: boolean; x0: number; y0: number } | null>(null);
 
   function pos(e: React.PointerEvent) {
     const r = ref.current!.getBoundingClientRect();
@@ -36,6 +36,8 @@ export function PitchBoard({ slots, selected, onSelect, onMove }: {
       className="pitch-board"
       onPointerMove={(e) => {
         if (!drag.current || !onMove) return;
+        // Kleine Zitterbewegungen beim Klicken (Trackpad) gelten nicht als Verschieben
+        if (!drag.current.moved && Math.hypot(e.clientX - drag.current.x0, e.clientY - drag.current.y0) < 6) return;
         drag.current.moved = true;
         const p = pos(e);
         onMove(drag.current.i, p.x, p.y);
@@ -64,8 +66,8 @@ export function PitchBoard({ slots, selected, onSelect, onMove }: {
           className={`pitch-slot ${selected === i ? "selected" : ""} ${s.empty ? "empty" : ""}`}
           style={{ left: `${Math.max(0.07, Math.min(0.93, s.y)) * 100}%`, top: `${Math.max(0.05, Math.min(0.9, 1 - s.x)) * 100}%` }}
           onPointerDown={(e) => {
-            (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-            drag.current = { i, moved: false };
+            e.currentTarget.setPointerCapture?.(e.pointerId);
+            drag.current = { i, moved: false, x0: e.clientX, y0: e.clientY };
           }}
           role="button"
           tabIndex={0}

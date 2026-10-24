@@ -2,7 +2,7 @@
 import { windowFor } from "./window";
 import {
   ACHIEVEMENTS, ALL_ATTRS, CARD_PACK, COUNTRIES, COUNTRY_BY_CODE, FINANCE_LABEL, FORMATIONS, LEVEL_TITLES, MISSIONS, ROLES,
-  Rng, SKINS, STYLE_LABEL, STYLE_PRESETS, UNLOCKS, askingPrice, computeStandings, flagEmoji, formatMoney, isUnlocked,
+  Rng, SKINS, STYLE_LABEL, STYLE_PRESETS, UNLOCKS, askingPrice, computeStandings, defaultTactic, flagEmoji, formatMoney, isUnlocked,
   ratingAt, seedFor, squadRanks, streakReward, titleForLevel, trainingAverage, validateTactic, wageBill, xpForLevel,
   type Player, type Position,
 } from "@fl/sim";
@@ -248,7 +248,7 @@ export async function tacticView(careerId: string, accountId: string) {
   if (!career.club_id) throw new GameError("Kein Verein");
   const club = (await getClub(pool(), career.id, career.club_id))!;
   const players = await getPlayers(pool(), career.id, [club.id]);
-  const tactic = validateTactic(club.tactic ?? { formation: "4-4-2", style: STYLE_PRESETS.balanced.style, lineup: [], bench: [], roles: [], setPieces: { corners: "far", cornerTaker: null, freeKickTaker: null, penaltyTaker: null } }, players);
+  const tactic = validateTactic(club.tactic ?? defaultTactic(players, "4-4-2", STYLE_PRESETS.balanced.style), players);
   return {
     career: careerSummary(career),
     club: clubSummary(club),

@@ -240,3 +240,22 @@ describe("Länderspielfenster", () => {
     expect(ws.map(([a]) => dateOf(2026, a).getUTCMonth())).toEqual([8, 9, 10, 2]);
   });
 });
+
+describe("Taktik speichern", () => {
+  it("behält die gewählte Bankgrösse und automatische Standardschützen", async () => {
+    const { validateTactic, defaultTactic } = await import("../src");
+    let id = 1;
+    const squad = generateSquad(3, { id: 9, countryCode: "GER", rating: 70, reputation: 60 }, 2026, () => id++);
+    const base = defaultTactic(squad, "4-3-3");
+    const t = validateTactic({ ...base, bench: base.bench.slice(0, 3), setPieces: { corners: "short", cornerTaker: null, freeKickTaker: null, penaltyTaker: null } }, squad);
+    expect(t.bench).toHaveLength(3);
+    expect(t.setPieces.cornerTaker).toBeNull();
+    expect(t.setPieces.corners).toBe("short");
+    // verletzter Bankspieler wird ersetzt, Bankgrösse bleibt
+    const hurt = squad.find((p) => p.id === t.bench[0])!;
+    hurt.injuryWeeks = 3;
+    const t2 = validateTactic(t, squad);
+    expect(t2.bench).toHaveLength(3);
+    expect(t2.bench).not.toContain(hurt.id);
+  });
+});

@@ -30,6 +30,7 @@ export default function TacticPage() {
   if (!data || !t) return <Loading />;
 
   const formation = data.formations[t.formation] as { position: string; x: number; y: number }[];
+  const rolesFor = (pos: string) => data.roles.filter((r: any) => r.positions.includes(pos));
   const update = (fn: (t: any) => void) => {
     const next = structuredClone(t);
     fn(next);
@@ -93,7 +94,8 @@ export default function TacticPage() {
         return best;
       });
       n.formation = f;
-      n.roles = newSlots.map(() => "");
+      // Sichtbare Standardrolle je Position übernehmen, damit Anzeige und Speicherstand übereinstimmen
+      n.roles = newSlots.map((s) => rolesFor(s.position)[0]?.id ?? "");
       n.slotOffsets = [];
     });
     setSelected(null);
@@ -130,7 +132,6 @@ export default function TacticPage() {
   }
 
   const selPos = selected !== null ? formation[selected].position : null;
-  const rolesFor = (pos: string) => data.roles.filter((r: any) => r.positions.includes(pos));
   const inLineup = new Set(t.lineup.filter((x: any) => x != null));
   const sortedPlayers = [...players].sort((a: any, b: any) =>
     selPos ? b.ratings[selPos] - a.ratings[selPos] : b.rating - a.rating,

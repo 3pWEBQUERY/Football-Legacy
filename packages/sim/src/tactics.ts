@@ -216,15 +216,17 @@ export function validateTactic(tactic: Tactic, players: Player[]): Tactic {
       }
     }
   }
-  let bench = tactic.bench.filter((id) => {
+  // Ersatzbank: die gewählte Grösse bleibt erhalten; nicht verfügbare Spieler werden ersetzt
+  const wanted = Math.min(9, (tactic.bench ?? []).length);
+  let bench = (tactic.bench ?? []).filter((id, i, all) => {
     const p = byId.get(id);
-    return p && isAvailable(p) && !used.has(id);
+    return p && isAvailable(p) && !used.has(id) && all.indexOf(id) === i;
   });
-  if (bench.length < 5) {
+  if (bench.length < wanted) {
     const extra = players
       .filter((p) => isAvailable(p) && !used.has(p.id) && !bench.includes(p.id))
       .sort((a, b) => b.rating - a.rating)
-      .slice(0, 9 - bench.length)
+      .slice(0, wanted - bench.length)
       .map((p) => p.id);
     bench = [...bench, ...extra];
   }
@@ -233,9 +235,7 @@ export function validateTactic(tactic: Tactic, players: Player[]): Tactic {
     return r && ROLE_BY_ID[r]?.positions.includes(s.position) ? r : defaultRole(s.position);
   });
   const onPitch = (id: number | null) => (id !== null && used.has(id) ? id : null);
-  const lineupPlayers = lineup.map((id) => (id !== null ? byId.get(id) : undefined)).filter(Boolean) as Player[];
-  const best = (key: "corners" | "freeKicks" | "penalties") =>
-    lineupPlayers.length ? lineupPlayers.reduce((a, b) => (b.attrs[key] > a.attrs[key] ? b : a)).id : null;
+  // Standardschützen: leer bedeutet automatisch (die Engine wählt den Besten auf dem Platz)
   return {
     ...tactic,
     lineup,
@@ -243,9 +243,9 @@ export function validateTactic(tactic: Tactic, players: Player[]): Tactic {
     roles,
     setPieces: {
       corners: tactic.setPieces?.corners ?? "far",
-      cornerTaker: onPitch(tactic.setPieces?.cornerTaker ?? null) ?? best("corners"),
-      freeKickTaker: onPitch(tactic.setPieces?.freeKickTaker ?? null) ?? best("freeKicks"),
-      penaltyTaker: onPitch(tactic.setPieces?.penaltyTaker ?? null) ?? best("penalties"),
+      cornerTaker: onPitch(tactic.setPieces?.cornerTaker ?? null),
+      freeKickTaker: onPitch(tactic.setPieces?.freeKickTaker ?? null),
+      penaltyTaker: onPitch(tactic.setPieces?.penaltyTaker ?? null),
     },
   };
 }
