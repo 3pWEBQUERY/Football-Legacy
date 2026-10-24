@@ -7,6 +7,7 @@ import { fmtDate, money, seasonLabel } from "@/lib/client/format";
 import { Crest, Icon, Modal, Progress, useNotes, useToast } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
 import { WeekSummaryView } from "./WeekSummary";
+import { DayReport } from "./DayReport";
 
 interface ShellCtx {
   id: string;
@@ -14,9 +15,12 @@ interface ShellCtx {
   advance: () => Promise<void>;
   busy: boolean;
   reloadShell: () => void;
+  /** Nachricht, die das Büro öffnen soll (aus dem Tagesbericht) */
+  pendingMessage: number | null;
+  clearPendingMessage: () => void;
 }
 
-const Ctx = createContext<ShellCtx>({ id: "", shell: null, advance: async () => {}, busy: false, reloadShell: () => {} });
+const Ctx = createContext<ShellCtx>({ id: "", shell: null, advance: async () => {}, busy: false, reloadShell: () => {}, pendingMessage: null, clearPendingMessage: () => {} });
 export const useGame = () => useContext(Ctx);
 
 const NAV = [
@@ -44,6 +48,8 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
   const shell = useApi<any>(`careers/${id}/dashboard`);
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<any | null>(null);
+  const [report, setReport] = useState<any | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<number | null>(null);
   const base = `/c/${id}`;
   const section = activeSection(path, base);
   const fullscreen = path.endsWith("/match");
@@ -58,11 +64,13 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
     try {
       const res = await api<any>(`careers/${id}/advance`, { body: {} });
       if (res.kind === "match") {
+        setReport(null);
         router.push(`${base}/match`);
       } else if (res.kind === "day") {
+        setReport(res.day);
         refreshAll();
-        if (res.day.events.length) toast(res.day.events.slice(0, 3).join(" · "), "info");
       } else {
+        setReport(null);
         setSummary(res.summary);
         showNotes(res.summary.notes);
         refreshAll();
@@ -89,7 +97,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
   }, [advance, fullscreen]);
 
   const d = shell.data;
-  const ctx: ShellCtx = { id, shell: d, advance, busy, reloadShell: shell.reload };
+  const ctx: ShellCtx = { id, shell: d, advance, busy, reloadShell: shell.reload, pendingMessage, clearPendingMessage: () => setPendingMessage(null) };
   if (fullscreen) return <Ctx.Provider value={ctx}>{children}</Ctx.Provider>;
 
   const c = d?.career;
@@ -202,6 +210,21 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
 
         <main className="main"><div className="content">{children}</div></main>
       </div>
+      {report && (
+        <DayReport
+          report={report}
+          base={base}
+          busy={busy}
+          matchday={!!c && c.nextMatchday !== null && c.day >= c.nextMatchday && hasMatch}
+          onContinue={advance}
+          onClose={() => setReport(null)}
+          onOpenMessage={(mid) => {
+            setPendingMessage(mid);
+            setReport(null);
+            router.push(base);
+          }}
+        />
+      )}
       <Modal open={!!summary} onClose={() => setSummary(null)} wide>
         {summary && <WeekSummaryView summary={summary} base={base} onClose={() => setSummary(null)} />}
       </Modal>

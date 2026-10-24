@@ -3,7 +3,7 @@
  * Spielvorbereitung und Monatsberichte zwischen den Spieltagen.
  */
 import {
-  DAY_TYPE_LABEL, Rng, dailyRecovery, dateOf, dayType, formatMoney, playMatch, seedFor, squadRanks, validateTactic,
+  DAY_TYPE_LABEL, Rng, applyTrainingRating, dailyRecovery, sessionName, trainingRating, dateOf, dayType, formatMoney, playMatch, seedFor, squadRanks, validateTactic,
   type DayType, type Player, type SeasonCalendar,
 } from "@fl/sim";
 import type pg from "pg";
@@ -16,11 +16,28 @@ import { checkPromises } from "./talk";
 import { checkProjects } from "./facilities";
 import { runYouthIntake, youthIntakeDay } from "./academy";
 
+export interface DayTraining {
+  session: string;
+  intensity: string;
+  average: number;
+  top: { id: number; name: string; position: string; rating: number }[];
+  bottom: { id: number; name: string; position: string; rating: number }[];
+}
+
 export interface DayResult {
   day: number;
+  date: string;
   type: DayType;
   label: string;
   events: string[];
+  /** Heute eingegangene Nachrichten */
+  inbox: { id: number; title: string; category: string }[];
+  training: DayTraining | null;
+  squad: { fitness: number; injured: number; unhappy: number };
+  /** Nächstes Pflichtspiel */
+  next: { days: number; date: string; opponent: string; home: boolean; competition: string } | null;
+  /** Die nächsten Tage */
+  outlook: { day: number; date: string; type: DayType; label: string }[];
 }
 
 const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
@@ -50,6 +67,8 @@ export function nextSlotDay(career: CareerRow): number | null {
 }
 
 export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<DayResult> {
+  const before = await query<{ id: number | null }>(db, "select max(id) as id from inbox where career_id = $1", [career.id]);
+  const lastInbox = before[0]?.id ?? 0;
   career.day += 1;
   await query(db, "update careers set day = $2 where id = $1", [career.id, career.day]);
   const cal = career.calendar as SeasonCalendar;
@@ -57,7 +76,14 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
   const fixtures = await userMatchDays(db, career);
   const type = dayType(cal, day, new Set(fixtures.keys()));
   const events: string[] = [];
-  if (!career.club_id) return { day, type, label: DAY_TYPE_LABEL[type], events };
+  const iso = (d: number) => dateOf(career.season, d).toISOString().slice(0, 10);
+  const outlook = [1, 2, 3].map((o) => {
+    const t2 = dayType(cal, day + o, new Set(fixtures.keys()));
+    return { day: day + o, date: iso(day + o), type: t2, label: DAY_TYPE_LABEL[t2] };
+  });
+  if (!career.club_id) {
+    return { day, date: iso(day), type, label: DAY_TYPE_LABEL[type], events, inbox: [], training: null, squad: { fitness: 0, injured: 0, unhappy: 0 }, next: null, outlook };
+  }
 
   const squad = await getPlayers(db, career.id, [career.club_id]);
   const rng = new Rng(seedFor(career.seed, "day", career.season, day));
@@ -67,6 +93,25 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
   for (const p of squad) dailyRecovery(p, career.training, career.staff.physio, factor);
 
   if (type === "friendly") events.push(await playFriendly(db, career, squad, rng));
+  let training: DayTraining | null = null;
+  if (type === "training" || type === "prep") {
+    // Trainingseinheit mit Noten für alle einsatzfähigen Spieler
+    const trng = new Rng(seedFor(career.seed, "training", career.season, day));
+    const rated = squad.filter((p) => p.injuryWeeks === 0).map((p) => {
+      const r = trainingRating(trng, p, career.training);
+      applyTrainingRating(p, r);
+      return { id: p.id, name: `${p.firstName.charAt(0)}. ${p.lastName}`, position: p.position, rating: r };
+    }).sort((a, b) => b.rating - a.rating);
+    if (rated.length) {
+      training = {
+        session: sessionName(career.training, day % 7, type === "prep"),
+        intensity: career.training.intensity,
+        average: Math.round((rated.reduce((s, x) => s + x.rating, 0) / rated.length) * 10) / 10,
+        top: rated.slice(0, 3),
+        bottom: rated.slice(-2).reverse(),
+      };
+    }
+  }
   if (type === "training") {
     const e = await trainingEvent(db, career, squad, rng);
     if (e) events.push(e);
@@ -114,7 +159,28 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
 
   await savePlayers(db, career.id, squad);
   await saveCareer(db, career);
-  return { day, type, label: DAY_TYPE_LABEL[type], events };
+  const fresh = await query<{ id: number; title: string; category: string }>(
+    db, "select id, title, category from inbox where career_id = $1 and id > $2 order by id", [career.id, lastInbox],
+  );
+  const nextDay = [...fixtures.entries()].filter(([d, f]) => d >= day && !f.played).sort((a, b) => a[0] - b[0])[0];
+  let next: DayResult["next"] = null;
+  if (nextDay) {
+    const [d, f] = nextDay;
+    const home = f.home_id === career.club_id;
+    const opp = await getClub(db, career.id, home ? f.away_id : f.home_id);
+    next = { days: d - day, date: iso(d), opponent: opp?.name ?? "", home, competition: (await competitionOf(db, f)).label };
+  }
+  const ranks = squadRanks(squad);
+  return {
+    day, date: iso(day), type, label: DAY_TYPE_LABEL[type], events, inbox: fresh, training,
+    squad: {
+      fitness: Math.round(squad.reduce((s, p) => s + p.fitness, 0) / Math.max(1, squad.length)),
+      injured: squad.filter((p) => p.injuryWeeks > 0).length,
+      unhappy: squad.filter((p) => p.morale < 30 && (ranks.get(p.id) ?? 30) <= 18).length,
+    },
+    next,
+    outlook,
+  };
 }
 
 /** Testspiel in der Vorbereitung: keine Statistik, aber Spielpraxis und Eindrücke. */

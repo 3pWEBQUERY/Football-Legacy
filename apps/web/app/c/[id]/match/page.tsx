@@ -9,6 +9,7 @@ import { MatchCanvas } from "@/components/MatchCanvas";
 import { RatingList, StatRows } from "@/components/MatchStats";
 import { WeekSummaryView } from "@/components/WeekSummary";
 import { PressConference } from "@/components/PressConference";
+import { TeamTalk } from "@/components/TeamTalk";
 import { Crest, EventIcon, Icon, Loading, Panel, Pos, Progress, useNotes, useToast } from "@/components/ui";
 
 type Phase = "preview" | "loading" | "live" | "halftime" | "fulltime";
@@ -263,6 +264,7 @@ export default function MatchDay() {
               </div>
             </section>
           )}
+          {preview?.today && <TeamTalk careerId={id} />}
           {preview && <PressConference careerId={id} />}
         </div>
       </div>

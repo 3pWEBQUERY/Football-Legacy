@@ -32,6 +32,8 @@ Ein tiefgehender Fussball-Manager im Browser: Kader, Taktik, Transfers und Saiso
 | Transferfenster | Nach Datum: Sommer bis 31. August, Winter rund um die Winterpause, mit Hinweisen zur Öffnung, eine Woche vorher und am Deadline Day |
 | Jugendakademie | Eigener U19-Kader: am Jugendtag im Februar kommt ein neuer Jahrgang (Grösse und Qualität nach Jugendtrainer und Akademiestufe). Talente trainieren wöchentlich, die Werte sind Einschätzungen des Jugendtrainers. Ab 16 hochziehen, mit 20 verlassen sie die Akademie |
 | Vorstand und Anlagen | Anfragen an den Vorstand: mehr Transferbudget, Ausbau von Trainingszentrum und Jugendakademie (fünf Stufen) und Stadion. Entscheidung nach Vertrauen und Finanzen, Bauprojekte mit Fertigstellungsdatum |
+| Tagesbericht | Nach jedem Klick auf „Weiter“ öffnet sich rechts der Tagesbericht: Trainingseinheit mit Noten (beste und schwächste Eindrücke), neue Nachrichten, Zustand der Mannschaft, nächstes Spiel und Ausblick. Mit „Weiter“ oder Enter geht es direkt zum nächsten Tag |
+| Training und Ansprache | Tägliche Einheiten nach Wochentag und Schwerpunkt, Trainingsnoten wirken leicht auf die Form (Ø im Kader sichtbar). Mannschaftsansprache vor dem Anpfiff mit drei Tonlagen, Wirkung nach Favoritenrolle und Moral |
 | Navigation | Horizontales Hauptmenü mit Untermenüs, Datum und Weiter-Button in der Kopfleiste |
 
 ## Architektur

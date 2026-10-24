@@ -24,6 +24,7 @@ export interface ManagerProfile {
   autoSubs?: boolean;
   streakRewardDay?: string;
   pressDone?: number;
+  teamTalkDone?: number;
 }
 
 export interface SeasonRecord {

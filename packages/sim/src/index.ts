@@ -14,3 +14,4 @@ export * from "./gamification";
 export * from "./cup";
 export * from "./calendar";
 export * from "./continental";
+export * from "./training";

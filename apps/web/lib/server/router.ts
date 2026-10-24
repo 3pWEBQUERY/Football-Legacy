@@ -185,6 +185,8 @@ route("GET", career("match/preview"), async (c) => {
 });
 route("GET", career("match/press"), async (c) => game.pressConference(c.params.id, acc(c)));
 route("POST", career("match/press"), async (c) => game.answerPress(c.params.id, acc(c), (c.body.answers ?? {}) as Record<string, number>));
+route("GET", career("match/teamtalk"), async (c) => game.teamTalkState(c.params.id, acc(c)));
+route("POST", career("match/teamtalk"), async (c) => game.giveTeamTalk(c.params.id, acc(c), String(c.body.tone) as never));
 route("POST", career("match/start"), async (c) => game.startMatch(c.params.id, acc(c)));
 route("POST", career("match/continue"), async (c) => game.continueMatch(c.params.id, acc(c), (c.body ?? {}) as never));
 route("POST", career("match/step"), async (c) => game.stepMatch(c.params.id, acc(c), {

@@ -106,6 +106,8 @@ export interface Player {
   talk?: { season: number; day: number } | null;
   /** Versprochene Einsatzzeit: Startelfeinsätze bis zum Tag `until` */
   promise?: { season: number; until: number; needed: number; starts: number } | null;
+  /** Trainingsnoten der letzten Einheiten */
+  training?: number[];
 }
 
 export interface PlayerSeason {

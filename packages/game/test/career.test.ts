@@ -126,11 +126,24 @@ describe("Karriere", () => {
     expect((await game.playerDetail(careerId, accountId, target.id)).player.knowledge).not.toBe("exact");
     const types: string[] = [];
     let a = await advance(careerId, accountId);
+    let sawTraining = false;
+    let sawInbox = false;
     for (let i = 0; i < 40 && a.kind === "day"; i++) {
       types.push(a.day.type);
+      if (a.day.training) {
+        sawTraining = true;
+        expect(a.day.training.top.length).toBe(3);
+      }
+      if (a.day.inbox.length) sawInbox = true;
+      expect(a.day.outlook.length).toBe(3);
+      expect(a.day.date).toMatch(/^2026-07-/);
       a = await advance(careerId, accountId);
     }
     expect(a.kind).toBe("match");
+    expect(sawTraining).toBe(true);
+    expect(sawInbox).toBe(true);
+    const sq = await squadView(careerId, accountId);
+    expect(sq.players.some((p) => p.trainingAvg !== null)).toBe(true);
     const d = await dashboard(careerId, accountId);
     expect(d.career.day).toBe(19);
     expect(d.career.date).toBe("2026-07-25");
@@ -151,6 +164,11 @@ describe("Karriere", () => {
   it("spielt ein Spiel in Abschnitten mit Live-Eingriffen", async () => {
     const a = await advance(careerId, accountId);
     expect(a.kind).toBe("match");
+    const tt = await game.teamTalkState(careerId, accountId);
+    expect(tt.available).toBe(true);
+    const talk = await game.giveTeamTalk(careerId, accountId, "motivate");
+    expect(typeof talk.effect).toBe("number");
+    await expect(game.giveTeamTalk(careerId, accountId, "demand")).rejects.toThrow(/bereits/);
     const first = await startMatch(careerId, accountId);
     expect(first.frames.length).toBe(31);
     // Live-Wechsel in der 1. Halbzeit

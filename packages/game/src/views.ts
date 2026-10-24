@@ -3,7 +3,7 @@ import { windowFor } from "./window";
 import {
   ACHIEVEMENTS, ALL_ATTRS, CARD_PACK, COUNTRIES, COUNTRY_BY_CODE, FINANCE_LABEL, FORMATIONS, LEVEL_TITLES, MISSIONS, ROLES,
   Rng, SKINS, STYLE_LABEL, STYLE_PRESETS, UNLOCKS, askingPrice, computeStandings, flagEmoji, formatMoney, isUnlocked,
-  ratingAt, seedFor, squadRanks, streakReward, titleForLevel, validateTactic, wageBill, xpForLevel,
+  ratingAt, seedFor, squadRanks, streakReward, titleForLevel, trainingAverage, validateTactic, wageBill, xpForLevel,
   type Player, type Position,
 } from "@fl/sim";
 import { one, pool, query } from "./db";
@@ -34,7 +34,7 @@ export function playerView(p: Player, knowledge: Knowledge, extra: Record<string
     nationality: p.nationality, flag: flagEmoji(p.nationality), position: p.position, altPositions: p.altPositions,
     foot: p.foot, archetype: p.archetype, form: p.form, fitness: p.fitness, morale: p.morale, value: p.value,
     contract: p.contract, injuryWeeks: p.injuryWeeks, suspendedWeeks: p.suspendedWeeks, stats: p.stats, listed: p.listed,
-    youth: p.youth, clubId: p.clubId, history: p.history ?? [], loan: p.loan ?? null, promise: p.promise ?? null, talk: p.talk ?? null, knowledge, ...extra,
+    youth: p.youth, clubId: p.clubId, history: p.history ?? [], loan: p.loan ?? null, promise: p.promise ?? null, talk: p.talk ?? null, trainingAvg: trainingAverage(p), knowledge, ...extra,
   };
   if (knowledge === "exact") {
     return { ...base, rating: p.rating, potential: p.potential, wonderkid: p.wonderkid, attrs: p.attrs, ratingRange: [p.rating, p.rating], attrRanges: null };

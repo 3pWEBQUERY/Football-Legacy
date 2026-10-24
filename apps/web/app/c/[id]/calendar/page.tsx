@@ -7,7 +7,7 @@ import { useGame } from "@/components/GameShell";
 import { Crest, ErrorBox, Icon, Loading } from "@/components/ui";
 
 const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-const FOCUS: Record<string, string> = { balanced: "Ausgewogen", attacking: "Angriff", defending: "Abwehr", physical: "Athletik", tactical: "Taktik", technical: "Technik", recovery: "Regeneration" };
+const FOCUS: Record<string, string> = { balanced: "Ausgewogen", attack: "Angriff", defense: "Abwehr", physical: "Athletik", mental: "Mental", technical: "Technik", recovery: "Regeneration" };
 
 export default function CalendarPage() {
   const { id } = useGame();

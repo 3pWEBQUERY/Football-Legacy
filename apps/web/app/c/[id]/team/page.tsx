@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useApi } from "@/lib/client/api";
-import { money, posGroup } from "@/lib/client/format";
+import { matchRatingColor, money, posGroup } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { Condition, ErrorBox, EventIcon, Icon, Loading, Nat, Pos, Rating, Seg, SortTable, moraleLabel, type Column } from "@/components/ui";
 
@@ -43,6 +43,7 @@ export default function Squad() {
     { key: "fit", label: "Kond.", title: "Kondition", render: (p) => <Condition value={p.fitness} />, sort: (p) => p.fitness, className: "c" },
     { key: "mor", label: "Moral", render: (p) => { const m = moraleLabel(p.morale); return <span style={{ color: m.color, fontWeight: 600 }}>{m.text}</span>; }, sort: (p) => p.morale },
     { key: "form", label: "Form", render: (p) => <span className="cond" style={{ fontWeight: 700, fontSize: 14 }}>{p.form.toFixed(1)}</span>, sort: (p) => p.form, className: "c" },
+    { key: "train", label: "Training", title: "Ø Trainingsnote der letzten Einheiten", render: (p) => (p.trainingAvg !== null ? <span className="cond" style={{ fontWeight: 700, fontSize: 14, color: matchRatingColor(p.trainingAvg) }}>{p.trainingAvg.toFixed(1)}</span> : <span className="faint">–</span>), sort: (p) => p.trainingAvg ?? 0, className: "c" },
     { key: "apps", label: "Sp", title: "Einsätze", render: (p) => p.stats.apps, sort: (p) => p.stats.apps, className: "c" },
     { key: "goals", label: "Tore", render: (p) => p.stats.goals, sort: (p) => p.stats.goals, className: "c" },
     { key: "ast", label: "Vor", title: "Vorlagen", render: (p) => p.stats.assists, sort: (p) => p.stats.assists, className: "c" },

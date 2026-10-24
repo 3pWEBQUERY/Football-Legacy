@@ -7,7 +7,7 @@ import { useGame } from "@/components/GameShell";
 import { CategoryIcon, Crest, Empty, FormChips, Icon, Loading, Panel, Progress, Rating, useToast } from "@/components/ui";
 
 export default function Office() {
-  const { id, shell: d, advance, busy } = useGame();
+  const { id, shell: d, advance, busy, pendingMessage, clearPendingMessage } = useGame();
   const toast = useToast();
   const [openId, setOpenId] = useState<number | null>(null);
   const base = `/c/${id}`;
@@ -15,6 +15,20 @@ export default function Office() {
   useEffect(() => {
     if (d?.inbox?.length && openId === null) setOpenId(d.inbox[0].id);
   }, [d, openId]);
+
+  // Aus dem Tagesbericht gewählte Nachricht öffnen
+  useEffect(() => {
+    if (pendingMessage === null || !d?.inbox) return;
+    const m = d.inbox.find((x: any) => x.id === pendingMessage);
+    if (m) {
+      setOpenId(m.id);
+      if (!m.read) {
+        m.read = true;
+        api(`careers/${id}/inbox`, { body: { ids: [m.id] } }).catch(() => {});
+      }
+    }
+    clearPendingMessage();
+  }, [pendingMessage, d, id, clearPendingMessage]);
 
   if (!d) return <Loading />;
   const c = d.career;
