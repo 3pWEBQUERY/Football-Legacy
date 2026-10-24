@@ -11,6 +11,7 @@ import { type RewardNote, announceNotes, awardCard, grantXp, unlockAchievement }
 import { type WorldState, loadWorld, movePlayer, removePlayer, squadOf } from "./world-state";
 import { persistWorld } from "./week";
 import { buildReview, saveReview, type SeasonReview } from "./review";
+import { academySeasonEnd } from "./academy";
 
 export interface SeasonSummary {
   season: number;
@@ -235,8 +236,9 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   let nextId = career.next_player_id;
   const youthNames: string[] = [];
   for (const club of w.clubs.values()) {
-    if (!club.players_generated) continue;
-    const quality = club.id === career.club_id ? career.staff.youth * 5 : club.reputation / 2;
+    // Der eigene Verein erhält seinen Jahrgang am Jugendtag in die Akademie
+    if (!club.players_generated || club.id === career.club_id) continue;
+    const quality = club.reputation / 2;
     const intake = generateYouthIntake(career.seed, { id: club.id, countryCode: club.country_code, rating: club.rating, reputation: club.reputation }, newSeason, quality, () => nextId++);
     for (const p of intake) {
       w.players.set(p.id, p);
@@ -249,6 +251,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
     }
   }
   career.next_player_id = nextId;
+  await academySeasonEnd(db, career, rng, newSeason);
 
   // Freie Spieler ohne Verein länger als eine Saison und älter als 32 hören auf
   for (const p of [...w.freeAgents]) {

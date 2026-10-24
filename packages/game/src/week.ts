@@ -18,6 +18,8 @@ import {
 import { type RewardNote, announceNotes, ensureMissions, rewardMatch } from "./rewards";
 import { aiTactic, teamSetup } from "./setup";
 import { advanceCup, type CupWeekInfo } from "./cup";
+import { academyWeek } from "./academy";
+import { facilitiesOf } from "./facilities";
 import { endSeason, type SeasonSummary } from "./season-end";
 import { type WorldState, loadWorld, squadOf } from "./world-state";
 
@@ -213,7 +215,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     if (!club?.players_generated) continue;
     const isUser = clubId === userClubId;
     const plan = isUser ? career.training : DEFAULT_TRAINING;
-    const coach = isUser ? career.staff.coach : Math.round(4 + club.reputation / 10);
+    const coach = isUser ? career.staff.coach + (facilitiesOf(career).training - 1) * 1.5 : Math.round(4 + club.reputation / 10);
     for (const p of squad) {
       const { injured } = weeklyDevelopment(rng, p, plan, { minutesLastWeek: minutes.get(p.id) ?? 0, coachQuality: coach, physioQuality: physio(clubId), skipFitness: isUser });
       if (isUser && boost) {
@@ -225,6 +227,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     }
   }
   if (boost) career.manager.trainingBoostWeeks--;
+  if (!midweek && userClubId) await academyWeek(db, career, rng);
   // Nach der Winterpause sind Verletzungen entsprechend weiter ausgeheilt
   const extraWeeks = career.calendar ? Math.round(weeksSincePreviousLeague(career.calendar, week)) - 1 : 0;
   if (extraWeeks > 0) {

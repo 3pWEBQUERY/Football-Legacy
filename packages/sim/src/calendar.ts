@@ -26,7 +26,6 @@ export interface SeasonCalendar {
 /** Erster Ligaspieltag: Samstag der dritten Vorbereitungswoche. */
 export const FIRST_MATCHDAY = 19;
 export const FRIENDLY_DAYS = [9, 13];
-const WINTER_BREAK_DAYS = 28;
 
 /** Montag der ersten Juliwoche (UTC). */
 export function seasonStart(season: number): Date {
@@ -48,10 +47,37 @@ export function weekdayOf(day: number): number {
 }
 
 /** Baut den Kalender aus der Reihenfolge der Runden (Liga/Pokal). */
+/** Winterpause (Tage seit Saisonbeginn): etwa 19. Dezember bis 23. Januar. */
+const WINTER_FROM = 166;
+const WINTER_TO = 201;
+/** Letzter regulärer Ligasamstag: Ende Mai. */
+const LAST_MATCHDAY = 320;
+
+/**
+ * Ligasamstage von Ende Juli bis Mai. Kurze Ligen bekommen freie Wochenenden
+ * (Länderspielpausen), Ligen ab 16 Spieltagen pausieren über den Jahreswechsel.
+ */
+function leagueSaturdays(count: number): number[] {
+  const withBreak = count >= 16;
+  const available: number[] = [];
+  for (let d = FIRST_MATCHDAY; d <= LAST_MATCHDAY; d += 7) {
+    if (withBreak && d >= WINTER_FROM && d <= WINTER_TO) continue;
+    available.push(d);
+  }
+  if (count >= available.length) {
+    const out = [...available];
+    let d = available[available.length - 1];
+    while (out.length < count) out.push((d += 7));
+    return out;
+  }
+  if (count <= 1) return available.slice(0, count);
+  return Array.from({ length: count }, (_, i) => available[Math.round((i * (available.length - 1)) / (count - 1))]);
+}
+
+/** Baut den Kalender aus der Reihenfolge der Runden (Liga/Pokal). */
 export function buildCalendar(kinds: SlotKind[]): SeasonCalendar {
   const leagueCount = kinds.filter((k) => k === "league").length;
-  const mid = Math.ceil(leagueCount / 2);
-  const withBreak = leagueCount >= 16;
+  const saturdays = leagueSaturdays(leagueCount);
   const slots: CalendarSlot[] = [];
   let leagueNo = 0;
   let lastLeagueDay = FIRST_MATCHDAY - 7;
@@ -59,8 +85,7 @@ export function buildCalendar(kinds: SlotKind[]): SeasonCalendar {
   kinds.forEach((kind, i) => {
     let day: number;
     if (kind === "league") {
-      leagueNo++;
-      day = FIRST_MATCHDAY + (leagueNo - 1) * 7 + (withBreak && leagueNo > mid ? WINTER_BREAK_DAYS : 0);
+      day = saturdays[leagueNo++];
       lastLeagueDay = day;
     } else if (kind === "intl") {
       // Dienstag nach dem letzten Ligaspieltag
@@ -73,11 +98,13 @@ export function buildCalendar(kinds: SlotKind[]): SeasonCalendar {
     slots.push({ week: i + 1, day, kind });
     lastDay = day;
   });
+  // Winterpause: längste Lücke über den Jahreswechsel
   let winterBreak: [number, number] | null = null;
-  if (withBreak) {
-    const before = slots.filter((s) => s.kind === "league")[mid - 1];
-    const after = slots.find((s) => s.kind === "league" && s.day > before.day);
-    if (before && after) winterBreak = [before.day + 1, after.day - 8];
+  const league = slots.filter((s) => s.kind === "league");
+  for (let i = 1; i < league.length; i++) {
+    const a = league[i - 1].day;
+    const b = league[i].day;
+    if (b - a > 21 && a < WINTER_TO && b > WINTER_FROM) winterBreak = [a + 1, b - 8];
   }
   return { slots, friendlies: [...FRIENDLY_DAYS], winterBreak };
 }

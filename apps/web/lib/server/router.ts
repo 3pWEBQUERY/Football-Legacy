@@ -141,6 +141,15 @@ route("GET", career("clubs/:cid"), async (c) => {
 });
 route("GET", career("competition"), async (c) => game.competitionView(c.params.id, acc(c), c.query.get("league") ? num(c.query.get("league")) : undefined));
 route("GET", career("continental"), async (c) => game.continentalView(c.params.id, acc(c), c.query.get("season") ? num(c.query.get("season")) : undefined));
+route("GET", career("academy"), async (c) => game.academyView(c.params.id, acc(c)));
+route("POST", career("academy/:pid"), async (c) => {
+  const pid = num(c.params.pid);
+  if (c.body.action === "promote") return game.promoteYouth(c.params.id, acc(c), pid);
+  if (c.body.action === "release") return game.releaseYouth(c.params.id, acc(c), pid);
+  throw new game.GameError("Unbekannte Aktion");
+});
+route("GET", career("boardroom"), async (c) => game.boardView(c.params.id, acc(c)));
+route("POST", career("boardroom"), async (c) => game.boardRequest(c.params.id, acc(c), String(c.body.kind) as never));
 route("GET", career("calendar"), async (c) => game.calendarView(c.params.id, acc(c)));
 route("GET", career("review"), async (c) => game.reviewView(c.params.id, acc(c), c.query.get("season") ? num(c.query.get("season")) : undefined));
 route("GET", career("cup"), async (c) => game.cupView(c.params.id, acc(c), c.query.get("season") ? num(c.query.get("season")) : undefined));

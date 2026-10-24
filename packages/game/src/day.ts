@@ -13,6 +13,8 @@ import { type CareerRow, type FixtureRow, addInbox, getClub, getClubs, getPlayer
 import { aiTactic, teamSetup } from "./setup";
 import { competitionOf } from "./cup";
 import { checkPromises } from "./talk";
+import { checkProjects } from "./facilities";
+import { runYouthIntake, youthIntakeDay } from "./academy";
 
 export interface DayResult {
   day: number;
@@ -71,6 +73,11 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
   }
   events.push(...(await completeScouting(db, career)));
   events.push(...(await checkPromises(db, career, squad)));
+  events.push(...(await checkProjects(db, career)));
+  if (day === youthIntakeDay(cal)) {
+    const e = await runYouthIntake(db, career);
+    if (e) events.push(e);
+  }
   const upcoming = fixtures.get(day + 2);
   if (upcoming && !upcoming.played) events.push(await opponentReport(db, career, upcoming, day + 2));
 

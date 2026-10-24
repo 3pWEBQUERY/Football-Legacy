@@ -567,3 +567,13 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .intl-side + .intl-side { border-top: 1px solid var(--line); }
 .intl-side.lost { color: var(--text-3); }
 @media (max-width: 860px) { .intl-groups { grid-template-columns: minmax(0, 1fr); } .intl-group { border-right: none; } }
+
+/* Akademie und Vorstand */
+.stars { display: inline-flex; gap: 2px; }
+.stars span { width: 9px; height: 9px; transform: rotate(45deg); background: var(--line-2); display: inline-block; margin: 0 2px; }
+.stars span.on { background: var(--gold); }
+.level-bar { display: inline-flex; gap: 3px; }
+.level-bar span { width: 16px; height: 6px; background: var(--line-2); }
+.level-bar span.on { background: var(--accent); }
+.request-row { display: flex; gap: 14px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.request-row:last-child { border-bottom: none; }

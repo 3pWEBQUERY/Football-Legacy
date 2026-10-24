@@ -14,6 +14,7 @@ let accountId = "";
 let careerId = "";
 const loans: { inId?: number; outId?: number; parentId?: number } = {};
 let promised = 0;
+let trainingApproved = false;
 
 beforeAll(async () => {
   await pool().query("drop schema public cascade; create schema public;");
@@ -93,6 +94,16 @@ describe("Karriere", () => {
     const pr = await game.talkToPlayer(careerId, accountId, fringe.id, "promise");
     expect(pr.promise?.needed).toBe(2);
     promised = fringe.id;
+  });
+
+  it("Vorstandsanfragen", async () => {
+    const b = await game.boardView(careerId, accountId);
+    expect(b.offers.length).toBe(4);
+    const r = await game.boardRequest(careerId, accountId, "training");
+    trainingApproved = r.status === "approved";
+    if (trainingApproved) expect((await game.boardView(careerId, accountId)).projects.length).toBe(1);
+    const again = await game.boardRequest(careerId, accountId, "training");
+    expect(again.status).toBe("rejected");
   });
 
   it("Pressekonferenz vor dem Spiel", async () => {
@@ -219,6 +230,15 @@ describe("Karriere", () => {
     expect(pm.rows[0]?.promise ?? null).toBeNull();
     const pmail = await pool().query("select title from inbox where career_id = $1 and title like 'Versprechen%'", [careerId]);
     expect(pmail.rows.length).toBe(1);
+    // Akademie: Jahrgang kam am Jugendtag, Ausbau ist fertig
+    const ac = await game.academyView(careerId, accountId);
+    expect(ac.players.length).toBeGreaterThanOrEqual(4);
+    expect(ac.nextIntake).not.toBeNull();
+    const youngster = ac.players.find((p) => p.age >= 16)!;
+    const pr2 = await game.promoteYouth(careerId, accountId, youngster.id);
+    expect(pr2.playerId).toBe(youngster.id);
+    expect((await squadView(careerId, accountId)).players.some((p) => p.id === youngster.id)).toBe(true);
+    if (trainingApproved) expect((await game.boardView(careerId, accountId)).facilities.training.level).toBe(2);
     const lb = await leaderboards();
     expect(lb.best.length).toBe(1);
   }, 240_000);

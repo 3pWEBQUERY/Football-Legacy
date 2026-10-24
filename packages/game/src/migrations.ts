@@ -252,4 +252,16 @@ alter table fixtures add column if not exists group_no int;
 alter table careers add column if not exists qualifiers jsonb;
 `,
   },
+  {
+    name: "006_academy_facilities.sql",
+    sql: `
+create table if not exists academy (
+  career_id uuid not null references careers(id) on delete cascade,
+  id int not null,
+  data jsonb not null,
+  primary key (career_id, id)
+);
+alter table careers add column if not exists facilities jsonb;
+`,
+  },
 ];

@@ -15,3 +15,5 @@ export type { SeasonSummary } from "./season-end";
 export { calendarView } from "./calendar-view";
 export { continentalView } from "./continental";
 export { talkToPlayer } from "./talk";
+export { academyView, promoteYouth, releaseYouth } from "./academy";
+export { boardRequest, boardView } from "./facilities";

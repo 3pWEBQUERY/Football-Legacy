@@ -169,6 +169,7 @@ export default function Office() {
                     <h2>{open.title}</h2>
                     <p className="inbox-body">{open.body}</p>
                     {open.action?.type === "fixture" && <div><Link className="btn" href={`${base}/report/${open.action.fixtureId}`}>Spielbericht öffnen</Link></div>}
+                    {open.action?.type === "academy" && <div><Link className="btn" href={`${base}/team/youth`}>Zur Jugendakademie</Link></div>}
                     {open.action?.type === "player" && <div><Link className="btn" href={`${base}/player/${open.action.playerId}`}>Spielerprofil öffnen</Link></div>}
                     {openOffer && (
                       <div className="row">
@@ -186,7 +187,7 @@ export default function Office() {
 
         </div>
         <div className="stack">
-        <Panel title="Vorstand" icon="board">
+        <Panel title="Vorstand" icon="board" actions={<Link href={`${base}/board`} className="btn btn-ghost btn-sm">Anfragen</Link>}>
           <p style={{ fontWeight: 600, marginBottom: 10 }}>{board.objective}</p>
           <div className="stack-sm" style={{ marginBottom: 6 }}>
             <div className="between small"><span className="faint up">Vertrauen</span><b className="cond" style={{ fontSize: 16 }}>{board.confidence}%</b></div>
