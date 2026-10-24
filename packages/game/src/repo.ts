@@ -1,5 +1,5 @@
 /** Datenzugriff: wandelt Datenbankzeilen in die einfachen Objekte der Simulation um. */
-import type { ClubFinanceProfile, ManagerProfile, Player, Tactic, TrainingPlan } from "@fl/sim";
+import type { ClubFinanceProfile, ManagerProfile, Player, SeasonCalendar, Tactic, TrainingPlan } from "@fl/sim";
 import { type Db, one, query } from "./db";
 
 export interface CareerRow {
@@ -12,6 +12,9 @@ export interface CareerRow {
   season: number;
   week: number;
   season_weeks: number;
+  /** Tag seit Saisonbeginn (0 = erster Vorbereitungstag) */
+  day: number;
+  calendar: SeasonCalendar | null;
   status: "active" | "unemployed";
   manager: ManagerProfile;
   board: Board;
@@ -120,12 +123,12 @@ export async function saveCareer(db: Db, c: CareerRow) {
   await query(
     db,
     `update careers set club_id = $2, season = $3, week = $4, season_weeks = $5, status = $6, manager = $7, board = $8,
-       training = $9, staff = $10, next_player_id = $11, pending_match = $12, job_offers = $13, updated_at = now()
+       training = $9, staff = $10, next_player_id = $11, pending_match = $12, job_offers = $13, day = $14, calendar = $15, updated_at = now()
      where id = $1`,
     [
       c.id, c.club_id, c.season, c.week, c.season_weeks, c.status, JSON.stringify(c.manager), JSON.stringify(c.board),
       JSON.stringify(c.training), JSON.stringify(c.staff), c.next_player_id,
-      c.pending_match ? JSON.stringify(c.pending_match) : null, JSON.stringify(c.job_offers),
+      c.pending_match ? JSON.stringify(c.pending_match) : null, JSON.stringify(c.job_offers), c.day, c.calendar ? JSON.stringify(c.calendar) : null,
     ],
   );
 }
@@ -273,7 +276,8 @@ export async function addInbox(
   body: string,
   action: unknown = null,
 ) {
-  await query(db, "insert into inbox(career_id, season, week, category, title, body, action) values ($1,$2,$3,$4,$5,$6,$7)", [
+  // Datum: aktueller Tag der Karriere (wird vor Tagesereignissen gespeichert)
+  await query(db, "insert into inbox(career_id, season, week, category, title, body, action, day) values ($1,$2,$3,$4,$5,$6,$7,(select day from careers where id = $1))", [
     careerId, season, week, category, title, body, action ? JSON.stringify(action) : null,
   ]);
 }

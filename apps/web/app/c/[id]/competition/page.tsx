@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useApi } from "@/lib/client/api";
+import { fmtDate } from "@/lib/client/format";
 import { MobileSubnav, useGame } from "@/components/GameShell";
 import { LeaguePicker } from "@/components/LeaguePicker";
 import { Crest, ErrorBox, FormChips, Icon, Loading } from "@/components/ui";
@@ -15,7 +16,7 @@ function Competition() {
   const { data, error } = useApi<any>(`careers/${id}/competition${leagueParam ? `?league=${leagueParam}` : ""}`);
   const [week, setWeek] = useState<number | null>(null);
   useEffect(() => {
-    if (data) setWeek(Math.min(Math.max(1, data.career.week + 1), data.weeks.length ? data.weeks[data.weeks.length - 1].week : 1));
+    if (data) setWeek((data.weeks.find((w: any) => w.week >= data.career.week + 1) ?? data.weeks[data.weeks.length - 1])?.week ?? 1);
   }, [data]);
   if (error) return <ErrorBox message={error} />;
   if (!data) return <Loading />;
@@ -69,9 +70,9 @@ function Competition() {
         </div>
         <div className="card stack">
           <div className="between">
-            <button className="btn btn-sm btn-ghost" aria-label="Vorherige Woche" disabled={!current || weeks.indexOf(current.week) <= 0} onClick={() => setWeek(weeks[weeks.indexOf(current.week) - 1])}><Icon name="back" size={16} /></button>
-            <h3>Woche {current?.week ?? "–"}</h3>
-            <button className="btn btn-sm btn-ghost" aria-label="Nächste Woche" disabled={!current || weeks.indexOf(current.week) >= weeks.length - 1} onClick={() => setWeek(weeks[weeks.indexOf(current.week) + 1])} style={{ transform: "scaleX(-1)" }}><Icon name="back" size={16} /></button>
+            <button className="btn btn-sm btn-ghost" aria-label="Vorheriger Spieltag" disabled={!current || weeks.indexOf(current.week) <= 0} onClick={() => setWeek(weeks[weeks.indexOf(current.week) - 1])}><Icon name="back" size={16} /></button>
+            <h3>{current ? `${current.round}. Spieltag` : "–"}{current?.date && <span className="faint" style={{ fontWeight: 500, marginLeft: 8, textTransform: "none", letterSpacing: 0 }}>{fmtDate(current.date)}</span>}</h3>
+            <button className="btn btn-sm btn-ghost" aria-label="Nächster Spieltag" disabled={!current || weeks.indexOf(current.week) >= weeks.length - 1} onClick={() => setWeek(weeks[weeks.indexOf(current.week) + 1])} style={{ transform: "scaleX(-1)" }}><Icon name="back" size={16} /></button>
           </div>
           {current?.matches.map((m: any) => {
             const mine = m.home.id === data.userClubId || m.away.id === data.userClubId;

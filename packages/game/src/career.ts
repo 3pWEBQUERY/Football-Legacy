@@ -1,8 +1,8 @@
 /** Karriere anlegen, Ligen aktivieren, Saison planen, Vorstandsziele. */
 import {
   COUNTRY_BY_CODE, DEFAULT_TRAINING, Rng, STYLE_PRESETS, createSchedule, dailyMissions, defaultTactic, expectedPosition,
-  cupName, cupRoundName, cupWeekPositions, drawCupRound, financeProfile, generateSquad, generateWorld, initialBudget, newManagerProfile, planCup, roundsFor, seedFor, teamRating, wageBill,
-  type Player,
+  buildCalendar, cupName, cupRoundName, cupWeekPositions, drawCupRound, financeProfile, generateSquad, generateWorld, initialBudget, newManagerProfile, planCup, roundsFor, seedFor, teamRating, wageBill,
+  type Player, type SlotKind,
 } from "@fl/sim";
 import type pg from "pg";
 import { type Db, lockCareer, one, pool, query, tx } from "./db";
@@ -121,19 +121,23 @@ export async function scheduleSeason(db: Db, career: CareerRow) {
   // Kalender: Liga-Woche → Kalenderwoche, Pokalwochen dazwischen
   const leagueToCal = new Map<number, number>();
   const cupWeeks: number[] = [];
+  const kinds: SlotKind[] = [];
   let cal = 0;
   let r = 0;
   for (let w = 1; w <= leagueWeeks; w++) {
     cal++;
     leagueToCal.set(w, cal);
+    kinds.push("league");
     while (r < positions.length && positions[r] === w) {
       cal++;
       cupWeeks.push(cal);
+      kinds.push("cup");
       r++;
     }
   }
   career.season_weeks = cal;
-  await query(db, "update careers set season_weeks = $2 where id = $1", [career.id, cal]);
+  career.calendar = buildCalendar(kinds);
+  await query(db, "update careers set season_weeks = $2, calendar = $3 where id = $1", [career.id, cal, JSON.stringify(career.calendar)]);
 
   const fixtures: { leagueId: number; week: number; round: number; homeId: number; awayId: number }[] = [];
   for (const l of leagues) {
@@ -311,6 +315,7 @@ export async function withCareer<T>(careerId: string, accountId: string, fn: (db
     await lockCareer(db, careerId);
     const career = await getCareer(db, careerId, accountId);
     if (!career) throw new GameError("Karriere nicht gefunden", 404);
+    await ensureCalendar(db, career);
     const result = await fn(db, career);
     return result;
   });
@@ -319,7 +324,19 @@ export async function withCareer<T>(careerId: string, accountId: string, fn: (db
 export async function readCareer(careerId: string, accountId: string): Promise<CareerRow> {
   const career = await getCareer(pool(), careerId, accountId);
   if (!career) throw new GameError("Karriere nicht gefunden", 404);
+  await ensureCalendar(pool(), career);
   return career;
+}
+
+/** Karrieren aus der Zeit vor dem Tageskalender bekommen nachträglich einen Kalender. */
+async function ensureCalendar(db: Db, career: CareerRow) {
+  if (career.calendar?.slots?.length) return;
+  const cup = await one<{ rounds: { week: number }[] }>(db, "select rounds from cups where career_id = $1 and season = $2 order by id desc limit 1", [career.id, career.season]);
+  const cupWeeks = new Set((cup?.rounds ?? []).map((r) => r.week));
+  const kinds: SlotKind[] = Array.from({ length: career.season_weeks }, (_, i) => (cupWeeks.has(i + 1) ? "cup" : "league"));
+  career.calendar = buildCalendar(kinds);
+  career.day = career.week > 0 ? career.calendar.slots[career.week - 1]?.day ?? 0 : 0;
+  await query(db, "update careers set calendar = $2, day = $3 where id = $1", [career.id, JSON.stringify(career.calendar), career.day]);
 }
 
 export async function userSquad(db: Db, career: CareerRow): Promise<Player[]> {

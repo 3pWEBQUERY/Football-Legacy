@@ -93,6 +93,37 @@ describe("Karriere", () => {
     expect((await pressConference(careerId, accountId)).done).toBe(true);
   });
 
+  it("geht Tag für Tag bis zum ersten Spieltag", async () => {
+    await expect(startMatch(careerId, accountId)).rejects.toThrow(/später/);
+    const m = await marketView(careerId, accountId, { sort: "rating" });
+    const target = m.players.find((p) => p.clubId !== null && p.knowledge !== "exact")!;
+    const sr = await game.scoutPlayer(careerId, accountId, target.id);
+    expect((sr.report as { pending: boolean }).pending).toBe(true);
+    expect((await game.playerDetail(careerId, accountId, target.id)).player.knowledge).not.toBe("exact");
+    const types: string[] = [];
+    let a = await advance(careerId, accountId);
+    for (let i = 0; i < 40 && a.kind === "day"; i++) {
+      types.push(a.day.type);
+      a = await advance(careerId, accountId);
+    }
+    expect(a.kind).toBe("match");
+    const d = await dashboard(careerId, accountId);
+    expect(d.career.day).toBe(19);
+    expect(d.career.date).toBe("2026-07-25");
+    expect(types.filter((x) => x === "friendly").length).toBe(2);
+    expect(types).toContain("prep");
+    const inbox = await pool().query("select title, day from inbox where career_id = $1 and title like 'Testspiel%'", [careerId]);
+    expect(inbox.rows.length).toBe(2);
+    expect(inbox.rows.map((r) => r.day).sort((x, y) => x - y)).toEqual([9, 13]);
+    const prep = await pool().query("select day from inbox where career_id = $1 and title like 'Spielvorbereitung%'", [careerId]);
+    expect(prep.rows[0]?.day).toBe(17);
+    expect((await game.playerDetail(careerId, accountId, target.id)).player.knowledge).toBe("exact");
+    const scoutMail = await pool().query("select 1 from inbox where career_id = $1 and title = $2", [careerId, `Scoutbericht: ${target.name}`]);
+    expect(scoutMail.rows.length).toBe(1);
+    const cal = await game.calendarView(careerId, accountId);
+    expect(cal.days.find((x) => x.day === 19)?.match).toBeTruthy();
+  }, 60_000);
+
   it("spielt ein Spiel in Abschnitten mit Live-Eingriffen", async () => {
     const a = await advance(careerId, accountId);
     expect(a.kind).toBe("match");
@@ -122,11 +153,17 @@ describe("Karriere", () => {
   it("spielt die komplette Saison bis zum Saisonwechsel", async () => {
     const t0 = Date.now();
     let seasonEnd = null;
-    for (let i = 0; i < 40 && !seasonEnd; i++) {
+    let days = 0;
+    for (let i = 0; i < 1000 && !seasonEnd; i++) {
       const a = await advance(careerId, accountId);
+      if (a.kind === "day") {
+        days++;
+        continue;
+      }
       const summary = a.kind === "match" ? await quickMatch(careerId, accountId) : a.summary;
       seasonEnd = summary.seasonEnd;
     }
+    console.log(`${days} Tage`);
     console.log(`Saison in ${Date.now() - t0} ms`, seasonEnd);
     expect(seasonEnd).not.toBeNull();
     const d = await dashboard(careerId, accountId);

@@ -12,3 +12,4 @@ export { answerPress, pressConference } from "./press";
 export type { CareerRow, ClubRow, LeagueRow, FixtureRow, Board, Staff, JobOffer } from "./repo";
 export type { WeekSummary } from "./week";
 export type { SeasonSummary } from "./season-end";
+export { calendarView } from "./calendar-view";

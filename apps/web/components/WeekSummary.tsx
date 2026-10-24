@@ -8,7 +8,7 @@ export function WeekSummaryView({ summary, base, onClose }: { summary: any; base
   return (
     <div className="stack">
       <div className="between">
-        <h2 className="up">{end ? `Saison ${seasonLabel(end.season)} – Abschluss` : `Woche ${summary.week} abgeschlossen`}</h2>
+        <h2 className="up">{end ? `Saison ${seasonLabel(end.season)} – Abschluss` : "Spieltag abgeschlossen"}</h2>
         <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Schliessen"><Icon name="close" size={16} /></button>
       </div>
       {end && (
@@ -66,7 +66,7 @@ export function WeekSummaryView({ summary, base, onClose }: { summary: any; base
           {summary.cup?.nextRoundName && <div className="faint small" style={{ padding: "6px 12px" }}>Nächste Runde: {summary.cup.nextRoundName} – die Auslosung steht im Posteingang.</div>}
         </div>
       )}
-      {summary.results?.length === 0 && !summary.cupResults?.length && !end && <p className="dim">Spielfreie Woche. Die Mannschaft hat trainiert.</p>}
+      {summary.results?.length === 0 && !summary.cupResults?.length && !end && <p className="dim">Für deinen Verein stand heute kein Spiel an.</p>}
       {summary.notes?.length > 0 && (
         <div className="stack-sm">
           <span className="faint small up">Belohnungen</span>

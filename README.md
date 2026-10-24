@@ -26,6 +26,8 @@ Ein tiefgehender Fussball-Manager im Browser: Kader, Taktik, Transfers und Saiso
 | Pressekonferenzen | Vor jedem Spiel bis zu drei Fragen je nach Lage (Favorit, Krise, Form, Leistungsträger, Verletzungen, Druck des Vorstands, Pokal). Die Antworten wirken auf Moral und Vorstandsvertrauen |
 | Saisonrückblick | Auszeichnungen der Liga (Spieler der Saison, Torschützenkönig, Vorbereiter, Talent, Torhüter), Elf der Saison, Abschlusstabelle und Bilanz des eigenen Vereins für jede gespielte Saison |
 | Leihgeschäfte | Spieler bis Saisonende ausleihen (Gehaltsanteil verhandelbar) oder eigene Spieler verleihen; Rückkehr zum Saisonende, Gehälter werden anteilig verrechnet |
+| Tageskalender | Die Zeit läuft Tag für Tag: Saisonstart Anfang Juli, zwei Testspiele in der Vorbereitung, Ligaspiele samstags, Pokal mittwochs, Winterpause bei langen Ligen. Kondition erholt sich täglich (Regenerationstage stärker), Trainingsereignisse, Gegneranalyse zwei Tage vor dem Spiel, Scoutberichte mit Laufzeit, Monatsberichte der Finanzen, Deadline Day. Monatskalender im Büro |
+| Navigation | Horizontales Hauptmenü mit Untermenüs, Datum und Weiter-Button in der Kopfleiste |
 
 ## Architektur
 

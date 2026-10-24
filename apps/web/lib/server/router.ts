@@ -139,6 +139,7 @@ route("GET", career("clubs/:cid"), async (c) => {
   return game.clubView(c.params.id, acc(c), num(c.params.cid));
 });
 route("GET", career("competition"), async (c) => game.competitionView(c.params.id, acc(c), c.query.get("league") ? num(c.query.get("league")) : undefined));
+route("GET", career("calendar"), async (c) => game.calendarView(c.params.id, acc(c)));
 route("GET", career("review"), async (c) => game.reviewView(c.params.id, acc(c), c.query.get("season") ? num(c.query.get("season")) : undefined));
 route("GET", career("cup"), async (c) => game.cupView(c.params.id, acc(c), c.query.get("season") ? num(c.query.get("season")) : undefined));
 route("GET", career("reports/:fid"), async (c) => game.matchReport(c.params.id, acc(c), num(c.params.fid)));

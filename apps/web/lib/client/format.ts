@@ -69,3 +69,38 @@ export const ATTR_GROUPS: { title: string; keys: [string, string][] }[] = [
 export function seasonLabel(season: number) {
   return `${season}/${String((season + 1) % 100).padStart(2, "0")}`;
 }
+
+const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+const WD_LONG = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+export const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+
+function parseIso(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+/** "Sa 25.07.2026" */
+export function fmtDate(iso: string | null | undefined, opts: { year?: boolean; long?: boolean } = {}): string {
+  if (!iso) return "–";
+  const d = parseIso(iso);
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  if (opts.long) return `${WD_LONG[d.getUTCDay()]}, ${d.getUTCDate()}. ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  return `${WD[d.getUTCDay()]} ${dd}.${mm}.${opts.year === false ? "" : d.getUTCFullYear()}`;
+}
+
+export function weekdayShort(iso: string): string {
+  return WD[parseIso(iso).getUTCDay()];
+}
+
+export function isoParts(iso: string) {
+  const d = parseIso(iso);
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth(), date: d.getUTCDate(), weekday: (d.getUTCDay() + 6) % 7 };
+}
+
+/** Datum eines Saisontags (Tag 0 = Montag der ersten Juliwoche), wie auf dem Server. */
+export function dayIso(season: number, day: number): string {
+  const d = new Date(Date.UTC(season, 6, 1));
+  d.setUTCDate(d.getUTCDate() + ((8 - d.getUTCDay()) % 7) + day);
+  return d.toISOString().slice(0, 10);
+}

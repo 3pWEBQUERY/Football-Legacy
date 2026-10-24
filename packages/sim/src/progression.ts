@@ -39,6 +39,21 @@ export interface WeeklyContext {
   minutesLastWeek: number; // Spielminuten in dieser Woche
   coachQuality: number; // 1–20
   physioQuality: number; // 1–20
+  /** Kondition wird täglich erholt (eigener Verein), nicht wöchentlich */
+  skipFitness?: boolean;
+}
+
+/** Wöchentliche Erholung bei diesem Trainingsplan. */
+export function weeklyRecovery(plan: TrainingPlan, physioQuality: number): number {
+  const recover = plan.focus === "recovery" ? 32 : plan.intensity === "high" ? 16 : plan.intensity === "low" ? 26 : 21;
+  return recover + physioQuality * 0.3;
+}
+
+/** Tägliche Erholung der Kondition; Regenerationstage zählen doppelt. */
+export function dailyRecovery(p: Player, plan: TrainingPlan, physioQuality: number, factor = 1) {
+  if (p.fitness >= 100) return;
+  const gain = (weeklyRecovery(plan, physioQuality) / 6) * factor;
+  p.fitness = clamp(Math.round(p.fitness + gain), 30, 100);
 }
 
 /**
@@ -46,8 +61,7 @@ export interface WeeklyContext {
  */
 export function weeklyDevelopment(rng: Rng, p: Player, plan: TrainingPlan, ctx: WeeklyContext): { injured: boolean } {
   // Fitness erholt sich, Regeneration schneller
-  const recover = plan.focus === "recovery" ? 32 : plan.intensity === "high" ? 16 : plan.intensity === "low" ? 26 : 21;
-  p.fitness = clamp(Math.round(p.fitness + recover + ctx.physioQuality * 0.3), 30, 100);
+  if (!ctx.skipFitness) p.fitness = clamp(Math.round(p.fitness + weeklyRecovery(plan, ctx.physioQuality)), 30, 100);
   if (p.injuryWeeks > 0) {
     p.injuryWeeks = Math.max(0, p.injuryWeeks - (rng.chance(ctx.physioQuality / 40) ? 2 : 1));
   }

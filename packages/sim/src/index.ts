@@ -12,3 +12,4 @@ export * from "./economy";
 export * from "./transfers";
 export * from "./gamification";
 export * from "./cup";
+export * from "./calendar";

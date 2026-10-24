@@ -82,7 +82,7 @@ export default function CareerPage() {
           {data.jobOffers?.length > 0 && (
             <div className="card stack-sm">
               <div className="card-head"><h3>Jobangebote</h3></div>
-              <p className="faint small">Wechsel sind in der Saisonvorbereitung (Woche 0) im Büro möglich.</p>
+              <p className="faint small">Wechsel sind in der Saisonvorbereitung im Büro möglich.</p>
               {data.jobOffers.map((o: any) => <div key={o.clubId} className="small">• {o.clubName} <span className="faint">({o.leagueName})</span></div>)}
             </div>
           )}

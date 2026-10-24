@@ -9,6 +9,7 @@ import { one, pool, query } from "./db";
 import { readCareer, todayKey, withCareer } from "./career";
 import { GameError } from "./errors";
 import { matchPreview } from "./match";
+import { isoDate, upcomingDays } from "./calendar-view";
 import {
   type CareerRow, type ClubRow, type FixtureRow, type LeagueRow, getClub, getClubs, getLeague, getLeagues, getPlayer, getPlayers,
   saveCareer,
@@ -54,7 +55,7 @@ export function playerView(p: Player, knowledge: Knowledge, extra: Record<string
 
 async function knowledgeFor(career: CareerRow, players: Player[], userLeagueId: number | null) {
   const shortlist = await query<{ player_id: number; report: unknown }>(pool(), "select player_id, report from shortlist where career_id = $1", [career.id]);
-  const reported = new Set(shortlist.filter((s) => s.report).map((s) => s.player_id));
+  const reported = new Set(shortlist.filter((s) => s.report && !(s.report as { pending?: boolean }).pending).map((s) => s.player_id));
   const listed = new Set(shortlist.map((s) => s.player_id));
   const clubLeague = new Map<number, number>();
   const clubIds = [...new Set(players.map((p) => p.clubId).filter((x): x is number => x !== null))];
@@ -118,7 +119,7 @@ export async function dashboard(careerId: string, accountId: string) {
   const career = await readCareer(careerId, accountId);
   const club = career.club_id ? await getClub(pool(), career.id, career.club_id) : null;
   const league = club ? await getLeague(pool(), career.id, club.league_id) : null;
-  const inbox = await query(pool(), "select id, season, week, category, title, body, read, action, created_at from inbox where career_id = $1 order by id desc limit 40", [career.id]);
+  const inbox = await query(pool(), "select id, season, week, day, category, title, body, read, action, created_at from inbox where career_id = $1 order by id desc limit 40", [career.id]);
   const unread = await one<{ n: number }>(pool(), "select count(*)::int as n from inbox where career_id = $1 and not read", [career.id]);
   const next = await matchPreview(pool(), career);
   let table: unknown[] = [];
@@ -159,6 +160,7 @@ export async function dashboard(careerId: string, accountId: string) {
     loginStreak: account?.login_streak ?? 0,
     bestLoginStreak: account?.best_login_streak ?? 0,
     jobOffers: career.job_offers,
+    schedule: await upcomingDays(career, 7),
   };
 }
 
@@ -170,6 +172,9 @@ export function careerSummary(career: CareerRow) {
     season: career.season,
     week: career.week,
     seasonWeeks: career.season_weeks,
+    day: career.day,
+    date: isoDate(career.season, career.day),
+    nextMatchday: career.calendar?.slots[career.week]?.day ?? null,
     status: career.status,
     clubId: career.club_id,
     countryCode: career.country_code,
@@ -208,6 +213,14 @@ export async function squadView(careerId: string, accountId: string) {
       .map((p) => playerView(p, "exact", { squadRank: ranks.get(p.id), loanFrom: p.loan ? names.get(p.loan.parentClubId) ?? null : null })),
     loanedOut: out.map((p) => playerView(p, "exact", { loanTo: names.get(p.clubId!) ?? null })),
   };
+}
+
+/** Laufende Beobachtungen zeigen nur das Datum des Berichts, keine Werte. */
+function scoutReport(career: CareerRow, r: unknown) {
+  const rep = r as { pending?: boolean; due?: number } | null | undefined;
+  if (!rep) return null;
+  if (rep.pending) return { pending: true, dueDate: isoDate(career.season, rep.due ?? career.day) };
+  return rep;
 }
 
 /** Eigene Spieler, die derzeit an andere Vereine verliehen sind. */
@@ -270,7 +283,7 @@ export async function playerDetail(careerId: string, accountId: string, playerId
     player: playerView(p, k.of(p)),
     club: club ? clubSummary(club) : null,
     league: league ? { id: league.id, name: league.name, countryCode: league.country_code } : null,
-    report: report?.report ?? null,
+    report: scoutReport(career, report?.report),
     shortlisted: k.shortlisted.has(p.id),
     askingPrice: ask,
     own: p.clubId === career.club_id,
@@ -343,7 +356,10 @@ export async function competitionView(careerId: string, accountId: string, leagu
     career: careerSummary(career),
     league: { id: league.id, name: league.name, tier: league.tier, countryCode: league.country_code, flag: flagEmoji(league.country_code), active: league.active, promotion: league.promotion, relegation: league.relegation, size: league.size },
     table: s.rows,
-    weeks: [...weeks.entries()].map(([week, matches]) => ({ week, matches })),
+    weeks: [...weeks.entries()].map(([week, matches]) => {
+      const day = career.calendar?.slots[week - 1]?.day;
+      return { week, matches, round: (matches[0] as { round?: number } | undefined)?.round ?? week, date: day !== undefined ? isoDate(career.season, day) : null };
+    }),
     countries,
     scorers,
     userClubId: career.club_id,

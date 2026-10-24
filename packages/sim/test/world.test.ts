@@ -1,3 +1,4 @@
+import { buildCalendar, dateOf, dayType, seasonStart } from "../src/calendar";
 import { describe, expect, it } from "vitest";
 import {
   COUNTRIES, Rng, computeStandings, createSchedule, evaluateFee, generatePlayer, generateSquad, generateWorld,
@@ -172,5 +173,24 @@ describe("Pokal", () => {
       expect(h).not.toBe(a);
       expect(Math.max(h, a)).toBeGreaterThanOrEqual(3);
     }
+  });
+});
+
+describe("Saisonkalender", () => {
+  it("legt Ligaspiele auf Samstage, Pokalrunden auf Mittwoche und macht eine Winterpause", () => {
+    const kinds = Array.from({ length: 34 }, () => "league" as const) as ("league" | "cup")[];
+    kinds.splice(3, 0, "cup");
+    kinds.splice(10, 0, "cup");
+    const cal = buildCalendar(kinds);
+    expect(seasonStart(2026).toISOString().slice(0, 10)).toBe("2026-07-06");
+    expect(dateOf(2026, cal.slots[0].day).getUTCDay()).toBe(6);
+    const cups = cal.slots.filter((s) => s.kind === "cup");
+    for (const c of cups) expect(dateOf(2026, c.day).getUTCDay()).toBe(3);
+    for (let i = 1; i < cal.slots.length; i++) expect(cal.slots[i].day).toBeGreaterThan(cal.slots[i - 1].day);
+    expect(cal.winterBreak).not.toBeNull();
+    const last = dateOf(2026, cal.slots[cal.slots.length - 1].day);
+    expect(last.getUTCFullYear()).toBe(2027);
+    expect(dayType(cal, cal.slots[0].day - 1, new Set([cal.slots[0].day]))).toBe("prep");
+    expect(dayType(cal, 9, new Set())).toBe("friendly");
   });
 });

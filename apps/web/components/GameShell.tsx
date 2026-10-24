@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { api, refreshAll, useApi } from "@/lib/client/api";
-import { money, seasonLabel } from "@/lib/client/format";
+import { fmtDate, money, seasonLabel } from "@/lib/client/format";
 import { Crest, Icon, Modal, Progress, useNotes, useToast } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
 import { WeekSummaryView } from "./WeekSummary";
@@ -20,7 +20,7 @@ const Ctx = createContext<ShellCtx>({ id: "", shell: null, advance: async () => 
 export const useGame = () => useContext(Ctx);
 
 const NAV = [
-  { key: "office", label: "Büro", icon: "office", href: "", subs: [{ href: "", label: "Übersicht & Posteingang" }] },
+  { key: "office", label: "Büro", icon: "office", href: "", subs: [{ href: "", label: "Übersicht & Posteingang" }, { href: "/calendar", label: "Kalender" }] },
   { key: "team", label: "Team", icon: "team", href: "/team", subs: [{ href: "/team", label: "Kader" }, { href: "/team/tactic", label: "Taktik" }, { href: "/team/training", label: "Training & Stab" }] },
   { key: "market", label: "Transfers", icon: "transfer", href: "/market", subs: [{ href: "/market", label: "Spielersuche" }, { href: "/market/contracts", label: "Verträge" }, { href: "/market/finances", label: "Finanzen" }] },
   { key: "competition", label: "Wettbewerb", icon: "trophy", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/cup", label: "Pokal" }, { href: "/competition/stats", label: "Statistiken" }] },
@@ -59,6 +59,9 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
       const res = await api<any>(`careers/${id}/advance`, { body: {} });
       if (res.kind === "match") {
         router.push(`${base}/match`);
+      } else if (res.kind === "day") {
+        refreshAll();
+        if (res.day.events.length) toast(res.day.events.slice(0, 3).join(" · "), "info");
       } else {
         setSummary(res.summary);
         showNotes(res.summary.notes);
@@ -91,10 +94,14 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
 
   const c = d?.career;
   const hasMatch = !!d?.next;
-  const nextLabel = c?.pendingMatch ? "Spiel fortsetzen" : hasMatch ? "Spieltag" : "Weiter";
-  const nextSub = c ? (hasMatch ? `${d.next.home.short} – ${d.next.away.short}` : c.week === 0 ? "Saisonvorbereitung" : `Woche ${c.week + 1}`) : "";
+  const matchday = !!c && c.nextMatchday !== null && c.day >= c.nextMatchday;
+  const today = d?.schedule?.[0];
+  const daysToMatch = c && d?.next?.day !== null && d?.next?.day !== undefined ? d.next.day - c.day : null;
+  const nextLabel = c?.pendingMatch ? "Spiel fortsetzen" : matchday ? (hasMatch ? "Zum Spiel" : "Spieltag") : "Weiter";
+  const nextSub = !c ? "" : c.pendingMatch || (matchday && hasMatch) ? `${d.next.home.short} – ${d.next.away.short}` : matchday ? "Andere Spiele" : `Morgen: ${d?.schedule?.[1]?.label ?? ""}`;
   const clubStyle = d?.club ? ({ "--club": d.club.colors.primary, "--club-2": d.club.colors.secondary } as CSSProperties) : undefined;
   const nav = NAV.find((n) => n.key === section)!;
+  const opp = d?.next ? (d.next.home.id === c?.clubId ? d.next.away : d.next.home) : null;
 
   return (
     <Ctx.Provider value={ctx}>
@@ -117,12 +124,6 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
               <strong className="cond up">{c?.status === "unemployed" ? "Vereinslos" : ""}</strong>
             )}
             <div className="metabar">
-              {c && (
-                <div className="meta-cell">
-                  <span className="k">Saison {seasonLabel(c.season)}</span>
-                  <span className="v">{c.week === 0 ? "Vorbereitung" : `Woche ${c.week} / ${c.seasonWeeks}`}</span>
-                </div>
-              )}
               {d?.club && (
                 <div className="meta-cell opt">
                   <span className="k">Kontostand</span>
@@ -135,58 +136,63 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
                   <span className="v">{money(d.club.transferBudget)}</span>
                 </div>
               )}
-              {d?.window?.open && (
-                <div className="meta-cell opt">
-                  <span className="k">Transferfenster</span>
-                  <span className="v pos-txt">Offen</span>
-                </div>
+              {c && (
+                <Link href={`${base}/calendar`} className="meta-cell date" title="Kalender öffnen">
+                  <span className="k">Saison {seasonLabel(c.season)}{today ? ` · ${today.label}` : ""}</span>
+                  <span className="v">{fmtDate(c.date)}</span>
+                </Link>
               )}
             </div>
           </div>
-          <button className="continue" onClick={advance} disabled={busy || !d || c?.status !== "active"} title="Weiter (Strg + Leertaste)">
+          <button className={`continue ${matchday && hasMatch ? "matchday" : ""}`} onClick={advance} disabled={busy || !d || c?.status !== "active"} title="Weiter (Strg + Leertaste)">
             <span style={{ textAlign: "left" }}>
-              {busy ? "Simuliere" : nextLabel}
-              <span className="sub">{busy ? "Bitte warten" : nextSub}</span>
+              {busy ? "Bitte warten" : nextLabel}
+              <span className="sub">{busy ? "Simuliere" : nextSub}</span>
             </span>
             <Icon name="next" size={18} stroke={2.2} />
           </button>
         </header>
 
-        <aside className="rail" aria-label="Hauptnavigation">
-          <div className="rail-group">Verein</div>
+        <nav className="mainnav" aria-label="Hauptmenü">
           {NAV.map((n) => (
-            <Link key={n.key} href={base + n.href} className={`nav-item ${section === n.key ? "active" : ""}`}>
-              <Icon name={n.icon} size={17} />
-              {n.label}
-              {n.key === "office" && d?.unread > 0 && <span className="nav-badge">{d.unread}</span>}
-            </Link>
-          ))}
-          {d?.next && (
-            <>
-              <div className="rail-group" style={{ marginTop: 10 }}>Nächstes Spiel</div>
-              <Link href={`${base}/club/${d.next.home.id === c?.clubId ? d.next.away.id : d.next.home.id}`} className="row" style={{ padding: "4px 16px", gap: 10 }}>
-                <Crest colors={(d.next.home.id === c?.clubId ? d.next.away : d.next.home).colors} name={(d.next.home.id === c?.clubId ? d.next.away : d.next.home).name} size={22} />
-                <div style={{ minWidth: 0 }}>
-                  <div className="truncate" style={{ fontWeight: 600 }}>{(d.next.home.id === c?.clubId ? d.next.away : d.next.home).name}</div>
-                  <div className="faint small truncate">{d.next.home.id === c?.clubId ? "Heim" : "Auswärts"} · {d.next.competition?.kind === "cup" ? "Pokal" : `${d.next.round}. Spieltag`}</div>
-                </div>
+            <div key={n.key} className="mn-item">
+              <Link href={base + n.href} className={`mn-link ${section === n.key ? "active" : ""}`}>
+                <Icon name={n.icon} size={16} />
+                {n.label}
+                {n.key === "office" && d?.unread > 0 && <span className="mn-badge">{d.unread}</span>}
               </Link>
-            </>
-          )}
-          <div className="rail-foot">
-            {c && (
-              <>
-                <div className="between small"><span className="cond up" style={{ fontWeight: 700 }}>Level {c.level}</span><span className="faint">{c.title}</span></div>
-                <Progress value={c.xp - c.xpLevelStart} max={c.xpNextLevel - c.xpLevelStart} tone={undefined} />
-                <div className="between small faint"><span>{c.xp - c.xpLevelStart} / {c.xpNextLevel - c.xpLevelStart} XP</span><span>{c.points} MP</span></div>
-              </>
+              <div className="mn-drop">
+                {n.subs.map((s) => <Link key={s.href} href={base + s.href} className={path === base + s.href ? "active" : ""}>{s.label}</Link>)}
+              </div>
+            </div>
+          ))}
+          <div className="mn-right">
+            {opp && d?.next && (
+              <Link href={`${base}/club/${opp.id}`} className="mn-cell" title="Nächster Gegner">
+                <Crest colors={opp.colors} name={opp.name} size={22} />
+                <span style={{ minWidth: 0 }}>
+                  <span className="k">{daysToMatch === 0 ? "Heute" : daysToMatch === 1 ? "Morgen" : daysToMatch !== null ? `In ${daysToMatch} Tagen` : "Nächstes Spiel"} · {d.next.home.id === c?.clubId ? "Heim" : "Auswärts"}</span>
+                  <span className="v truncate">{opp.name}</span>
+                </span>
+              </Link>
             )}
-            <div className="row" style={{ justifyContent: "space-between", marginTop: 4 }}>
-              <ThemeToggle />
+            {d?.window?.open && (
+              <div className="mn-cell"><span><span className="k">Transferfenster</span><span className="v pos-txt">Offen</span></span></div>
+            )}
+            {c && (
+              <Link href={`${base}/career`} className="mn-cell" title={`${c.xp - c.xpLevelStart} / ${c.xpNextLevel - c.xpLevelStart} XP`}>
+                <span>
+                  <span className="k">Level {c.level} · {c.title}</span>
+                  <span className="mn-xp" style={{ display: "block", marginTop: 4 }}><Progress value={c.xp - c.xpLevelStart} max={c.xpNextLevel - c.xpLevelStart} tone={undefined} /></span>
+                </span>
+              </Link>
+            )}
+            <div className="mn-cell" style={{ gap: 4 }}>
+              <ThemeToggle compact />
               <Link className="btn btn-ghost btn-sm" href="/careers" title="Alle Karrieren"><Icon name="users" size={15} /></Link>
             </div>
           </div>
-        </aside>
+        </nav>
 
         <nav className="subnav" aria-label={`${nav.label} – Unterbereiche`}>
           {nav.subs.map((s) => (
@@ -195,15 +201,6 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
         </nav>
 
         <main className="main"><div className="content">{children}</div></main>
-
-        <nav className="tabbar" aria-label="Navigation">
-          {NAV.map((n) => (
-            <Link key={n.key} href={base + n.href} className={section === n.key ? "active" : ""}>
-              <Icon name={n.icon} size={19} />
-              {n.label}
-            </Link>
-          ))}
-        </nav>
       </div>
       <Modal open={!!summary} onClose={() => setSummary(null)} wide>
         {summary && <WeekSummaryView summary={summary} base={base} onClose={() => setSummary(null)} />}

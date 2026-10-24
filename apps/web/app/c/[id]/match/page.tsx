@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SKINS } from "@fl/sim";
 import { api, refreshAll } from "@/lib/client/api";
-import { POS_LABEL, matchRatingColor } from "@/lib/client/format";
+import { POS_LABEL, dayIso, fmtDate, matchRatingColor } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { MatchCanvas } from "@/components/MatchCanvas";
 import { RatingList, StatRows } from "@/components/MatchStats";
@@ -252,9 +252,14 @@ export default function MatchDay() {
                 </div>
               )}
               <div className="row" style={{ padding: 14, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                {preview.day !== null && <span className="dim" style={{ marginRight: "auto" }}>Anstoss: <b style={{ color: "var(--text)" }}>{fmtDate(dayIso(shell?.career?.season ?? 2026, preview.day), { long: true })}</b></span>}
                 <Link className="btn btn-lg" href={`${base}/team/tactic`}><Icon name="board" size={16} /> Taktik</Link>
-                <button className="btn btn-lg" onClick={quick} disabled={busy || phase === "loading"}>Sofortergebnis</button>
-                <button className="btn btn-primary btn-lg" onClick={start} disabled={phase === "loading"}><Icon name="whistle" size={16} /> {phase === "loading" ? "Anpfiff …" : "Anpfiff"}</button>
+                {preview.today ? (
+                  <>
+                    <button className="btn btn-lg" onClick={quick} disabled={busy || phase === "loading"}>Sofortergebnis</button>
+                    <button className="btn btn-primary btn-lg" onClick={start} disabled={phase === "loading"}><Icon name="whistle" size={16} /> {phase === "loading" ? "Anpfiff …" : "Anpfiff"}</button>
+                  </>
+                ) : <span className="badge">Noch nicht Spieltag</span>}
               </div>
             </section>
           )}

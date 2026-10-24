@@ -4,7 +4,7 @@
  */
 import {
   DEFAULT_TRAINING, Rng, afterMatch, penaltyShootout, shootersFrom, attendance, benchMorale, computeStandings, formatMoney, playMatch, quickResult,
-  seedFor, squadRanks, teamRating, transferWindow, validateTactic, wageBill, weeklyDevelopment, weeklyFinances,
+  seedFor, squadRanks, teamRating, transferWindow, validateTactic, wageBill, weeklyDevelopment, weeklyFinances, weeksSincePreviousLeague,
   type MatchResult, type Player,
 } from "@fl/sim";
 import type pg from "pg";
@@ -114,6 +114,8 @@ function applyMatchToPlayers(
 
 export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { userMatch?: UserMatchInput; quickUserMatch?: boolean } = {}): Promise<WeekSummary> {
   const week = career.week + 1;
+  // Pokalrunden liegen unter der Woche: kein zusätzliches Training, keine zusätzlichen laufenden Kosten
+  const midweek = career.calendar?.slots[week - 1]?.kind === "cup";
   const w = await loadWorld(db, career);
   const rng = new Rng(seedFor(career.seed, "week", career.season, week));
   const notes: RewardNote[] = [];
@@ -193,16 +195,25 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   let cupInfo: CupWeekInfo | null = null;
   if (cupId) cupInfo = await advanceCup(db, career, w, cupId, notes);
 
-  // Training & Entwicklung aller Spieler aktiver Vereine
-  const boost = career.manager.trainingBoostWeeks > 0;
-  for (const [clubId, squad] of w.squads) {
+  // Training & Entwicklung aller Spieler aktiver Vereine (eigene Kondition erholt sich täglich)
+  const boost = !midweek && career.manager.trainingBoostWeeks > 0;
+  if (midweek) {
+    for (const [clubId, squad] of w.squads) {
+      for (const p of squad) {
+        if (p.suspendedWeeks > 0) p.suspendedWeeks--;
+        if (clubId !== userClubId) p.fitness = Math.min(100, p.fitness + 10);
+        w.dirtyPlayers.add(p.id);
+      }
+    }
+  }
+  for (const [clubId, squad] of midweek ? [] : w.squads) {
     const club = w.clubs.get(clubId);
     if (!club?.players_generated) continue;
     const isUser = clubId === userClubId;
     const plan = isUser ? career.training : DEFAULT_TRAINING;
     const coach = isUser ? career.staff.coach : Math.round(4 + club.reputation / 10);
     for (const p of squad) {
-      const { injured } = weeklyDevelopment(rng, p, plan, { minutesLastWeek: minutes.get(p.id) ?? 0, coachQuality: coach, physioQuality: physio(clubId) });
+      const { injured } = weeklyDevelopment(rng, p, plan, { minutesLastWeek: minutes.get(p.id) ?? 0, coachQuality: coach, physioQuality: physio(clubId), skipFitness: isUser });
       if (isUser && boost) {
         p.devProgress += 0.03;
         p.morale = Math.min(100, p.morale + 1);
@@ -212,7 +223,17 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     }
   }
   if (boost) career.manager.trainingBoostWeeks--;
-  for (const p of w.freeAgents) {
+  // Nach der Winterpause sind Verletzungen entsprechend weiter ausgeheilt
+  const extraWeeks = career.calendar ? Math.round(weeksSincePreviousLeague(career.calendar, week)) - 1 : 0;
+  if (extraWeeks > 0) {
+    for (const p of w.players.values()) {
+      if (p.injuryWeeks > 0) {
+        p.injuryWeeks = Math.max(0, p.injuryWeeks - extraWeeks);
+        w.dirtyPlayers.add(p.id);
+      }
+    }
+  }
+  for (const p of midweek ? [] : w.freeAgents) {
     p.fitness = Math.min(100, p.fitness + 10);
     if (p.injuryWeeks > 0) p.injuryWeeks--;
     w.dirtyPlayers.add(p.id);
@@ -221,11 +242,16 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   // Finanzen (verliehene Spieler: Stammverein trägt den Restanteil des Gehalts)
   const loanedOut = new Map<number, Player[]>();
   for (const p of w.players.values()) if (p.loan) loanedOut.set(p.loan.parentClubId, [...(loanedOut.get(p.loan.parentClubId) ?? []), p]);
+  // Laufende Posten nach vergangener Zeit seit dem letzten Ligaspieltag (Winterpause zählt mit)
+  const span = career.calendar ? weeksSincePreviousLeague(career.calendar, week) : midweek ? 0 : 1;
   for (const club of w.clubs.values()) {
     if (!club.players_generated || !club.finance) continue;
     const squad = squadOf(w, club.id);
     const att = attendances.get(club.id);
-    const entries = weeklyFinances(club.finance, wageBill(squad, loanedOut.get(club.id) ?? []), att ? { attendance: att } : null);
+    const entries = weeklyFinances(club.finance, wageBill(squad, loanedOut.get(club.id) ?? []), att ? { attendance: att } : null)
+      .map((e) => (e.kind === "tickets" ? e : { ...e, amount: Math.round(e.amount * span) }))
+      .filter((e) => e.amount !== 0);
+    if (!entries.length) continue;
     const sum = entries.reduce((s, e) => s + e.amount, 0);
     club.balance += sum;
     if (club.id !== userClubId) club.transfer_budget = Math.max(0, club.transfer_budget + Math.round(sum * 0.3));

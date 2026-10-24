@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, refreshAll, useApi } from "@/lib/client/api";
-import { ATTR_GROUPS, POS_LABEL, attrColor, money } from "@/lib/client/format";
+import { ATTR_GROUPS, POS_LABEL, attrColor, fmtDate, money } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { Radar } from "@/components/Radar";
 import { Condition, Crest, ErrorBox, Icon, Loading, Modal, Nat, Panel, Pos, moraleLabel, useNotes, useToast } from "@/components/ui";
@@ -140,7 +140,7 @@ export default function PlayerPage() {
           <div style={{ display: "flex", borderLeft: "1px solid var(--line)" }}>
             {[
               ["Stärke", p.rating ?? `${p.ratingRange[0]}–${p.ratingRange[1]}`],
-              ["Potenzial", exact ? p.potential : data.report ? `${data.report.potentialMin}–${data.report.potentialMax}` : "?"],
+              ["Potenzial", exact ? p.potential : data.report && !data.report.pending ? `${data.report.potentialMin}–${data.report.potentialMax}` : "?"],
               ["Marktwert", money(p.value)],
             ].map(([k, v]) => (
               <div key={k as string} style={{ padding: "16px 20px", borderRight: "1px solid var(--line)", minWidth: 110 }} className="stat">
@@ -172,7 +172,7 @@ export default function PlayerPage() {
               <button className="btn" disabled={busy} onClick={async () => { const r = await action("shortlist"); if (r) { toast(r.shortlisted ? "Zur Beobachtungsliste hinzugefügt" : "Von der Beobachtungsliste entfernt"); reload(); } }}>
                 <Icon name="eye" size={15} /> {data.shortlisted ? "Beobachtet" : "Beobachten"}
               </button>
-              <button className="btn" disabled={busy} onClick={async () => { const r = await action("scout"); if (r) { toast("Scoutbericht erstellt", "success"); reload(); } }}><Icon name="search" size={15} /> Scouten</button>
+              <button className="btn" disabled={busy || data.report?.pending} onClick={async () => { const r = await action("scout"); if (r) { toast("Der Scout beobachtet den Spieler. Der Bericht kommt in den Posteingang.", "success"); reload(); } }}><Icon name="search" size={15} /> {data.report?.pending ? "Scout unterwegs" : "Scouten"}</button>
               <button className="btn btn-primary" disabled={busy || (!data.window.open && p.clubId !== null)} onClick={startOffer} title={!data.window.open && p.clubId !== null ? "Transferfenster geschlossen" : ""}>
                 {p.clubId === null ? "Vertrag anbieten" : "Angebot abgeben"}
               </button>
@@ -203,7 +203,8 @@ export default function PlayerPage() {
               </div>
             ))}
           </div>
-          {data.report && <div className="card-soft small" style={{ marginTop: 12 }}><span className="faint up">Scoutbericht</span> · {data.report.verdict}</div>}
+          {data.report && !data.report.pending && <div className="card-soft small" style={{ marginTop: 12 }}><span className="faint up">Scoutbericht</span> · {data.report.verdict}</div>}
+          {data.report?.pending && <div className="card-soft small" style={{ marginTop: 12 }}><span className="faint up">Beobachtung läuft</span> · Der Bericht deines Scouts kommt am {fmtDate(data.report.dueDate, { long: true })}.</div>}
         </Panel>
         <div className="stack">
           <Panel title="Positionen & Profil" icon="board">

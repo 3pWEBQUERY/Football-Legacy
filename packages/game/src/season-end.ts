@@ -275,6 +275,8 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   const summary: SeasonSummary = { season: career.season, position, points: pts?.points ?? 0, champion, promoted, relegated, objectiveMet, dismissed, champions };
   career.season = newSeason;
   career.week = 0;
+  career.day = 0;
+  await query(db, "update careers set day = 0 where id = $1", [career.id]);
   const newUserClub = career.club_id ? w.clubs.get(career.club_id) : undefined;
   const newUserLeague = newUserClub ? w.leagues.get(newUserClub.league_id) : undefined;
   await scheduleSeason(db, career);

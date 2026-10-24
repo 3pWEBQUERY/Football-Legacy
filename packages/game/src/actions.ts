@@ -351,11 +351,17 @@ export async function scoutPlayer(careerId: string, accountId: string, playerId:
       [career.id, career.season, career.week],
     );
     if ((used?.n ?? 0) >= scoutLimit(career)) throw new GameError(`Dein Scout schafft diese Woche nur ${scoutLimit(career)} Berichte.`);
+    const existing = await one<{ report: { pending?: boolean } | null }>(db, "select report from shortlist where career_id = $1 and player_id = $2", [career.id, p.id]);
+    if (existing?.report?.pending) throw new GameError("Dein Scout beobachtet diesen Spieler bereits.");
     const rng = new Rng(seedFor(career.seed, "scout", p.id));
     const accuracy = career.staff.scout;
     const potentialGuess = Math.round(p.potential + rng.normal(0, Math.max(1, 8 - accuracy / 3)));
+    // Beobachtung dauert je nach Qualität des Scouts und Entfernung einige Tage
+    const club = p.clubId !== null ? await getClub(db, career.id, p.clubId) : null;
+    const abroad = !!club && club.country_code !== career.country_code;
+    const days = Math.max(1, 4 - Math.floor(career.staff.scout / 7)) + (abroad ? 2 : 0);
     const report = {
-      season: career.season, week: career.week, rating: p.rating,
+      season: career.season, week: career.week, rating: p.rating, pending: true, due: career.day + days,
       potentialMin: Math.max(p.rating, potentialGuess - 4), potentialMax: Math.max(p.rating, potentialGuess + 4),
       verdict: p.potential - p.rating >= 12 ? "Grosses Talent – unbedingt beobachten." : p.rating >= 75 ? "Sofortige Verstärkung für fast jeden Verein." : p.rating >= 65 ? "Solider Spieler mit klaren Stärken." : "Eher ein Ergänzungsspieler.",
     };

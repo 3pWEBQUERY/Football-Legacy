@@ -235,4 +235,12 @@ create table if not exists season_reviews (
 );
 `,
   },
+  {
+    name: "004_calendar.sql",
+    sql: `
+alter table careers add column if not exists day int not null default 0;
+alter table careers add column if not exists calendar jsonb;
+alter table inbox add column if not exists day int;
+`,
+  },
 ];

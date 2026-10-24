@@ -10,6 +10,7 @@ import { GameError } from "./errors";
 import { type CareerRow, type FixtureRow, getClub, getPlayers, saveCareer } from "./repo";
 import { aiTactic, teamSetup } from "./setup";
 import { processWeek, type WeekSummary } from "./week";
+import { advanceDay, nextSlotDay, type DayResult } from "./day";
 
 async function nextUserFixture(db: pg.PoolClient | import("pg").Pool, career: CareerRow): Promise<FixtureRow | null> {
   if (!career.club_id) return null;
@@ -26,13 +27,26 @@ function ensurePlayable(career: CareerRow) {
 
 export type AdvanceResult =
   | { kind: "match"; fixtureId: number }
-  | { kind: "week"; summary: WeekSummary };
+  | { kind: "week"; summary: WeekSummary }
+  | { kind: "day"; day: DayResult };
+
+/** Ist heute Spieltag (Tag der nächsten Spielrunde erreicht)? */
+function isMatchday(career: CareerRow): boolean {
+  const d = nextSlotDay(career);
+  return d === null || career.day >= d;
+}
+
+function ensureMatchday(career: CareerRow) {
+  if (!isMatchday(career)) throw new GameError("Das nächste Spiel findet erst später statt. Klicke auf „Weiter“, bis der Spieltag erreicht ist.");
+}
 
 /** "Weiter": spielfreie Woche simulieren oder zum Spieltag führen. */
 export async function advance(careerId: string, accountId: string): Promise<AdvanceResult> {
   return withCareer(careerId, accountId, async (db, career) => {
     ensurePlayable(career);
     if (career.pending_match) return { kind: "match", fixtureId: career.pending_match.fixtureId };
+    // Bis zum nächsten Spieltag geht es Tag für Tag weiter
+    if (!isMatchday(career)) return { kind: "day", day: await advanceDay(db, career) };
     const fixture = await nextUserFixture(db, career);
     if (fixture) return { kind: "match", fixtureId: fixture.id };
     const summary = await processWeek(db, career);
@@ -48,8 +62,9 @@ export async function quickMatch(careerId: string, accountId: string): Promise<W
       // Laufendes Spiel zu Ende simulieren
       return finishPending(db, career);
     }
+    ensureMatchday(career);
     const fixture = await nextUserFixture(db, career);
-    if (!fixture) throw new GameError("Diese Woche hast du kein Spiel.");
+    if (!fixture) throw new GameError("Heute hast du kein Spiel.");
     return processWeek(db, career, { quickUserMatch: true });
   });
 }
@@ -119,8 +134,9 @@ export async function startMatch(careerId: string, accountId: string) {
       fromTick = state.tick;
       frames = [currentFrame(state)];
     } else {
+      ensureMatchday(career);
       const f = await nextUserFixture(db, career);
-      if (!f) throw new GameError("Diese Woche hast du kein Spiel.");
+      if (!f) throw new GameError("Heute hast du kein Spiel.");
       state = await buildMatch(db, career, f);
       fromTick = 0;
       frames = simulate(state, SEGMENT, { frames: true });
@@ -260,5 +276,7 @@ export async function matchPreview(db: pg.Pool, career: CareerRow) {
     away: { id: away.id, name: away.name, short: away.short_name, colors: away.colors, rating: away.rating },
     analysis,
     window: transferWindow(career.week + 1, career.season_weeks),
+    day: career.calendar?.slots[f.week - 1]?.day ?? null,
+    today: isMatchday(career),
   };
 }

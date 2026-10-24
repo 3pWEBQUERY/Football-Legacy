@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, refreshAll } from "@/lib/client/api";
-import { money } from "@/lib/client/format";
+import { dayIso, fmtDate, money, weekdayShort } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { CategoryIcon, Crest, Empty, FormChips, Icon, Loading, Panel, Progress, Rating, useToast } from "@/components/ui";
 
@@ -79,6 +79,30 @@ export default function Office() {
         </Panel>
       )}
 
+      {d.schedule?.length > 0 && (
+        <section className="card card-flush">
+          <div className="card-head">
+            <h3><Icon name="calendar" size={15} /> Diese Woche</h3>
+            <Link href={`${base}/calendar`} className="btn btn-ghost btn-sm">Kalender</Link>
+          </div>
+          <div className="week-strip">
+            {d.schedule.map((s: any, i: number) => {
+              const isNext = next && s.fixtureId === next.fixtureId;
+              const opp = isNext ? (next.home.id === c.clubId ? next.away : next.home) : null;
+              return (
+                <div key={s.day} className={`week-day t-${s.type} ${i === 0 ? "today" : ""}`}>
+                  <span className="wd">{i === 0 ? "Heute" : weekdayShort(s.date)}</span>
+                  <span className="dt">{fmtDate(s.date, { year: false }).slice(3)}</span>
+                  {opp ? (
+                    <span className="row ty" style={{ gap: 6 }}><Crest colors={opp.colors} name={opp.name} size={16} /><span className="truncate">{opp.short} ({next.home.id === c.clubId ? "H" : "A"})</span></span>
+                  ) : <span className="ty">{s.label}</span>}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="grid grid-main" style={{ alignItems: "start" }}>
         <div className="stack">
         {next ? (
@@ -108,13 +132,16 @@ export default function Office() {
                 <span style={{ gridColumn: "2 / -1" }} className="small">{next.analysis.keyPlayers.map((p: any) => `${p.name} (${p.rating})`).join(" · ")}</span>
               </div>
             )}
-            <div className="row" style={{ marginTop: 12 }}>
+            <div className="row" style={{ marginTop: 12, flexWrap: "wrap" }}>
+              <span className="dim small" style={{ marginRight: "auto" }}>
+                {next.day !== null && <><b style={{ color: "var(--text)" }}>{fmtDate(dayIso(c.season, next.day), { long: true })}</b> · {next.day - c.day === 0 ? "heute" : next.day - c.day === 1 ? "morgen" : `in ${next.day - c.day} Tagen`}</>}
+              </span>
               <Link className="btn" href={`${base}/team/tactic`}><Icon name="board" size={15} /> Taktik</Link>
-              <button className="btn btn-primary" onClick={advance} disabled={busy}><Icon name="whistle" size={15} /> Zum Spieltag</button>
+              {next.today && <button className="btn btn-primary" onClick={advance} disabled={busy}><Icon name="whistle" size={15} /> Zum Spiel</button>}
             </div>
           </Panel>
         ) : (
-          <Panel title="Kalender" icon="calendar"><p className="dim">Diese Woche steht kein Pflichtspiel an.</p></Panel>
+          <Panel title="Nächstes Spiel" icon="calendar"><p className="dim">Aktuell ist kein Pflichtspiel angesetzt.</p></Panel>
         )}
 
         <section className="card card-flush">
@@ -130,7 +157,7 @@ export default function Office() {
                     <div className="inbox-icon"><CategoryIcon category={m.category} /></div>
                     <div style={{ minWidth: 0, flex: 1, paddingRight: 12 }}>
                       <div className="inbox-title truncate">{m.title}</div>
-                      <div className="faint small">{m.week === 0 ? "Vorbereitung" : `Woche ${m.week}`}</div>
+                      <div className="faint small">{m.day !== null && m.day !== undefined ? fmtDate(dayIso(m.season, m.day)) : m.week === 0 ? "Vorbereitung" : `Runde ${m.week}`}</div>
                     </div>
                   </div>
                 ))}
@@ -138,10 +165,11 @@ export default function Office() {
               <div className="inbox-read">
                 {open ? (
                   <>
-                    <div className="faint small up">{open.week === 0 ? "Saisonvorbereitung" : `Woche ${open.week}`}</div>
+                    <div className="faint small up">{open.day !== null && open.day !== undefined ? fmtDate(dayIso(open.season, open.day), { long: true }) : open.week === 0 ? "Saisonvorbereitung" : `Runde ${open.week}`}</div>
                     <h2>{open.title}</h2>
                     <p className="inbox-body">{open.body}</p>
                     {open.action?.type === "fixture" && <div><Link className="btn" href={`${base}/report/${open.action.fixtureId}`}>Spielbericht öffnen</Link></div>}
+                    {open.action?.type === "player" && <div><Link className="btn" href={`${base}/player/${open.action.playerId}`}>Spielerprofil öffnen</Link></div>}
                     {openOffer && (
                       <div className="row">
                         <button className="btn btn-primary" onClick={() => respond(openOffer.id, "accept")}>Angebot annehmen</button>
