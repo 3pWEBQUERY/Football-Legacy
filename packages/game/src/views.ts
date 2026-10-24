@@ -11,6 +11,8 @@ import { one, pool, query } from "./db";
 import { readCareer, todayKey, withCareer } from "./career";
 import { GameError } from "./errors";
 import { matchPreview } from "./match";
+import { latestHeadlines } from "./media";
+import { DEFAULT_STOP_ON } from "./settings";
 import { isoDate, upcomingDays } from "./calendar-view";
 import {
   type CareerRow, type ClubRow, type FixtureRow, type LeagueRow, getClub, getClubs, getLeague, getLeagues, getPlayer, getPlayers,
@@ -124,6 +126,7 @@ export async function dashboard(careerId: string, accountId: string) {
   const inbox = await query(pool(), "select id, season, week, day, category, title, body, read, action, created_at from inbox where career_id = $1 order by id desc limit 40", [career.id]);
   const unread = await one<{ n: number }>(pool(), "select count(*)::int as n from inbox where career_id = $1 and not read", [career.id]);
   const next = await matchPreview(pool(), career);
+  const headlines = await latestHeadlines(career.id, 4);
   let table: unknown[] = [];
   let recent: unknown[] = [];
   if (club && league) {
@@ -148,6 +151,7 @@ export async function dashboard(careerId: string, accountId: string) {
   ensureMissions(career);
   const account = await one<{ login_streak: number; best_login_streak: number }>(pool(), "select login_streak, best_login_streak from accounts where id = $1", [accountId]);
   return {
+    headlines,
     career: careerSummary(career),
     club: club ? { ...clubSummary(club), balance: club.balance, transferBudget: club.transfer_budget } : null,
     league: league ? { id: league.id, name: league.name, tier: league.tier, countryCode: league.country_code, flag: flagEmoji(league.country_code) } : null,
@@ -193,6 +197,7 @@ export function careerSummary(career: CareerRow) {
     activeSkin: m.activeSkin,
     trainingBoostWeeks: m.trainingBoostWeeks,
     autoSubs: m.autoSubs ?? true,
+    stopOn: { ...DEFAULT_STOP_ON, ...(m.stopOn ?? {}) },
     unlocked: UNLOCKS.filter((u) => m.level >= u.level).map((u) => u.id),
   };
 }

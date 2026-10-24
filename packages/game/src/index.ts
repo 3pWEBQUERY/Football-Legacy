@@ -22,3 +22,5 @@ export { medicalView } from "./medical";
 export { cancelAssignment, scoutingView, startAssignment } from "./scouting";
 export { dynamicsView, setSquadStatus } from "./dynamics";
 export { awardsView } from "./awards";
+export { latestHeadlines, mediaView } from "./media";
+export { DEFAULT_STOP_ON, STOP_ON_LABEL, updateCareerSettings } from "./settings";

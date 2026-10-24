@@ -3,6 +3,7 @@
  * Spielvorbereitung und Monatsberichte zwischen den Spieltagen.
  */
 import { monthlyAwards } from "./awards";
+import { dailyRumours } from "./media";
 import {
   DAY_TYPE_LABEL, Rng, applyTrainingRating, injure, dailyRecovery, sessionName, trainingRating, dateOf, dayType, formatMoney, playMatch, seedFor, squadRanks, validateTactic,
   type DayType, type Player, type SeasonCalendar,
@@ -163,6 +164,8 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
       "Heute ist der letzte Tag des Transferfensters. Ab morgen sind keine Transfers mehr möglich.");
     events.push("Deadline Day");
   }
+  const rumour = await dailyRumours(db, career, squad, win.open);
+  if (rumour) events.push(rumour);
 
   await savePlayers(db, career.id, squad);
   await saveCareer(db, career);

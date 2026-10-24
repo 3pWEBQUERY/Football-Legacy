@@ -25,6 +25,8 @@ export interface ManagerProfile {
   streakRewardDay?: string;
   pressDone?: number;
   teamTalkDone?: number;
+  /** Nachrichtenkategorien, bei denen "Weiter" anhält */
+  stopOn?: Record<string, boolean>;
 }
 
 export interface SeasonRecord {

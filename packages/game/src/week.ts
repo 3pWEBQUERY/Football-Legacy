@@ -18,6 +18,7 @@ import {
 import { type RewardNote, announceNotes, ensureMissions, rewardMatch } from "./rewards";
 import { aiTactic, teamSetup } from "./setup";
 import { trackPlayingTime, weeklyDynamics } from "./dynamics";
+import { leagueRoundup, matchArticle, transferArticles } from "./media";
 import { advanceCup, type CupWeekInfo } from "./cup";
 import { academyWeek } from "./academy";
 import { facilitiesOf } from "./facilities";
@@ -301,6 +302,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   if (window.open) {
     const marketNews = await aiMarketRound(db, w, rng);
     news.push(...marketNews.map((n) => n.text));
+    await transferArticles(db, career, marketNews.filter((n) => n.important).map((n) => ({ text: n.text })));
     await aiBidsForUser(db, w, rng);
   }
   // Abgelaufene Angebote verfallen
@@ -324,6 +326,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
 
   // Posteingang: eigenes Ergebnis, Verletzungen, Hinweise
   if (userClubId) await weeklyInbox(db, career, w, week, userFixture, results, news, injuredNow, cupInfo?.name ?? null);
+  if (userClubId && !midweek) await leagueRoundup(db, career, w.clubs.get(userClubId)!.league_id, week);
   await announceNotes(db, career, notes);
 
   let seasonEnd: SeasonSummary | null = null;
@@ -392,6 +395,8 @@ async function weeklyInbox(
         : `${home.name} – ${away.name} ${r.home}:${r.away}. ${club.name} steht jetzt auf Platz ${pos}.`,
       { type: "fixture", fixtureId: userFixture.id },
     );
+    await matchArticle(db, career, userFixture, home, away, r, userFixture.cup_id ? null : pos,
+      userFixture.cup_id ? cupName ?? "Pokal" : `${userFixture.round}. Spieltag`);
   }
   const fresh = squad.filter((p) => injuredNow.has(p.id) && p.injuryWeeks > 0);
   if (fresh.length) {

@@ -81,6 +81,10 @@ route("POST", "account/settings", async (c) => {
   return { ok: true };
 });
 
+route("POST", "account/profile", async (c) => game.updateProfile(acc(c), str(c.body.displayName)));
+route("POST", "account/password", async (c) => game.changePassword(acc(c), c.token ?? null, str(c.body.oldPassword), str(c.body.newPassword)));
+route("POST", "account/delete", async (c) => game.deleteAccount(acc(c), str(c.body.password)));
+
 function publicAccount(a: Account) {
   return { id: a.id, email: a.email, displayName: a.display_name, settings: a.settings, login_streak: a.login_streak };
 }
@@ -180,6 +184,12 @@ route("POST", career("offers/:tid"), async (c) => game.respondToOffer(
   c.params.id, acc(c), num(c.params.tid), str(c.body.decision) as never, c.body.counterFee ? num(c.body.counterFee) : undefined,
 ));
 route("POST", career("scouting"), async (c) => game.scoutCountry(c.params.id, acc(c), str(c.body.countryCode)));
+route("GET", career("settings"), async (c) => {
+  const cr = await game.readCareer(c.params.id, acc(c));
+  return { autoSubs: cr.manager.autoSubs ?? true, stopOn: { ...game.DEFAULT_STOP_ON, ...(cr.manager.stopOn ?? {}) }, labels: game.STOP_ON_LABEL };
+});
+route("POST", career("settings"), async (c) => game.updateCareerSettings(c.params.id, acc(c), c.body));
+route("GET", career("media"), async (c) => game.mediaView(c.params.id, acc(c), c.query.get("filter")));
 route("GET", career("dynamics"), async (c) => game.dynamicsView(c.params.id, acc(c)));
 route("GET", career("awards"), async (c) => game.awardsView(c.params.id, acc(c)));
 route("GET", career("contracts"), async (c) => game.contractsView(c.params.id, acc(c)));

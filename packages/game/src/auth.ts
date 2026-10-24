@@ -115,3 +115,29 @@ export async function touchLoginStreak(accountId: string): Promise<{ streak: num
 export async function updateSettings(accountId: string, settings: Record<string, unknown>) {
   await query(pool(), "update accounts set settings = settings || $2::jsonb where id = $1", [accountId, JSON.stringify(settings)]);
 }
+
+export async function updateProfile(accountId: string, displayName: string) {
+  const name = displayName.trim().slice(0, 40);
+  if (name.length < 2) throw new GameError("Der Name muss mindestens 2 Zeichen lang sein.");
+  await query(pool(), "update accounts set display_name = $2 where id = $1", [accountId, name]);
+  return { displayName: name };
+}
+
+/** Passwort ändern; alle anderen Sitzungen werden abgemeldet. */
+export async function changePassword(accountId: string, currentToken: string | null, oldPassword: string, newPassword: string) {
+  const row = await one<{ password_hash: string }>(pool(), "select password_hash from accounts where id = $1", [accountId]);
+  if (!row || !(await verifyPassword(oldPassword, row.password_hash))) throw new GameError("Das aktuelle Passwort ist falsch.");
+  if (newPassword.length < 8) throw new GameError("Das neue Passwort muss mindestens 8 Zeichen lang sein.");
+  if (newPassword === oldPassword) throw new GameError("Das neue Passwort muss sich vom alten unterscheiden.");
+  await query(pool(), "update accounts set password_hash = $2 where id = $1", [accountId, await hashPassword(newPassword)]);
+  await query(pool(), "delete from sessions where account_id = $1 and token <> $2", [accountId, currentToken ? hashToken(currentToken) : ""]);
+  return { ok: true };
+}
+
+/** Account mit allen Karrieren endgültig löschen. */
+export async function deleteAccount(accountId: string, password: string) {
+  const row = await one<{ password_hash: string }>(pool(), "select password_hash from accounts where id = $1", [accountId]);
+  if (!row || !(await verifyPassword(password, row.password_hash))) throw new GameError("Das Passwort ist falsch.");
+  await query(pool(), "delete from accounts where id = $1", [accountId]);
+  return { ok: true, clearCookie: true };
+}

@@ -322,4 +322,41 @@ describe("Karriere", () => {
     expect(res.morale).toBeLessThan(before);
     expect((await game.dynamicsView(careerId, accountId)).players.find((p) => p.id === star.id)?.status).toBe("backup");
   }, 240_000);
+
+  it("Medien: Spielberichte, Liga, Gerüchte und Schlagzeilen", async () => {
+    const counts = await pool().query("select kind, count(*)::int as n from media where career_id = $1 group by kind", [careerId]);
+    const by = Object.fromEntries(counts.rows.map((r) => [r.kind, r.n]));
+    expect(by.match).toBeGreaterThan(20);
+    expect(by.league).toBeGreaterThan(10);
+    expect(by.rumour ?? 0).toBeGreaterThan(0);
+    const all = await game.mediaView(careerId, accountId, null);
+    expect(all.articles.length).toBeGreaterThan(10);
+    expect(all.articles.every((a) => a.title.length > 5 && a.body.length > 5)).toBe(true);
+    const own = await game.mediaView(careerId, accountId, "own");
+    expect(own.articles.every((a) => a.own)).toBe(true);
+    const rumours = await game.mediaView(careerId, accountId, "rumour");
+    expect(rumours.articles.every((a) => a.kind === "rumour")).toBe(true);
+    const d = await dashboard(careerId, accountId);
+    expect(d.headlines.length).toBe(4);
+  });
+
+  it("Einstellungen: Spieloptionen, Passwort und Account löschen", async () => {
+    const r = await game.updateCareerSettings(careerId, accountId, { autoSubs: false, stopOn: { finance: true, medical: false, hacked: true } });
+    expect(r.autoSubs).toBe(false);
+    expect(r.stopOn.finance).toBe(true);
+    expect(r.stopOn.medical).toBe(false);
+    expect("hacked" in r.stopOn).toBe(false);
+    expect((await dashboard(careerId, accountId)).career.stopOn.finance).toBe(true);
+    const email = `pw${Date.now()}@example.com`;
+    const { account, token } = await register(email, "geheim123", "PW");
+    await expect(game.changePassword(account.id, token, "falsch123", "neuesPasswort1")).rejects.toThrow();
+    await game.changePassword(account.id, token, "geheim123", "neuesPasswort1");
+    await expect(game.login(email, "geheim123")).rejects.toThrow();
+    expect((await game.login(email, "neuesPasswort1")).account.id).toBe(account.id);
+    await game.updateProfile(account.id, "Neuer Name");
+    await expect(game.deleteAccount(account.id, "geheim123")).rejects.toThrow();
+    await game.deleteAccount(account.id, "neuesPasswort1");
+    const gone = await pool().query("select 1 from accounts where id = $1", [account.id]);
+    expect(gone.rows.length).toBe(0);
+  });
 });

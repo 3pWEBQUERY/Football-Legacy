@@ -19,7 +19,7 @@ interface ShellCtx {
   clearPendingMessage: () => void;
 }
 
-/** Nachrichten dieser Kategorien halten die Verarbeitung nicht an. */
+/** Standard: diese Kategorien halten die Verarbeitung nicht an (in den Einstellungen änderbar). */
 const QUIET = new Set(["news", "finance", "training"]);
 const MAX_DAYS = 120;
 
@@ -27,11 +27,11 @@ const Ctx = createContext<ShellCtx>({ id: "", shell: null, advance: async () => 
 export const useGame = () => useContext(Ctx);
 
 const NAV = [
-  { key: "office", label: "Büro", icon: "office", href: "", subs: [{ href: "", label: "Übersicht & Posteingang" }, { href: "/calendar", label: "Kalender" }, { href: "/board", label: "Vorstand" }] },
+  { key: "office", label: "Büro", icon: "office", href: "", subs: [{ href: "", label: "Übersicht & Posteingang" }, { href: "/calendar", label: "Kalender" }, { href: "/media", label: "Medien" }, { href: "/board", label: "Vorstand" }] },
   { key: "team", label: "Team", icon: "team", href: "/team", subs: [{ href: "/team", label: "Kader" }, { href: "/team/tactic", label: "Taktik" }, { href: "/team/dynamics", label: "Dynamik" }, { href: "/team/training", label: "Training & Stab" }, { href: "/team/youth", label: "Jugend" }, { href: "/team/medical", label: "Medizin" }] },
   { key: "market", label: "Transfers", icon: "transfer", href: "/market", subs: [{ href: "/market", label: "Spielersuche" }, { href: "/market/scouting", label: "Scouting" }, { href: "/market/contracts", label: "Verträge" }, { href: "/market/finances", label: "Finanzen" }] },
   { key: "competition", label: "Wettbewerb", icon: "trophy", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/cup", label: "Pokal" }, { href: "/competition/continental", label: "Kontinentalpokal" }, { href: "/competition/stats", label: "Statistiken" }, { href: "/competition/awards", label: "Auszeichnungen" }] },
-  { key: "career", label: "Karriere", icon: "star", href: "/career", subs: [{ href: "/career", label: "Manager" }, { href: "/career/review", label: "Saisonrückblick" }, { href: "/career/collection", label: "Sammlung & Shop" }, { href: "/career/leaderboards", label: "Ranglisten" }] },
+  { key: "career", label: "Karriere", icon: "star", href: "/career", subs: [{ href: "/career", label: "Manager" }, { href: "/career/review", label: "Saisonrückblick" }, { href: "/career/collection", label: "Sammlung & Shop" }, { href: "/career/leaderboards", label: "Ranglisten" }, { href: "/career/settings", label: "Einstellungen" }] },
 ];
 
 function activeSection(path: string, base: string) {
@@ -91,7 +91,8 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
           continue;
         }
         setLiveDate(res.day.date);
-        const important = res.day.inbox.filter((m: any) => !QUIET.has(m.category));
+        const stopOn: Record<string, boolean> | undefined = shell.data?.career?.stopOn;
+        const important = res.day.inbox.filter((m: any) => (stopOn && m.category in stopOn ? stopOn[m.category] : !QUIET.has(m.category)));
         if (important.length) {
           setPendingMessage(important[0].id);
           if (path !== base) router.push(base);
@@ -106,7 +107,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
       setLiveDate(null);
       refreshAll();
     }
-  }, [busy, id, base, path, router, toast, showNotes]);
+  }, [busy, id, base, path, router, toast, showNotes, shell.data]);
 
   // Tastenkürzel wie im Original-Manager: Strg + Leertaste = Weiter
   useEffect(() => {

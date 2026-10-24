@@ -6,6 +6,7 @@ import {
 } from "@fl/sim";
 import type pg from "pg";
 import { windowFor } from "./window";
+import { addArticle } from "./media";
 import { one, query } from "./db";
 import { activateClubs, activateLeague, boardObjectives, scheduleSeason, withCareer } from "./career";
 import { GameError } from "./errors";
@@ -209,6 +210,11 @@ export async function makeOffer(careerId: string, accountId: string, input: Offe
     await saveCareer(db, career);
     await addInbox(db, career.id, career.season, career.week, "transfer", `${p.firstName} ${p.lastName} unterschreibt!`,
       `${p.firstName} ${p.lastName} wechselt ${seller ? `von ${seller.name} ` : ""}zu ${buyer.name}${fee ? ` (Ablöse ${formatMoney(fee)})` : " (ablösefrei)"}. Gehalt: ${formatMoney(wage)} pro Woche, Vertrag bis ${career.season + years - 1}.`);
+    await addArticle(db, career, {
+      kind: "transfer", title: fee ? `${buyer.name} holt ${p.firstName} ${p.lastName} für ${formatMoney(fee)}` : `${p.firstName} ${p.lastName} wechselt ablösefrei zu ${buyer.name}`,
+      body: `${buyer.name} hat ${p.firstName} ${p.lastName} (${p.age}, ${p.position}) ${seller ? `von ${seller.name} ` : ""}verpflichtet${fee ? ` – die Ablöse beträgt ${formatMoney(fee)}` : ""}. Der Vertrag läuft bis ${career.season + years - 1}.`,
+      clubId: buyer.id, playerId: p.id, own: true, importance: fee >= 10_000_000 ? 3 : 2,
+    });
     await announceNotes(db, career, notes);
     return { status: "completed", message: `${p.firstName} ${p.lastName} ist verpflichtet!`, notes };
   });

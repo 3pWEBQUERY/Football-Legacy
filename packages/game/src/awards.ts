@@ -6,6 +6,7 @@ import { coachName, dateOf, positionGroup, type Player, type PositionGroup } fro
 import type pg from "pg";
 import { pool, query } from "./db";
 import { readCareer } from "./career";
+import { addArticle } from "./media";
 import { type CareerRow, addInbox, getClub, getClubs, getLeague, getPlayersByIds, savePlayers } from "./repo";
 
 const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
@@ -124,6 +125,20 @@ export async function monthlyAwards(db: pg.PoolClient, career: CareerRow, date: 
   }
   await savePlayers(db, career.id, marked);
 
+  if (player) {
+    await addArticle(db, career, {
+      kind: "interview", title: `${player.name} ist Spieler des Monats ${MONTHS[prevMonth]}`,
+      body: `${player.name} (${player.club}) wird in der ${league.name} zum Spieler des Monats gewählt: Ø ${player.avg.toFixed(2)}, ${player.goals} Tore und ${player.assists} Vorlagen in ${player.apps} Spielen. „Die Auszeichnung gehört auch meinen Mitspielern“, sagte er nach der Ehrung.`,
+      clubId: player.clubId, playerId: player.id, own: player.clubId === career.club_id, importance: 2,
+    });
+  }
+  if (manager?.user) {
+    await addArticle(db, career, {
+      kind: "league", title: `${career.manager_name} ist Trainer des Monats`,
+      body: `${career.manager_name} holte mit ${manager.club} im ${MONTHS[prevMonth]} ${manager.points} Punkte (Bilanz ${manager.record}) und wird zum Trainer des Monats der ${league.name} gekürt.`,
+      clubId: manager.clubId, own: true, importance: 3,
+    });
+  }
   const ownPlayers = team.filter((t) => t.clubId === career.club_id);
   const involved = manager?.user || player?.clubId === career.club_id || young?.clubId === career.club_id || ownPlayers.length > 0;
   const m = MONTHS[prevMonth];

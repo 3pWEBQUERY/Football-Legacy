@@ -201,6 +201,17 @@ export default function Office() {
           )}
         </section>
 
+        {d.headlines?.length > 0 && (
+          <Panel title="Schlagzeilen" icon="news" flush actions={<Link href={`${base}/media`} className="btn btn-ghost btn-sm">Alle Meldungen</Link>}>
+            {d.headlines.map((h: any) => (
+              <Link key={h.id} href={`${base}/media`} className="headline-row">
+                <span className="news-kicker" style={{ minWidth: 92 }}>{h.kindLabel}</span>
+                <span className="truncate" style={{ flex: 1, fontWeight: h.own ? 700 : 500 }}>{h.title}</span>
+                <span className="faint small nowrap">{fmtDate(h.date, { year: false })}</span>
+              </Link>
+            ))}
+          </Panel>
+        )}
         </div>
         <div className="stack">
         <Panel title="Vorstand" icon="board" actions={<Link href={`${base}/board`} className="btn btn-ghost btn-sm">Anfragen</Link>}>

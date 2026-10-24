@@ -284,4 +284,23 @@ create table if not exists monthly_awards (
 create index if not exists monthly_awards_career on monthly_awards(career_id, season, month);
 `,
   },
+  {
+    name: "009_media.sql",
+    sql: `
+create table if not exists media (
+  id serial primary key,
+  career_id uuid not null references careers(id) on delete cascade,
+  season int not null,
+  day int not null,
+  kind text not null,
+  title text not null,
+  body text not null,
+  club_id int,
+  player_id int,
+  own boolean not null default false,
+  importance int not null default 1
+);
+create index if not exists media_career on media(career_id, id desc);
+`,
+  },
 ];

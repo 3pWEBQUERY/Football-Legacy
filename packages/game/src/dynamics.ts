@@ -9,6 +9,7 @@ import {
 import { pool, query, type Db } from "./db";
 import { readCareer, withCareer } from "./career";
 import { GameError } from "./errors";
+import { addArticle } from "./media";
 import { type CareerRow, addInbox, getClub, getPlayer, getPlayers, savePlayers } from "./repo";
 
 const clamp = (v: number, max = 100) => Math.max(5, Math.min(max, Math.round(v)));
@@ -64,6 +65,11 @@ export async function weeklyDynamics(db: Db, career: CareerRow, squad: Player[])
           `${p.playing!.starts} von ${p.playing!.matches} Spielen begonnen und möchte den Verein verlassen.\n\n` +
           "Du kannst ihm mehr Einsatzzeit versprechen, ihn öffentlich auf die Transferliste setzen oder seinen Status anpassen.",
         { type: "player", playerId: p.id });
+      await addArticle(db, career, {
+        kind: "interview", title: `${p.lastName}: „Ich will spielen“`,
+        body: `${p.firstName} ${p.lastName} macht seinem Ärger Luft: „Ich bin hierhergekommen, um zu spielen. ${p.playing!.starts} Einsätze von Beginn an aus ${p.playing!.matches} Spielen sind zu wenig. Ich habe den Verein gebeten, mich gehen zu lassen.“`,
+        clubId: career.club_id, playerId: p.id, own: true, importance: 2,
+      });
       out.push(`Wechselwunsch: ${p.lastName}`);
     } else if (p.transferRequest && p.morale >= 60) {
       p.transferRequest = false;
