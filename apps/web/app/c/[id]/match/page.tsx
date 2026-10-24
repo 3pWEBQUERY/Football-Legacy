@@ -3,12 +3,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SKINS } from "@fl/sim";
 import { api, refreshAll } from "@/lib/client/api";
-import { POS_LABEL } from "@/lib/client/format";
+import { POS_LABEL, matchRatingColor } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { MatchCanvas } from "@/components/MatchCanvas";
-import { EVENT_ICON, RatingList, StatRows } from "@/components/MatchStats";
+import { RatingList, StatRows } from "@/components/MatchStats";
 import { WeekSummaryView } from "@/components/WeekSummary";
-import { Crest, Icon, Loading, Pos, Progress, useNotes, useToast } from "@/components/ui";
+import { Crest, EventIcon, Icon, Loading, Panel, Pos, Progress, useNotes, useToast } from "@/components/ui";
 
 type Phase = "preview" | "loading" | "play1" | "halftime" | "play2" | "fulltime";
 const SPEEDS = [{ label: "1×", tps: 4 }, { label: "2×", tps: 9 }, { label: "4×", tps: 20 }];
@@ -165,35 +165,39 @@ export default function MatchDay() {
   if (phase === "preview" || phase === "loading") {
     return (
       <div className="match-shell">
-        <div className="content" style={{ maxWidth: 760 }}>
-          <Link href={base} className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }}><Icon name="back" size={16} /> Zurück ins Büro</Link>
+        <div className="content" style={{ maxWidth: 980 }}>
+          <Link href={base} className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }}><Icon name="back" size={15} /> Büro</Link>
           {!preview ? <Loading /> : (
-            <div className="card stack" style={{ textAlign: "center", padding: 28 }}>
-              <span className="badge badge-accent" style={{ alignSelf: "center" }}>{preview.week}. Spieltag</span>
-              <div className="between" style={{ gap: 20 }}>
-                <div className="stack-sm" style={{ alignItems: "center", flex: 1 }}><Crest colors={preview.home.colors} name={preview.home.name} size={72} /><h2>{preview.home.name}</h2><span className="faint">Stärke {preview.home.rating}</span></div>
-                <span style={{ fontSize: 28, fontWeight: 800 }} className="faint">vs</span>
-                <div className="stack-sm" style={{ alignItems: "center", flex: 1 }}><Crest colors={preview.away.colors} name={preview.away.name} size={72} /><h2>{preview.away.name}</h2><span className="faint">Stärke {preview.away.rating}</span></div>
+            <section className="card card-flush" style={{ ["--home" as string]: preview.home.colors.primary, ["--away" as string]: preview.away.colors.primary }}>
+              <div className="card-head"><h3><Icon name="calendar" size={15} /> Spieltag {preview.week} · Vorbericht</h3></div>
+              <div className="scoreboard" style={{ borderBottom: "1px solid var(--line)", minHeight: 110 }}>
+                <div className="team home"><Crest colors={preview.home.colors} name={preview.home.name} size={64} /><div><strong>{preview.home.name}</strong><div className="faint small">Heim · Stärke {preview.home.rating}</div></div></div>
+                <div className="center"><div className="score" style={{ fontSize: 28 }}>VS</div></div>
+                <div className="team away"><div><strong>{preview.away.name}</strong><div className="faint small">Gast · Stärke {preview.away.rating}</div></div><Crest colors={preview.away.colors} name={preview.away.name} size={64} /></div>
               </div>
-              {preview.analysis && <p className="dim small">Der Gegner spielt meist {preview.analysis.formation}. Achte auf {preview.analysis.keyPlayers.map((p: any) => p.name).join(", ")}.</p>}
-              <div className="row" style={{ justifyContent: "center", flexWrap: "wrap" }}>
-                <Link className="btn btn-lg" href={`${base}/team/tactic`}>Aufstellung</Link>
-                <button className="btn btn-lg" onClick={quick} disabled={busy || phase === "loading"}>Nur Ergebnis</button>
-                <button className="btn btn-primary btn-lg" onClick={start} disabled={phase === "loading"}><Icon name="whistle" /> {phase === "loading" ? "Anpfiff …" : "Anpfiff"}</button>
+              {preview.analysis && (
+                <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)" }} className="small">
+                  <span className="faint up">Gegneranalyse</span> · Formation <b>{preview.analysis.formation}</b> · Schlüsselspieler: {preview.analysis.keyPlayers.map((p: any) => `${p.name} (${p.rating})`).join(", ")}
+                </div>
+              )}
+              <div className="row" style={{ padding: 14, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                <Link className="btn btn-lg" href={`${base}/team/tactic`}><Icon name="board" size={16} /> Taktik</Link>
+                <button className="btn btn-lg" onClick={quick} disabled={busy || phase === "loading"}>Sofortergebnis</button>
+                <button className="btn btn-primary btn-lg" onClick={start} disabled={phase === "loading"}><Icon name="whistle" size={16} /> {phase === "loading" ? "Anpfiff …" : "Anpfiff"}</button>
               </div>
-            </div>
+            </section>
           )}
         </div>
       </div>
     );
   }
 
-  // ------------------------------------------------------------ Nur Ergebnis
+  // ------------------------------------------------------------ Sofortergebnis
   if (final?.quick) {
     return (
-      <div className="match-shell"><div className="content" style={{ maxWidth: 860 }}>
+      <div className="match-shell"><div className="content" style={{ maxWidth: 900 }}>
         <div className="card"><WeekSummaryView summary={final.summary} base={base} onClose={() => {}} /></div>
-        <Link className="btn btn-primary btn-lg" href={base}>Zurück ins Büro</Link>
+        <div><Link className="btn btn-primary btn-lg" href={base}>Zurück ins Büro</Link></div>
       </div></div>
     );
   }
@@ -204,42 +208,65 @@ export default function MatchDay() {
   const [home, away] = m.teams;
   // Nur bereits gesehene Szenen – sonst würden die Highlights das Ergebnis verraten
   const highlights = events.filter((e) => HIGHLIGHT.has(e.type) && e.tick + 0.5 <= playhead);
+  const teamVars = { ["--home" as string]: colors[0].fill, ["--away" as string]: colors[1].fill };
 
   return (
-    <div className="match-shell">
+    <div className="match-shell" style={teamVars}>
       <div className="scoreboard">
-        <div className="team"><Crest colors={home.colors} name={home.name} size={36} /><strong className="truncate">{home.name}</strong></div>
-        <div>
-          <div className="score">{score[0]}:{score[1]}</div>
-          <div className="clock">{phase === "halftime" ? "Halbzeit" : phase === "fulltime" ? "Abpfiff" : `${minute}'`}</div>
+        <div className="team home"><Crest colors={home.colors} name={home.name} size={34} /><strong className="truncate">{home.name}</strong></div>
+        <div className="center">
+          <div className="score">{score[0]} – {score[1]}</div>
+          <div className="clock">{phase === "halftime" ? "HZ" : phase === "fulltime" ? "Ende" : `${minute}'`}</div>
         </div>
-        <div className="team away"><strong className="truncate">{away.name}</strong><Crest colors={away.colors} name={away.name} size={36} /></div>
+        <div className="team away"><strong className="truncate">{away.name}</strong><Crest colors={away.colors} name={away.name} size={34} /></div>
       </div>
-      <div style={{ padding: "0 16px" }}><Progress value={playhead} max={540} /></div>
+      <div className="progress blue" style={{ height: 3, borderRadius: 0 }}><span style={{ width: `${(playhead / 540) * 100}%` }} /></div>
 
       <div className="match-body">
+        <div className="stack match-left">
+          <Panel title="Statistik" icon="chart">
+            {phase === "play1" ? <p className="faint small">Die Statistik gibt es in der Halbzeitpause.</p> : <StatRows stats={phase === "fulltime" && final ? final.result.stats : statsAt(m, phase)} />}
+          </Panel>
+          <Panel title={mine.short + " · Aufstellung"} icon="users" flush>
+            <table className="table">
+              <tbody>
+                {mine.players.filter((p: any) => p.slot >= 0).sort((a: any, b: any) => a.slot - b.slot).map((p: any) => (
+                  <tr key={p.id}>
+                    <td style={{ width: 40 }}><Pos p={p.position} /></td>
+                    <td className="name truncate">{p.short}</td>
+                    <td className="r" style={{ width: 70 }}><Progress value={p.stamina} tone={p.stamina < 60 ? "danger" : p.stamina < 75 ? "warn" : undefined} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Panel>
+        </div>
+
         <div className="stack">
           <div className="match-canvas-wrap">
             <MatchCanvas frames={frames} playhead={Math.min(playhead, frames.length - 1)} colors={colors} numbers={numbers} skin={skinDef} flash={flash} />
           </div>
           {(phase === "play1" || phase === "play2") && (
-            <div className="row-wrap">
-              <button className="btn" onClick={() => setPaused((p) => !p)}><Icon name={paused ? "play" : "pause"} size={16} /> {paused ? "Weiter" : "Pause"}</button>
+            <div className="card row-wrap" style={{ padding: 8 }}>
+              <button className="btn" onClick={() => setPaused((p) => !p)}><Icon name={paused ? "play" : "pause"} size={15} /> {paused ? "Weiter" : "Pause"}</button>
               <div className="seg">{SPEEDS.map((s, i) => <button key={s.label} className={speed === i ? "active" : ""} onClick={() => setSpeed(i)}>{s.label}</button>)}</div>
-              <button className="btn" onClick={() => setPlayhead(endTick)}><Icon name="fast" size={16} /> {phase === "play1" ? "Zur Halbzeit" : "Zum Abpfiff"}</button>
-              <span className="faint small ml-auto">Highlights:</span>
+              <button className="btn" onClick={() => setPlayhead(endTick)}><Icon name="fast" size={15} /> {phase === "play1" ? "Zur Halbzeit" : "Zum Abpfiff"}</button>
+              {highlights.length > 0 && <span className="faint small up ml-auto">Highlights</span>}
               {highlights.map((e, i) => (
                 <button key={i} className="btn btn-sm" title={e.text} onClick={() => { setPlayhead(Math.max(phase === "play2" ? 271 : 0, e.tick - 4)); setPaused(false); }}>
-                  {EVENT_ICON[e.type]} {e.minute}'
+                  <EventIcon type={e.type} /> {e.minute}'
                 </button>
               ))}
             </div>
           )}
 
           {phase === "halftime" && (
-            <div className="card stack">
-              <div className="between"><h2>Kabine – Halbzeitansprache</h2><button className="btn btn-primary btn-lg" onClick={secondHalf} disabled={busy}><Icon name="whistle" /> {busy ? "Simuliere …" : "2. Halbzeit"}</button></div>
-              <div className="grid grid-2" style={{ alignItems: "start" }}>
+            <section className="card card-flush">
+              <div className="card-head">
+                <h3><Icon name="board" size={15} /> Kabine · Halbzeitansprache</h3>
+                <button className="btn btn-primary" onClick={secondHalf} disabled={busy}><Icon name="whistle" size={15} /> {busy ? "Simuliere …" : "2. Halbzeit"}</button>
+              </div>
+              <div className="grid grid-2" style={{ alignItems: "start", padding: 14 }}>
                 <div className="stack">
                   <div className="field">
                     <label>Formation</label>
@@ -251,27 +278,32 @@ export default function MatchDay() {
                     <div key={k} className="slider">
                       <label className="small" style={{ fontWeight: 600 }} htmlFor={`h-${k}`}>{label}</label>
                       <input id={`h-${k}`} type="range" min={0} max={100} step={5} value={change.style[k] ?? mine.style[k]} onChange={(e) => setChange({ ...change, style: { ...change.style, [k]: Number(e.target.value) } })} />
-                      <span className="num small">{change.style[k] ?? mine.style[k]}</span>
+                      <span className="cond" style={{ fontWeight: 700 }}>{change.style[k] ?? mine.style[k]}</span>
                     </div>
                   ))}
                   <label className="row small"><input type="checkbox" checked={change.autoSubs ?? true} onChange={(e) => setChange({ ...change, autoSubs: e.target.checked })} /> Co-Trainer wechselt in der 2. Halbzeit automatisch</label>
                 </div>
                 <div className="stack-sm">
-                  <div className="between"><h3>Wechsel</h3><span className="faint small">{mine.subsUsed + change.subs.length}/5 genutzt</span></div>
-                  <p className="faint small">Tippe einen Spieler auf dem Platz an, dann einen von der Bank.</p>
-                  {mine.players.filter((p: any) => p.slot >= 0).sort((a: any, b: any) => a.slot - b.slot).map((p: any) => {
-                    const sub = change.subs.find((s: any) => s.slot === p.slot);
-                    const incoming = sub && mine.players.find((x: any) => x.id === sub.playerId);
-                    return (
-                      <button key={p.id} className="card-soft between small" style={{ cursor: "pointer", padding: "6px 10px", borderColor: subSlot === p.slot ? "var(--gold)" : undefined }} onClick={() => setSubSlot(subSlot === p.slot ? null : p.slot)}>
-                        <span className="row" style={{ gap: 6 }}><Pos p={p.position} /> {incoming ? <><s className="faint">{p.short}</s> → <b>{incoming.short}</b></> : p.short}</span>
-                        <span className="row" style={{ gap: 8 }}><span className="faint">Note {p.rating.toFixed(1)}</span><span style={{ width: 50 }}><Progress value={p.stamina} tone={p.stamina < 60 ? "danger" : p.stamina < 75 ? "warn" : undefined} /></span></span>
-                      </button>
-                    );
-                  })}
+                  <div className="between"><span className="faint small up">Wechsel</span><span className="cond" style={{ fontWeight: 700 }}>{mine.subsUsed + change.subs.length} / 5</span></div>
+                  <table className="table">
+                    <tbody>
+                      {mine.players.filter((p: any) => p.slot >= 0).sort((a: any, b: any) => a.slot - b.slot).map((p: any) => {
+                        const sub = change.subs.find((s: any) => s.slot === p.slot);
+                        const incoming = sub && mine.players.find((x: any) => x.id === sub.playerId);
+                        return (
+                          <tr key={p.id} className={`clickable ${subSlot === p.slot ? "highlight" : ""}`} onClick={() => setSubSlot(subSlot === p.slot ? null : p.slot)}>
+                            <td style={{ width: 40 }}><Pos p={p.position} /></td>
+                            <td className="name">{incoming ? <><s className="faint">{p.short}</s> <Icon name="swap" size={12} /> {incoming.short}</> : p.short}</td>
+                            <td className="c cond" style={{ fontWeight: 700, color: matchRatingColor(p.rating) }}>{p.rating.toFixed(1)}</td>
+                            <td style={{ width: 60 }}><Progress value={p.stamina} tone={p.stamina < 60 ? "danger" : p.stamina < 75 ? "warn" : undefined} /></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                   {subSlot !== null && (
                     <div className="card-soft stack-sm">
-                      <b className="small">Einwechseln für Slot {POS_LABEL[mine.players.find((p: any) => p.slot === subSlot)?.position] ?? ""}</b>
+                      <span className="faint small up">Einwechseln für {POS_LABEL[mine.players.find((p: any) => p.slot === subSlot)?.position] ?? ""}</span>
                       {mine.players.filter((p: any) => p.slot === -1 && !change.subs.some((s: any) => s.playerId === p.id)).map((p: any) => (
                         <button key={p.id} className="btn btn-sm" style={{ justifyContent: "flex-start" }} disabled={mine.subsUsed + change.subs.filter((s: any) => s.slot !== subSlot).length >= 5}
                           onClick={() => { setChange({ ...change, subs: [...change.subs.filter((s: any) => s.slot !== subSlot), { slot: subSlot, playerId: p.id }] }); setSubSlot(null); }}>
@@ -283,47 +315,39 @@ export default function MatchDay() {
                   )}
                 </div>
               </div>
-            </div>
+            </section>
           )}
 
           {phase === "fulltime" && final && (
-            <div className="card stack">
-              <div className="between">
-                <h2>{resultText(final.result, side)}</h2>
-                <Link className="btn btn-primary btn-lg" href={base}>Zurück ins Büro</Link>
+            <section className="card card-flush">
+              <div className="card-head">
+                <h3><Icon name="whistle" size={15} /> {resultText(final.result, side)}</h3>
+                <Link className="btn btn-primary" href={base}>Zurück ins Büro</Link>
               </div>
               {final.summary.notes?.length > 0 && (
-                <div className="row-wrap">{final.summary.notes.map((n: any, i: number) => <span key={i} className="badge badge-accent">{n.icon ?? "✨"} {n.text}</span>)}</div>
+                <div className="row-wrap" style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{final.summary.notes.map((n: any, i: number) => <span key={i} className={`badge ${n.kind === "xp" ? "" : "badge-blue"}`}>{n.text}</span>)}</div>
               )}
-              <div className="grid grid-2" style={{ alignItems: "start" }}>
+              <div className="grid grid-2" style={{ gap: 0, alignItems: "start" }}>
                 <RatingList players={final.result.players} side={0} title={home.name} motm={final.result.motm} />
                 <RatingList players={final.result.players} side={1} title={away.name} motm={final.result.motm} />
               </div>
-              <WeekSummaryView summary={{ ...final.summary, notes: [] }} base={base} onClose={() => {}} />
-            </div>
+              <div style={{ padding: 14, borderTop: "1px solid var(--line)" }}>
+                <WeekSummaryView summary={{ ...final.summary, notes: [] }} base={base} onClose={() => {}} />
+              </div>
+            </section>
           )}
         </div>
 
-        <div className="stack">
-          <div className="card stack-sm">
-            <h3>Spielstatistik</h3>
-            {phase === "play1" ? <p className="faint small">Die Statistik gibt es in der Halbzeitpause.</p> : <StatRows stats={phase === "fulltime" && final ? final.result.stats : statsAt(m, phase)} />}
-            <div className="row small faint" style={{ gap: 12 }}>
-              <span className="row" style={{ gap: 4 }}><span style={{ width: 10, height: 10, background: "var(--accent)", borderRadius: 2 }} />{home.short}</span>
-              <span className="row" style={{ gap: 4 }}><span style={{ width: 10, height: 10, background: "var(--blue)", borderRadius: 2 }} />{away.short}</span>
-            </div>
+        <Panel title="Live-Ticker" icon="news">
+          <div className="events" style={{ margin: "-4px 0" }}>
+            {[...visible].reverse().filter((e) => !["foul", "kickoff", "corner", "freekick"].includes(e.type)).map((e, i) => (
+              <div key={i} className={`event ${e.type.includes("goal") ? "goal" : ""}`}>
+                <span className="min">{e.minute}'</span><span className="ico"><EventIcon type={e.type} /></span><span className="txt">{e.text}</span>
+              </div>
+            ))}
+            {visible.length <= 1 && <p className="faint small">Das Spiel läuft …</p>}
           </div>
-          <div className="card stack-sm">
-            <h3>Ereignisse</h3>
-            <div className="events">
-              {[...visible].reverse().filter((e) => !["foul", "kickoff"].includes(e.type)).map((e, i) => (
-                <div key={i} className={`event ${e.type.includes("goal") ? "goal" : ""}`}>
-                  <span className="min">{e.minute}'</span><span>{EVENT_ICON[e.type] ?? "•"}</span><span className="txt">{e.text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        </Panel>
       </div>
     </div>
   );

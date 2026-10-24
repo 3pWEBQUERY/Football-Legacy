@@ -1,23 +1,32 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, refreshAll } from "@/lib/client/api";
-import { CATEGORY_ICON, money } from "@/lib/client/format";
+import { money } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
-import { Crest, Empty, FormChips, Icon, Loading, Progress, Rating, useToast } from "@/components/ui";
+import { CategoryIcon, Crest, Empty, FormChips, Icon, Loading, Panel, Progress, Rating, useToast } from "@/components/ui";
 
 export default function Office() {
   const { id, shell: d, advance, busy } = useGame();
   const toast = useToast();
-  const [open, setOpen] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<number | null>(null);
   const base = `/c/${id}`;
-  if (!d) return <Loading />;
 
-  async function read(item: any) {
-    setOpen(open === item.id ? null : item.id);
-    if (!item.read) {
-      await api(`careers/${id}/inbox`, { body: { ids: [item.id] } }).catch(() => {});
-      item.read = true;
+  useEffect(() => {
+    if (d?.inbox?.length && openId === null) setOpenId(d.inbox[0].id);
+  }, [d, openId]);
+
+  if (!d) return <Loading />;
+  const c = d.career;
+  const board = d.board;
+  const next = d.next;
+  const open = d.inbox.find((m: any) => m.id === openId) ?? null;
+
+  async function select(m: any) {
+    setOpenId(m.id);
+    if (!m.read) {
+      m.read = true;
+      await api(`careers/${id}/inbox`, { body: { ids: [m.id] } }).catch(() => {});
     }
   }
 
@@ -41,192 +50,204 @@ export default function Office() {
   async function acceptJob(clubId: number) {
     try {
       await api(`careers/${id}/job`, { body: { clubId } });
-      toast("Neuer Verein – viel Erfolg!", "success");
+      toast("Neuer Verein übernommen.", "success");
       refreshAll();
     } catch (e) {
       toast((e as Error).message, "error");
     }
   }
 
-  const c = d.career;
-  const board = d.board;
-  const next = d.next;
+  const offerFor = (m: any) => (m?.action?.type === "transfer_offer" ? d.offers.find((o: any) => o.id === m.action.transferId) : null);
+  const openOffer = offerFor(open);
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Büro</h1>
-          <p>Guten Tag, {c.managerName}. {c.week === 0 ? "Die Saisonvorbereitung läuft." : `Woche ${c.week} von ${c.seasonWeeks}.`}</p>
-        </div>
-      </div>
-
       {c.status === "unemployed" && (
-        <div className="card stack" style={{ borderColor: "var(--warn)" }}>
-          <h3>Du bist aktuell ohne Verein</h3>
-          <p className="dim">Wähle eines der Jobangebote, um weiterzumachen.</p>
-          {d.jobOffers.map((o: any) => (
-            <div key={o.clubId} className="card-soft between">
-              <div><strong>{o.clubName}</strong> <span className="dim">· {o.leagueName}</span></div>
-              <button className="btn btn-primary btn-sm" onClick={() => acceptJob(o.clubId)}>Annehmen</button>
-            </div>
-          ))}
-        </div>
+        <Panel title="Jobangebote" icon="board">
+          <p className="dim" style={{ marginBottom: 10 }}>Du bist aktuell ohne Verein. Wähle ein Angebot, um weiterzumachen.</p>
+          <table className="table">
+            <tbody>
+              {d.jobOffers.map((o: any) => (
+                <tr key={o.clubId}>
+                  <td className="name">{o.clubName}</td>
+                  <td className="dim">{o.leagueName}</td>
+                  <td className="r"><button className="btn btn-primary btn-sm" onClick={() => acceptJob(o.clubId)}>Übernehmen</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
       )}
 
       <div className="grid grid-main" style={{ alignItems: "start" }}>
         <div className="stack">
-          {next && (
-            <div className="card stack">
-              <div className="card-head" style={{ marginBottom: 0 }}>
-                <h3><Icon name="whistle" /> Nächstes Spiel · {next.week}. Spieltag</h3>
-                {next.window?.open && <span className="badge badge-accent">{next.window.label}</span>}
-              </div>
-              <div className="between" style={{ padding: "8px 0" }}>
-                <Link href={`${base}/club/${next.home.id}`} className="row" style={{ flex: 1 }}>
-                  <Crest colors={next.home.colors} name={next.home.name} size={42} />
-                  <div><strong>{next.home.name}</strong><div className="faint small">Heim · Stärke {next.home.rating}</div></div>
-                </Link>
-                <span className="faint" style={{ fontWeight: 800, fontSize: 18 }}>vs</span>
-                <Link href={`${base}/club/${next.away.id}`} className="row" style={{ flex: 1, justifyContent: "flex-end", textAlign: "right" }}>
-                  <div><strong>{next.away.name}</strong><div className="faint small">Gast · Stärke {next.away.rating}</div></div>
-                  <Crest colors={next.away.colors} name={next.away.name} size={42} />
-                </Link>
-              </div>
-              {next.analysis && (
-                <div className="card-soft stack-sm">
-                  <div className="between small"><b>Gegner-Analyse</b><span className="dim">Formation {next.analysis.formation}</span></div>
-                  <div className="row-wrap small">
-                    <span className="dim">Form:</span> <FormChips form={next.analysis.form} />
-                    <span className="dim" style={{ marginLeft: 8 }}>Gefährlich:</span>
-                    {next.analysis.keyPlayers.map((p: any) => <span key={p.id} className="badge">{p.name} ({p.rating})</span>)}
-                  </div>
+        {next ? (
+          <Panel title={`Nächstes Spiel · ${next.week}. Spieltag`} icon="calendar" actions={next.window?.open && <span className="badge badge-accent">{next.window.label}</span>}>
+            <div className="fixture-row">
+              <Link href={`${base}/club/${next.home.id}`} className="row" style={{ gap: 12, minWidth: 0 }}>
+                <Crest colors={next.home.colors} name={next.home.name} size={48} />
+                <div style={{ minWidth: 0 }}>
+                  <div className="cond up truncate" style={{ fontSize: 20, fontWeight: 700 }}>{next.home.name}</div>
+                  <div className="faint small">Heim · Stärke {next.home.rating}</div>
                 </div>
-              )}
-              <div className="row-wrap">
-                <Link className="btn" href={`${base}/team/tactic`}><Icon name="team" size={16} /> Aufstellung prüfen</Link>
-                <button className="btn btn-primary" onClick={advance} disabled={busy}><Icon name="whistle" size={16} /> Zum Spiel</button>
-              </div>
-            </div>
-          )}
-
-          {d.offers?.length > 0 && (
-            <div className="card stack">
-              <h3>🔁 Offene Angebote für deine Spieler</h3>
-              {d.offers.map((o: any) => (
-                <div key={o.id} className="card-soft between">
-                  <div><strong>{o.player_name}</strong> <span className="dim">· {o.message} · {money(o.fee)}</span></div>
-                  <div className="row">
-                    <button className="btn btn-primary btn-sm" onClick={() => respond(o.id, "accept")}>Annehmen</button>
-                    <button className="btn btn-sm" onClick={() => respond(o.id, "counter")}>Mehr fordern</button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => respond(o.id, "reject")}>Ablehnen</button>
-                  </div>
+              </Link>
+              <div className="cond faint" style={{ fontSize: 22, fontWeight: 700 }}>VS</div>
+              <Link href={`${base}/club/${next.away.id}`} className="row" style={{ gap: 12, justifyContent: "flex-end", textAlign: "right", minWidth: 0 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div className="cond up truncate" style={{ fontSize: 20, fontWeight: 700 }}>{next.away.name}</div>
+                  <div className="faint small">Gast · Stärke {next.away.rating}</div>
                 </div>
-              ))}
+                <Crest colors={next.away.colors} name={next.away.name} size={48} />
+              </Link>
             </div>
-          )}
+            {next.analysis && (
+              <div className="card-soft" style={{ marginTop: 12, display: "grid", gridTemplateColumns: "auto auto 1fr", gap: "6px 16px", alignItems: "center" }}>
+                <span className="faint small up">Formation</span><b>{next.analysis.formation}</b><span />
+                <span className="faint small up">Form</span><FormChips form={next.analysis.form} /><span />
+                <span className="faint small up">Schlüsselspieler</span>
+                <span style={{ gridColumn: "2 / -1" }} className="small">{next.analysis.keyPlayers.map((p: any) => `${p.name} (${p.rating})`).join(" · ")}</span>
+              </div>
+            )}
+            <div className="row" style={{ marginTop: 12 }}>
+              <Link className="btn" href={`${base}/team/tactic`}><Icon name="board" size={15} /> Taktik</Link>
+              <button className="btn btn-primary" onClick={advance} disabled={busy}><Icon name="whistle" size={15} /> Zum Spieltag</button>
+            </div>
+          </Panel>
+        ) : (
+          <Panel title="Kalender" icon="calendar"><p className="dim">Diese Woche steht kein Pflichtspiel an.</p></Panel>
+        )}
 
-          <div className="card card-flush">
-            <div className="card-head" style={{ paddingBottom: 12 }}>
-              <h3><Icon name="mail" /> Posteingang {d.unread > 0 && <span className="badge badge-accent">{d.unread} neu</span>}</h3>
-              {d.unread > 0 && (
-                <button className="btn btn-ghost btn-sm" onClick={async () => { await api(`careers/${id}/inbox`, { body: { ids: "all" } }); refreshAll(); }}>Alle gelesen</button>
-              )}
-            </div>
-            {d.inbox.length === 0 && <Empty>Keine Nachrichten.</Empty>}
-            {d.inbox.map((m: any) => (
-              <div key={m.id} className={`inbox-item ${m.read ? "" : "unread"}`} onClick={() => read(m)} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && read(m)}>
-                <div className="inbox-icon">{CATEGORY_ICON[m.category] ?? "✉️"}</div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div className="between">
-                    <span className="inbox-title truncate">{m.title}</span>
-                    <span className="faint small nowrap">{m.week === 0 ? "Vorbereitung" : `Woche ${m.week}`}</span>
-                  </div>
-                  {open === m.id ? (
-                    <div className="stack-sm" style={{ marginTop: 6 }}>
-                      <p className="inbox-body">{m.body}</p>
-                      {m.action?.type === "fixture" && <Link className="btn btn-sm" href={`${base}/report/${m.action.fixtureId}`} onClick={(e) => e.stopPropagation()}>Spielbericht</Link>}
+        <section className="card card-flush">
+          <div className="card-head">
+            <h3><Icon name="mail" size={15} /> Posteingang {d.unread > 0 && <span className="badge badge-blue">{d.unread} neu</span>}</h3>
+            {d.unread > 0 && <button className="btn btn-ghost btn-sm" onClick={async () => { await api(`careers/${id}/inbox`, { body: { ids: "all" } }); refreshAll(); }}>Alle gelesen</button>}
+          </div>
+          {d.inbox.length === 0 ? <Empty>Keine Nachrichten.</Empty> : (
+            <div className="inbox">
+              <div className="inbox-list">
+                {d.inbox.map((m: any) => (
+                  <div key={m.id} className={`inbox-item ${m.read ? "" : "unread"} ${openId === m.id ? "active" : ""}`} onClick={() => select(m)} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && select(m)}>
+                    <div className="inbox-icon"><CategoryIcon category={m.category} /></div>
+                    <div style={{ minWidth: 0, flex: 1, paddingRight: 12 }}>
+                      <div className="inbox-title truncate">{m.title}</div>
+                      <div className="faint small">{m.week === 0 ? "Vorbereitung" : `Woche ${m.week}`}</div>
                     </div>
-                  ) : (
-                    <p className="faint small truncate">{m.body.split("\n")[0]}</p>
-                  )}
-                </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="stack">
-          <div className="card stack">
-            <h3>🏛️ Vorstand</h3>
-            <p>{board.objective}</p>
-            <div className="stack-sm">
-              <div className="between small"><span className="dim">Vertrauen</span><b>{board.confidence}/100</b></div>
-              <Progress value={board.confidence} tone={board.confidence < 35 ? "danger" : board.confidence < 55 ? "warn" : undefined} />
+              <div className="inbox-read">
+                {open ? (
+                  <>
+                    <div className="faint small up">{open.week === 0 ? "Saisonvorbereitung" : `Woche ${open.week}`}</div>
+                    <h2>{open.title}</h2>
+                    <p className="inbox-body">{open.body}</p>
+                    {open.action?.type === "fixture" && <div><Link className="btn" href={`${base}/report/${open.action.fixtureId}`}>Spielbericht öffnen</Link></div>}
+                    {openOffer && (
+                      <div className="row">
+                        <button className="btn btn-primary" onClick={() => respond(openOffer.id, "accept")}>Angebot annehmen</button>
+                        <button className="btn" onClick={() => respond(openOffer.id, "counter")}>Mehr fordern</button>
+                        <button className="btn btn-ghost" onClick={() => respond(openOffer.id, "reject")}>Ablehnen</button>
+                      </div>
+                    )}
+                  </>
+                ) : <Empty>Wähle eine Nachricht.</Empty>}
+              </div>
             </div>
-            <div className="between small"><span className="dim">Kontostand mindestens</span><b>{money(board.financeTarget)}</b></div>
-            <div className="between small"><span className="dim">Erwarteter Platz</span><b>{board.expectedPosition}</b></div>
-          </div>
+          )}
+        </section>
 
-          <div className="card stack">
-            <div className="between"><h3>🎯 Tagesmissionen</h3><span className="faint small">neu jeden Tag</span></div>
-            {d.missions.map((m: any) => (
-              <div key={m.kind} className="row" style={{ opacity: m.done ? 0.6 : 1 }}>
-                <span style={{ fontSize: 18 }}>{m.done ? "✅" : "⬜"}</span>
-                <div style={{ flex: 1 }}>
-                  <strong style={{ textDecoration: m.done ? "line-through" : undefined }}>{m.name}</strong>
-                  <div className="faint small">{m.description}</div>
-                </div>
-                <span className="badge badge-gold">+{m.points} MP</span>
-              </div>
-            ))}
-            <div className="between small"><span className="dim">🔥 Login-Serie</span><b>{d.loginStreak} {d.loginStreak === 1 ? "Tag" : "Tage"}</b></div>
+        </div>
+        <div className="stack">
+        <Panel title="Vorstand" icon="board">
+          <p style={{ fontWeight: 600, marginBottom: 10 }}>{board.objective}</p>
+          <div className="stack-sm" style={{ marginBottom: 6 }}>
+            <div className="between small"><span className="faint up">Vertrauen</span><b className="cond" style={{ fontSize: 16 }}>{board.confidence}%</b></div>
+            <Progress value={board.confidence} tone={board.confidence < 35 ? "danger" : board.confidence < 55 ? "warn" : undefined} />
           </div>
-
+          <div className="kv"><span className="k">Erwarteter Platz</span><span className="v">{board.expectedPosition}.</span></div>
+          <div className="kv"><span className="k">Zielplatz</span><span className="v">{board.targetPosition}. oder besser</span></div>
+          <div className="kv"><span className="k">Kontostand mindestens</span><span className="v">{money(board.financeTarget)}</span></div>
+        </Panel>
           {d.table?.length > 0 && (
-            <div className="card card-flush">
-              <div className="card-head" style={{ paddingBottom: 6 }}>
-                <h3>📊 Tabelle</h3>
-                <Link href={`${base}/competition`} className="btn btn-ghost btn-sm">Ganze Tabelle</Link>
-              </div>
+            <Panel title="Tabelle" icon="trophy" flush actions={<Link href={`${base}/competition`} className="btn btn-ghost btn-sm">Vollständig</Link>}>
               <table className="table">
+                <thead><tr><th className="c">#</th><th>Verein</th><th className="c">Sp</th><th className="c">Diff</th><th className="c">Pkt</th></tr></thead>
                 <tbody>
                   {d.table.map((r: any) => (
                     <tr key={r.clubId} className={r.clubId === c.clubId ? "highlight" : ""}>
-                      <td className="num" style={{ width: 28 }}>{r.position}.</td>
-                      <td><Link href={`${base}/club/${r.clubId}`} className="row" style={{ gap: 8 }}><Crest colors={r.club.colors} name={r.club.name} size={16} /><span className="truncate">{r.club.name}</span></Link></td>
-                      <td className="r num faint">{r.played}</td>
-                      <td className="r num faint">{r.goalsFor - r.goalsAgainst > 0 ? "+" : ""}{r.goalsFor - r.goalsAgainst}</td>
-                      <td className="r num"><b>{r.points}</b></td>
+                      <td className="c cond" style={{ fontWeight: 700 }}>{r.position}</td>
+                      <td><Link href={`${base}/club/${r.clubId}`} className="row" style={{ gap: 8 }}><Crest colors={r.club.colors} name={r.club.name} size={16} /><span className="truncate name">{r.club.name}</span></Link></td>
+                      <td className="c">{r.played}</td>
+                      <td className="c">{r.goalsFor - r.goalsAgainst > 0 ? "+" : ""}{r.goalsFor - r.goalsAgainst}</td>
+                      <td className="c cond" style={{ fontWeight: 700, fontSize: 15 }}>{r.points}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Panel>
           )}
 
+          {d.offers?.length > 0 && (
+            <Panel title="Angebote für deine Spieler" icon="transfer" flush>
+              <table className="table">
+                <tbody>
+                  {d.offers.map((o: any) => (
+                    <tr key={o.id}>
+                      <td><div className="name">{o.player_name}</div><div className="faint small">{o.message}</div></td>
+                      <td className="r cond" style={{ fontWeight: 700, fontSize: 15 }}>{money(o.fee)}</td>
+                      <td className="r nowrap">
+                        <button className="btn btn-primary btn-sm" onClick={() => respond(o.id, "accept")} title="Annehmen"><Icon name="check" size={14} /></button>{" "}
+                        <button className="btn btn-ghost btn-sm" onClick={() => respond(o.id, "reject")} title="Ablehnen"><Icon name="close" size={14} /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Panel>
+          )}
+
+          <Panel title="Tagesziele" icon="target" actions={<span className="faint small">Serie: {d.loginStreak} {d.loginStreak === 1 ? "Tag" : "Tage"}</span>}>
+            {d.missions.map((m: any) => (
+              <div key={m.kind} className="row" style={{ padding: "7px 0", borderBottom: "1px solid var(--line)", opacity: m.done ? 0.55 : 1 }}>
+                <span style={{ width: 16, height: 16, border: "1.5px solid var(--line-2)", borderRadius: 2, display: "grid", placeItems: "center", background: m.done ? "var(--pos)" : "transparent", color: "#fff", flex: "none" }}>
+                  {m.done && <Icon name="check" size={12} stroke={3} />}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, textDecoration: m.done ? "line-through" : undefined }}>{m.name}</div>
+                  <div className="faint small">{m.description}</div>
+                </div>
+                <span className="cond faint nowrap" style={{ fontWeight: 700 }}>+{m.points} MP</span>
+              </div>
+            ))}
+          </Panel>
+
           {d.recent?.length > 0 && (
-            <div className="card stack-sm">
-              <h3>Letzte Spiele</h3>
-              {d.recent.map((r: any) => {
-                const res = r.goalsFor > r.goalsAgainst ? "W" : r.goalsFor === r.goalsAgainst ? "D" : "L";
-                return (
-                  <Link key={r.fixtureId} href={`${base}/report/${r.fixtureId}`} className="between small">
-                    <span className="row" style={{ gap: 8 }}><FormChips form={[res]} /> <span className="truncate">{r.home ? "vs" : "@"} {r.opponent}</span></span>
-                    <b className="num">{r.goalsFor}:{r.goalsAgainst}</b>
-                  </Link>
-                );
-              })}
-            </div>
+            <Panel title="Letzte Ergebnisse" icon="ball" flush>
+              <table className="table">
+                <tbody>
+                  {d.recent.map((r: any) => {
+                    const res = r.goalsFor > r.goalsAgainst ? "W" : r.goalsFor === r.goalsAgainst ? "D" : "L";
+                    return (
+                      <tr key={r.fixtureId} className="clickable" onClick={() => (window.location.href = `${base}/report/${r.fixtureId}`)}>
+                        <td style={{ width: 28 }}><FormChips form={[res]} /></td>
+                        <td className="faint small" style={{ width: 30 }}>{r.home ? "H" : "A"}</td>
+                        <td className="truncate name">{r.opponent}</td>
+                        <td className="r cond" style={{ fontWeight: 700, fontSize: 15 }}>{r.goalsFor}–{r.goalsAgainst}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </Panel>
           )}
 
           {d.club && (
-            <div className="card grid grid-2">
-              <div className="stack-sm"><span className="faint small">Kontostand</span><b>{money(d.club.balance)}</b></div>
-              <div className="stack-sm"><span className="faint small">Transferbudget</span><b>{money(d.club.transferBudget)}</b></div>
-              <div className="stack-sm"><span className="faint small">Mannschaftsstärke</span><Rating value={d.club.rating} /></div>
-              <div className="stack-sm"><span className="faint small">Stadion</span><b>{d.club.capacity.toLocaleString("de-CH")}</b></div>
-            </div>
+            <Panel title="Verein" icon="stadium">
+              <div className="kv"><span className="k">Mannschaftsstärke</span><span className="v"><Rating value={d.club.rating} /></span></div>
+              <div className="kv"><span className="k">Ruf</span><span className="v">{d.club.reputation} / 100</span></div>
+              <div className="kv"><span className="k">Stadion</span><span className="v">{d.club.capacity.toLocaleString("de-CH")} Plätze</span></div>
+              <div className="kv"><span className="k">Gegründet</span><span className="v">{d.club.founded}</span></div>
+            </Panel>
           )}
         </div>
       </div>

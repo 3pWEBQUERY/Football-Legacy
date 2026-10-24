@@ -246,7 +246,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   await addInbox(
     db, career.id, newSeason, 0, "board", title,
     `Abschlussplatz: ${position} mit ${pts?.points ?? 0} Punkten.\n` +
-      `Saisonziel ${objectiveMet ? "erfüllt ✅" : "verfehlt ❌"} – Vertrauen des Vorstands: ${career.board.confidence}/100.\n` +
+      `Saisonziel ${objectiveMet ? "erfüllt" : "verfehlt"} – Vertrauen des Vorstands: ${career.board.confidence}/100.\n` +
       (dismissed ? "\nDer Vorstand hat sich von dir getrennt. Wähle im Büro eines der Jobangebote, um weiterzumachen." :
         `\nNeues Saisonziel: ${career.board.objective}`) +
       `\n\nMeister der Topligen: ${champions.slice(0, 8).map((c) => `${c.clubName} (${c.leagueName})`).join(", ")}`,

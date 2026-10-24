@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { api, refreshAll, useApi } from "@/lib/client/api";
 import { money, seasonLabel } from "@/lib/client/format";
 import { Crest, Icon, Modal, Progress, useNotes, useToast } from "./ui";
@@ -20,11 +20,11 @@ const Ctx = createContext<ShellCtx>({ id: "", shell: null, advance: async () => 
 export const useGame = () => useContext(Ctx);
 
 const NAV = [
-  { key: "office", label: "Büro", icon: "office", href: "", subs: [] as { href: string; label: string }[] },
-  { key: "team", label: "Team", icon: "team", href: "/team", subs: [{ href: "/team", label: "Kader" }, { href: "/team/tactic", label: "Aufstellung & Taktik" }, { href: "/team/training", label: "Training" }] },
-  { key: "market", label: "Markt", icon: "market", href: "/market", subs: [{ href: "/market", label: "Transfermarkt" }, { href: "/market/contracts", label: "Verträge" }, { href: "/market/finances", label: "Finanzen" }] },
-  { key: "competition", label: "Wettbewerb", icon: "competition", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/stats", label: "Statistiken" }] },
-  { key: "career", label: "Karriere", icon: "career", href: "/career", subs: [{ href: "/career", label: "Profil & Erfolge" }, { href: "/career/collection", label: "Sammlung & Shop" }, { href: "/career/leaderboards", label: "Ranglisten" }] },
+  { key: "office", label: "Büro", icon: "office", href: "", subs: [{ href: "", label: "Übersicht & Posteingang" }] },
+  { key: "team", label: "Team", icon: "team", href: "/team", subs: [{ href: "/team", label: "Kader" }, { href: "/team/tactic", label: "Taktik" }, { href: "/team/training", label: "Training & Stab" }] },
+  { key: "market", label: "Transfers", icon: "transfer", href: "/market", subs: [{ href: "/market", label: "Spielersuche" }, { href: "/market/contracts", label: "Verträge" }, { href: "/market/finances", label: "Finanzen" }] },
+  { key: "competition", label: "Wettbewerb", icon: "trophy", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/stats", label: "Statistiken" }] },
+  { key: "career", label: "Karriere", icon: "star", href: "/career", subs: [{ href: "/career", label: "Manager" }, { href: "/career/collection", label: "Sammlung & Shop" }, { href: "/career/leaderboards", label: "Ranglisten" }] },
 ];
 
 function activeSection(path: string, base: string) {
@@ -71,11 +71,11 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
     }
   }, [busy, id, base, router, toast, showNotes]);
 
-  // Tastenkürzel: Leertaste = Weiter (ausserhalb von Eingabefeldern)
+  // Tastenkürzel wie im Original-Manager: Strg + Leertaste = Weiter
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
-      if (fullscreen || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(t.tagName)) return;
+      if (fullscreen || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
       if (e.key === " " && e.ctrlKey) {
         e.preventDefault();
         advance();
@@ -87,83 +87,119 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
 
   const d = shell.data;
   const ctx: ShellCtx = { id, shell: d, advance, busy, reloadShell: shell.reload };
-
   if (fullscreen) return <Ctx.Provider value={ctx}>{children}</Ctx.Provider>;
 
   const c = d?.career;
-  const xpPct = c ? ((c.xp - c.xpLevelStart) / Math.max(1, c.xpNextLevel - c.xpLevelStart)) * 100 : 0;
   const hasMatch = !!d?.next;
-  const nextLabel = c?.pendingMatch ? "Spiel fortsetzen" : hasMatch ? "Zum Spiel" : c?.week >= c?.seasonWeeks ? "Saisonabschluss" : "Weiter";
+  const nextLabel = c?.pendingMatch ? "Spiel fortsetzen" : hasMatch ? "Spieltag" : "Weiter";
+  const nextSub = c ? (hasMatch ? `${d.next.home.short} – ${d.next.away.short}` : c.week === 0 ? "Saisonvorbereitung" : `Woche ${c.week + 1}`) : "";
+  const clubStyle = d?.club ? ({ "--club": d.club.colors.primary, "--club-2": d.club.colors.secondary } as CSSProperties) : undefined;
+  const nav = NAV.find((n) => n.key === section)!;
 
   return (
     <Ctx.Provider value={ctx}>
-      <div className="app">
-        <aside className="sidebar" aria-label="Hauptnavigation">
-          <Link href="/careers" className="brand">
+      <div className="app" style={clubStyle}>
+        <header className="topbar">
+          <Link href="/careers" className="brand" title="Karrieren">
             <div className="brand-mark">FL</div>
-            <div>Football Legacy<small>Schreibe Fussball Geschichte</small></div>
+            <div className="brand-name">Football Legacy<small>Manager</small></div>
           </Link>
-          {NAV.map((n) => (
-            <div key={n.key}>
-              <Link href={base + n.href} className={`nav-item ${section === n.key ? "active" : ""}`}>
-                <Icon name={n.icon} />
-                {n.label}
-                {n.key === "office" && d?.unread > 0 && <span className="nav-badge">{d.unread}</span>}
-              </Link>
-              {section === n.key && n.subs.length > 0 && (
-                <div className="nav-sub">
-                  {n.subs.map((s) => (
-                    <Link key={s.href} href={base + s.href} className={path === base + s.href ? "active" : ""}>{s.label}</Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-          <div className="sidebar-foot">
-            {c && (
-              <div className="stack-sm" style={{ padding: "0 6px" }}>
-                <div className="between small"><span><b>Level {c.level}</b> · {c.title}</span><span className="faint">{c.points} MP</span></div>
-                <Progress value={xpPct} />
-                <div className="faint small">{c.xp - c.xpLevelStart} / {c.xpNextLevel - c.xpLevelStart} XP</div>
-              </div>
-            )}
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <ThemeToggle />
-              <Link className="btn btn-ghost btn-sm" href="/careers" title="Karrieren"><Icon name="users" size={16} /></Link>
-            </div>
-          </div>
-        </aside>
-        <div className="main">
-          <header className="topbar">
+          <div className="clubbar">
             {d?.club ? (
               <Link href={base} className="club">
                 <Crest colors={d.club.colors} name={d.club.name} size={30} />
                 <div style={{ minWidth: 0 }}>
-                  <strong className="truncate" style={{ display: "block" }}>{d.club.name}</strong>
-                  <span className="faint small truncate" style={{ display: "block" }}>{d.league?.flag} {d.league?.name}</span>
+                  <strong className="truncate">{d.club.name}</strong>
+                  <span className="truncate">{d.league?.name} · {c?.managerName}</span>
                 </div>
               </Link>
             ) : (
-              <strong>{c?.status === "unemployed" ? "Vereinslos" : "…"}</strong>
+              <strong className="cond up">{c?.status === "unemployed" ? "Vereinslos" : ""}</strong>
             )}
-            <div className="meta">
-              {c && <span>Saison <b>{seasonLabel(c.season)}</b></span>}
-              {c && <span className="hide-sm">Woche <b>{c.week}/{c.seasonWeeks}</b></span>}
-              {d?.club && <span className="hide-sm">Konto <b style={{ color: d.club.balance < 0 ? "var(--danger)" : undefined }}>{money(d.club.balance)}</b></span>}
-              {d?.window?.open && <span className="badge badge-accent hide-sm">Transferfenster offen</span>}
+            <div className="metabar">
+              {c && (
+                <div className="meta-cell">
+                  <span className="k">Saison {seasonLabel(c.season)}</span>
+                  <span className="v">{c.week === 0 ? "Vorbereitung" : `Woche ${c.week} / ${c.seasonWeeks}`}</span>
+                </div>
+              )}
+              {d?.club && (
+                <div className="meta-cell opt">
+                  <span className="k">Kontostand</span>
+                  <span className="v" style={{ color: d.club.balance < 0 ? "var(--neg)" : undefined }}>{money(d.club.balance)}</span>
+                </div>
+              )}
+              {d?.club && (
+                <div className="meta-cell opt">
+                  <span className="k">Transferbudget</span>
+                  <span className="v">{money(d.club.transferBudget)}</span>
+                </div>
+              )}
+              {d?.window?.open && (
+                <div className="meta-cell opt">
+                  <span className="k">Transferfenster</span>
+                  <span className="v pos-txt">Offen</span>
+                </div>
+              )}
             </div>
-            <div className="spacer" />
-            <button className="btn btn-primary" onClick={advance} disabled={busy || !d || c?.status !== "active"} title="Weiter (Strg + Leertaste)">
-              <Icon name={hasMatch || c?.pendingMatch ? "whistle" : "next"} size={16} />
-              {busy ? "Simuliere …" : nextLabel}
-            </button>
-          </header>
-          <main className="content">{children}</main>
-        </div>
+          </div>
+          <button className="continue" onClick={advance} disabled={busy || !d || c?.status !== "active"} title="Weiter (Strg + Leertaste)">
+            <span style={{ textAlign: "left" }}>
+              {busy ? "Simuliere" : nextLabel}
+              <span className="sub">{busy ? "Bitte warten" : nextSub}</span>
+            </span>
+            <Icon name="next" size={18} stroke={2.2} />
+          </button>
+        </header>
+
+        <aside className="rail" aria-label="Hauptnavigation">
+          <div className="rail-group">Verein</div>
+          {NAV.map((n) => (
+            <Link key={n.key} href={base + n.href} className={`nav-item ${section === n.key ? "active" : ""}`}>
+              <Icon name={n.icon} size={17} />
+              {n.label}
+              {n.key === "office" && d?.unread > 0 && <span className="nav-badge">{d.unread}</span>}
+            </Link>
+          ))}
+          {d?.next && (
+            <>
+              <div className="rail-group" style={{ marginTop: 10 }}>Nächstes Spiel</div>
+              <Link href={`${base}/club/${d.next.home.id === c?.clubId ? d.next.away.id : d.next.home.id}`} className="row" style={{ padding: "4px 16px", gap: 10 }}>
+                <Crest colors={(d.next.home.id === c?.clubId ? d.next.away : d.next.home).colors} name={(d.next.home.id === c?.clubId ? d.next.away : d.next.home).name} size={22} />
+                <div style={{ minWidth: 0 }}>
+                  <div className="truncate" style={{ fontWeight: 600 }}>{(d.next.home.id === c?.clubId ? d.next.away : d.next.home).name}</div>
+                  <div className="faint small">{d.next.home.id === c?.clubId ? "Heim" : "Auswärts"} · {d.next.week}. Spieltag</div>
+                </div>
+              </Link>
+            </>
+          )}
+          <div className="rail-foot">
+            {c && (
+              <>
+                <div className="between small"><span className="cond up" style={{ fontWeight: 700 }}>Level {c.level}</span><span className="faint">{c.title}</span></div>
+                <Progress value={c.xp - c.xpLevelStart} max={c.xpNextLevel - c.xpLevelStart} tone={undefined} />
+                <div className="between small faint"><span>{c.xp - c.xpLevelStart} / {c.xpNextLevel - c.xpLevelStart} XP</span><span>{c.points} MP</span></div>
+              </>
+            )}
+            <div className="row" style={{ justifyContent: "space-between", marginTop: 4 }}>
+              <ThemeToggle />
+              <Link className="btn btn-ghost btn-sm" href="/careers" title="Alle Karrieren"><Icon name="users" size={15} /></Link>
+            </div>
+          </div>
+        </aside>
+
+        <nav className="subnav" aria-label={`${nav.label} – Unterbereiche`}>
+          {nav.subs.map((s) => (
+            <Link key={s.href} href={base + s.href} className={path === base + s.href ? "active" : ""}>{s.label}</Link>
+          ))}
+        </nav>
+
+        <main className="main"><div className="content">{children}</div></main>
+
         <nav className="tabbar" aria-label="Navigation">
           {NAV.map((n) => (
             <Link key={n.key} href={base + n.href} className={section === n.key ? "active" : ""}>
-              <Icon name={n.icon} size={20} />
+              <Icon name={n.icon} size={19} />
               {n.label}
             </Link>
           ))}
@@ -176,17 +212,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
   );
 }
 
-/** Untermenü für Smartphones (die Seitenleiste ist dort ausgeblendet). */
-export function MobileSubnav({ section }: { section: string }) {
-  const { id } = useGame();
-  const path = usePathname();
-  const n = NAV.find((x) => x.key === section);
-  if (!n || !n.subs.length) return null;
-  return (
-    <div className="tabs subtabs-mobile">
-      {n.subs.map((s) => (
-        <Link key={s.href} href={`/c/${id}${s.href}`} className={`tab ${path === `/c/${id}${s.href}` ? "active" : ""}`}>{s.label}</Link>
-      ))}
-    </div>
-  );
+/** Früher die mobile Unternavigation – die Unternavigation ist jetzt immer sichtbar. */
+export function MobileSubnav(_: { section: string }) {
+  return null;
 }

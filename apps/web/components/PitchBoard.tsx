@@ -47,8 +47,8 @@ export function PitchBoard({ slots, selected, onSelect, onMove }: {
       onPointerLeave={() => (drag.current = null)}
     >
       <svg viewBox="0 0 68 100" width="100%" height="100%" style={{ position: "absolute", inset: 0 }} preserveAspectRatio="none">
-        {Array.from({ length: 10 }).map((_, i) => <rect key={i} x="0" y={i * 10} width="68" height="10" fill={i % 2 ? "#2d773a" : "#2a6f36"} />)}
-        <g fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.4">
+        {Array.from({ length: 10 }).map((_, i) => <rect key={i} x="0" y={i * 10} width="68" height="10" fill={i % 2 ? "#215f30" : "#1f5a2d"} />)}
+        <g fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="0.35">
           <rect x="1.5" y="1.5" width="65" height="97" />
           <line x1="1.5" y1="50" x2="66.5" y2="50" />
           <circle cx="34" cy="50" r="8.7" />
@@ -74,7 +74,7 @@ export function PitchBoard({ slots, selected, onSelect, onMove }: {
         >
           <div className="dot" style={{ background: s.color, color: s.ink }}>{POS_LABEL[s.position] ?? s.position}</div>
           <div className="lbl">{s.label}</div>
-          {s.sub && <div className="lbl" style={{ fontWeight: 600, opacity: 0.85 }}>{s.sub}</div>}
+          {s.sub && <div className="lbl sub">{s.sub}</div>}
         </div>
       ))}
     </div>

@@ -18,7 +18,7 @@ function Stats() {
     <>
       <MobileSubnav section="competition" />
       <div className="page-head">
-        <div><h1>Statistiken</h1><p>{data.league.flag} {data.league.name}</p></div>
+        <div><h1>Statistiken</h1><p>{data.league.name}</p></div>
         <LeaguePicker countries={data.countries} league={data.league} onChange={(l) => router.push(`/c/${id}/competition/stats?league=${l}`)} />
       </div>
       {!data.league.active ? (

@@ -30,10 +30,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   }
 
   return (
+    <div className="auth-wrap">
     <div className="auth-card card stack">
-      <div className="brand" style={{ padding: 0 }}>
+      <div className="card-head"><h3>{mode === "login" ? "Anmelden" : "Account erstellen"}</h3><span className="faint small">Football Legacy</span></div>
+      <div className="row" style={{ gap: 10 }}>
         <div className="brand-mark">FL</div>
-        <div>Football Legacy<small>{mode === "login" ? "Willkommen zurück" : "Neuen Account anlegen"}</small></div>
+        <div className="brand-name">Football Legacy<small>{mode === "login" ? "Spielstand laden" : "Neuer Manager"}</small></div>
       </div>
       <form className="stack" onSubmit={submit}>
         {mode === "register" && (
@@ -51,13 +53,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           <input id="pw" className="input" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
           {mode === "register" && <small className="faint">Mindestens 8 Zeichen.</small>}
         </div>
-        {error && <div className="badge badge-danger" style={{ padding: "6px 10px", whiteSpace: "normal" }} role="alert">{error}</div>}
+        {error && <div className="card-soft small neg-txt" style={{ borderColor: "var(--neg)" }} role="alert">{error}</div>}
         <button className="btn btn-primary btn-lg" disabled={busy}>{busy ? "Einen Moment …" : mode === "login" ? "Anmelden" : "Account erstellen"}</button>
       </form>
       <p className="dim small" style={{ textAlign: "center" }}>
         {mode === "login" ? <>Noch kein Account? <Link href="/register" style={{ color: "var(--accent)" }}>Registrieren</Link></> : <>Schon registriert? <Link href="/login" style={{ color: "var(--accent)" }}>Anmelden</Link></>}
       </p>
       {mode === "register" && <p className="faint small">Mit der Registrierung speicherst du deine Spielstände in der Cloud. Wir verwenden deine E-Mail nur für den Login.</p>}
+    </div>
     </div>
   );
 }

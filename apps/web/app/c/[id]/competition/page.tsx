@@ -29,8 +29,8 @@ function Competition() {
       <MobileSubnav section="competition" />
       <div className="page-head">
         <div>
-          <h1>{l.flag} {l.name}</h1>
-          <p>{l.size} Vereine · {l.promotion ? `${l.promotion} Aufsteiger · ` : ""}{l.relegation ? `${l.relegation} Absteiger` : "keine Absteiger"}{!l.active && " · vereinfachte Simulation"}</p>
+          <h1>{l.name}</h1>
+          <p>{data.countries.find((c: any) => c.code === l.countryCode)?.name} · {l.tier}. Liga · {l.size} Vereine · {l.promotion ? `${l.promotion} Aufsteiger · ` : ""}{l.relegation ? `${l.relegation} Absteiger` : "keine Absteiger"}{!l.active && " · vereinfachte Simulation"}</p>
         </div>
         <LeaguePicker countries={data.countries} league={l} onChange={go} />
       </div>

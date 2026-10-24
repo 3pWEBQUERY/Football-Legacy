@@ -1,5 +1,6 @@
 "use client";
 import { matchRatingColor } from "@/lib/client/format";
+import { EventIcon, Icon } from "./ui";
 
 export function StatRows({ stats }: { stats: [any, any] }) {
   const [h, a] = stats;
@@ -22,8 +23,8 @@ export function StatRows({ stats }: { stats: [any, any] }) {
           <div key={label}>
             <div className="between small"><b className="num">{hv}</b><span className="dim">{label}</span><b className="num">{av}</b></div>
             <div className="row" style={{ gap: 3, marginTop: 3 }}>
-              <div style={{ flex: hn / sum || 0.001, height: 6, background: "var(--accent)", borderRadius: 3 }} />
-              <div style={{ flex: an / sum || 0.001, height: 6, background: "var(--blue)", borderRadius: 3 }} />
+              <div style={{ flex: hn / sum || 0.001, height: 5, background: "var(--home, var(--accent))" }} />
+              <div style={{ flex: an / sum || 0.001, height: 5, background: "var(--away, var(--text-3))" }} />
             </div>
           </div>
         );
@@ -35,25 +36,28 @@ export function StatRows({ stats }: { stats: [any, any] }) {
 export function RatingList({ players, side, title, motm }: { players: any[]; side: number; title: string; motm?: number | null }) {
   const list = players.filter((p) => p.side === side).sort((a, b) => Number(b.started) - Number(a.started) || b.rating - a.rating);
   return (
-    <div className="stack-sm">
-      <h3>{title}</h3>
-      {list.map((p) => (
-        <div key={p.playerId} className="between small">
-          <span className="truncate">
-            {!p.started && <span className="faint">↑ </span>}{p.name}
-            {p.goals > 0 && <span> {"⚽".repeat(Math.min(p.goals, 4))}</span>}
-            {p.assists > 0 && <span className="faint"> 🅰️{p.assists > 1 ? p.assists : ""}</span>}
-            {p.yellow > 0 && !p.red && <span> 🟨</span>}{p.red && <span> 🟥</span>}{p.injured && <span> 🩺</span>}
-            {motm === p.playerId && <span className="badge badge-gold" style={{ marginLeft: 6 }}>Spieler des Spiels</span>}
-          </span>
-          <b className="num" style={{ color: matchRatingColor(p.rating) }}>{p.rating.toFixed(1)}</b>
-        </div>
-      ))}
-    </div>
+    <table className="table">
+      <thead><tr><th>{title}</th><th className="c">Min</th><th className="r">Note</th></tr></thead>
+      <tbody>
+        {list.map((p) => (
+          <tr key={p.playerId}>
+            <td>
+              <span className="row" style={{ gap: 6 }}>
+                {!p.started && <span className="faint" title="Eingewechselt"><Icon name="up" size={12} stroke={2.4} /></span>}
+                <span className="name truncate">{p.name}</span>
+                {Array.from({ length: Math.min(p.goals, 4) }).map((_, i) => <EventIcon key={i} type="goal" />)}
+                {p.assists > 0 && <span className="badge" title="Vorlagen">V{p.assists > 1 ? p.assists : ""}</span>}
+                {p.yellow > 0 && !p.red && <EventIcon type="yellow" />}
+                {p.red && <EventIcon type="red" />}
+                {p.injured && <EventIcon type="injury" />}
+                {motm === p.playerId && <span className="badge badge-gold">Spieler des Spiels</span>}
+              </span>
+            </td>
+            <td className="c faint">{p.minutes}</td>
+            <td className="r cond" style={{ fontWeight: 700, fontSize: 15, color: matchRatingColor(p.rating) }}>{p.rating.toFixed(1)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
-
-export const EVENT_ICON: Record<string, string> = {
-  goal: "⚽", penalty_goal: "⚽", own_goal: "⚽", penalty_miss: "❌", save: "🧤", miss: "↗️", yellow: "🟨", red: "🟥", sub: "🔁",
-  injury: "🩺", corner: "🚩", freekick: "🎯", kickoff: "🟢", halftime: "⏸️", fulltime: "🏁", tactic: "📋", foul: "⚠️", chance: "💥", shot: "👟",
-};

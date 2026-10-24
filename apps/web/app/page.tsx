@@ -4,12 +4,12 @@ import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const FEATURES = [
-  { icon: "🌍", title: "Eine ganze Welt", text: "155 Länder mit fiktiven Ligenpyramiden, über 3000 Vereinen und regionalen Spielernamen – nachempfunden an echte Strukturen." },
-  { icon: "🧠", title: "Taktik, die zählt", text: "Formationen, Rollen, Tempo, Pressing, Abwehrlinie und Standards. Die Matchengine rechnet jeden Spielzug aus Attributen und Taktik." },
-  { icon: "📺", title: "2D-Taktikansicht", text: "22 Spieler als Punkte auf dem Feld, drei Geschwindigkeiten, Highlights und Halbzeitansprache mit Wechseln und Umstellungen." },
-  { icon: "💼", title: "Echter Markt", text: "Transfers mit Verhandlung, Verträge, Finanzen und KI-Vereine, die nach denselben Regeln handeln wie du." },
-  { icon: "🏆", title: "Karriere & Gamification", text: "Vom Co-Trainer zum Meistermacher: Level, Erfolge, Tagesmissionen, Serien, Spielerkarten und Ranglisten." },
-  { icon: "☁️", title: "Überall weiterspielen", text: "Dein Spielstand liegt in der Cloud – am Desktop oder auf dem Smartphone, im Dark oder Light Mode." },
+  { title: "155 Länder", text: "Fiktive Ligapyramiden nach echtem Vorbild – von der englischen vierten Liga bis zur Meisterliga der Schweiz. Über 3000 Vereine, regionale Spielernamen." },
+  { title: "Matchengine", text: "540 Spielzüge pro Partie, berechnet aus Attributen, Form, Kondition und Taktik. Abgespielt in der 2D-Taktikansicht mit Halbzeitansprache." },
+  { title: "Taktik", text: "Acht Formationen, verschiebbare Positionen, 18 Rollen, Tempo, Pressing, Abwehrlinie, Risiko und Standardvarianten." },
+  { title: "Transfermarkt", text: "Verhandlungen mit Gegenangeboten, Ausstiegsklauseln, Verträge, Scouting mit unscharfen Werten. KI-Vereine handeln nach denselben Regeln." },
+  { title: "Vereinsführung", text: "Finanzen, Training, Trainerstab, Jugendjahrgänge, Vorstandsziele, Auf- und Abstieg, Entlassung und Jobangebote." },
+  { title: "Karriere", text: "Vom Co-Trainer zum Meistermacher: Manager-Level, Erfolge, Tagesziele, Ranglisten. Spielstände in der Cloud." },
 ];
 
 export default async function Landing() {
@@ -17,30 +17,35 @@ export default async function Landing() {
   if (jar.get("fl_session")) redirect("/careers");
   return (
     <div className="landing">
-      <header className="between" style={{ padding: "16px 24px" }}>
-        <div className="brand" style={{ padding: 0 }}>
+      <header className="landing-top">
+        <div className="row" style={{ gap: 10 }}>
           <div className="brand-mark">FL</div>
-          <div>Football Legacy<small>Schreibe Fussball Geschichte</small></div>
+          <div className="brand-name">Football Legacy<small>Manager</small></div>
         </div>
         <div className="row">
           <ThemeToggle compact />
           <Link className="btn btn-ghost" href="/login">Anmelden</Link>
-          <Link className="btn btn-primary" href="/register">Kostenlos starten</Link>
+          <Link className="btn btn-primary" href="/register">Registrieren</Link>
         </div>
       </header>
       <section className="hero">
-        <div className="hero-glow" />
-        <h1>Vom Co-Trainer<br /><span>zur Legende.</span></h1>
-        <p>Übernimm einen Mittelklasse-Verein irgendwo auf der Welt, stelle die Taktik ein, verhandle Transfers und schreibe deine eigene Fussball-Geschichte. Jede Entscheidung wirkt im nächsten Spiel.</p>
-        <div className="row" style={{ justifyContent: "center" }}>
-          <Link className="btn btn-primary btn-lg" href="/register">Karriere starten</Link>
-          <Link className="btn btn-lg" href="/login">Ich habe schon einen Account</Link>
+        <div>
+          <div className="faint up small" style={{ fontWeight: 700 }}>Fussball-Manager im Browser</div>
+          <h1 style={{ marginTop: 10 }}>Schreibe<br />Fussball<br /><em>Geschichte.</em></h1>
+          <p>Du übernimmst als Co-Trainer einen Verein im Mittelfeld der Tabelle. Aufstellung, Taktik, Transfers und Training liegen ab sofort bei dir – jede Entscheidung wirkt im nächsten Spiel.</p>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            <Link className="btn btn-primary btn-lg" href="/register">Neue Karriere starten</Link>
+            <Link className="btn btn-lg" href="/login">Spielstand laden</Link>
+          </div>
+        </div>
+        <div className="hero-shot">
+          <img src="/preview-squad.png" alt="Kaderansicht von Football Legacy" style={{ display: "block", width: "100%", height: "auto" }} />
         </div>
       </section>
       <section className="features">
-        {FEATURES.map((f) => (
-          <div key={f.title} className="card stack-sm">
-            <div style={{ fontSize: 26 }}>{f.icon}</div>
+        {FEATURES.map((f, i) => (
+          <div key={f.title} className="feature">
+            <div className="n">{String(i + 1).padStart(2, "0")}</div>
             <h3>{f.title}</h3>
             <p className="dim">{f.text}</p>
           </div>

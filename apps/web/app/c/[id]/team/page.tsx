@@ -3,10 +3,11 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useApi } from "@/lib/client/api";
 import { money, posGroup } from "@/lib/client/format";
-import { MobileSubnav, useGame } from "@/components/GameShell";
-import { ErrorBox, Loading, Pos, Progress, Rating, Seg, SortTable, type Column } from "@/components/ui";
+import { useGame } from "@/components/GameShell";
+import { Condition, ErrorBox, EventIcon, Icon, Loading, Nat, Pos, Rating, Seg, SortTable, moraleLabel, type Column } from "@/components/ui";
 
 type Group = "ALL" | "GK" | "DEF" | "MID" | "ATT";
+const ORDER = ["GK", "DR", "DC", "DL", "DM", "MR", "MC", "ML", "AMR", "AMC", "AML", "ST"];
 
 export default function Squad() {
   const { id } = useGame();
@@ -19,46 +20,58 @@ export default function Squad() {
   const season = data.career.season;
 
   const cols: Column<any>[] = [
-    { key: "pos", label: "Pos", render: (p) => <Pos p={p.position} />, sort: (p) => ["GK", "DR", "DC", "DL", "DM", "MR", "MC", "ML", "AMR", "AMC", "AML", "ST"].indexOf(p.position) },
+    { key: "pos", label: "Pos", render: (p) => <Pos p={p.position} />, sort: (p) => ORDER.indexOf(p.position) },
     { key: "name", label: "Name", render: (p) => (
-      <span className="row" style={{ gap: 6 }}>
-        <span title={p.nationality}>{p.flag}</span>
-        <b>{p.name}</b>
-        {p.wonderkid && <span className="badge badge-gold" title="Wunderkind">★</span>}
-        {p.injuryWeeks > 0 && <span className="badge badge-danger" title="Verletzt">🩺 {p.injuryWeeks} W</span>}
-        {p.suspendedWeeks > 0 && <span className="badge badge-warn" title="Gesperrt">🟥</span>}
+      <span className="row" style={{ gap: 8 }}>
+        <span className="name">{p.name}</span>
+        {p.wonderkid && <span className="badge badge-gold">Talent</span>}
         {p.listed && <span className="badge badge-blue">Transferliste</span>}
       </span>
     ), sort: (p) => p.lastName },
+    { key: "status", label: "", render: (p) => (
+      <span className="row" style={{ gap: 4 }}>
+        {p.injuryWeeks > 0 && <span title={`Verletzt (${p.injuryWeeks} Wochen)`}><EventIcon type="injury" /></span>}
+        {p.suspendedWeeks > 0 && <span title="Gesperrt"><EventIcon type="red" /></span>}
+        {p.contract?.untilSeason <= season && <span title="Vertrag läuft aus" style={{ color: "var(--warn)", display: "inline-flex" }}><Icon name="contract" size={14} /></span>}
+      </span>
+    ) },
+    { key: "nat", label: "Nat", render: (p) => <Nat code={p.nationality} />, sort: (p) => p.nationality },
     { key: "age", label: "Alter", render: (p) => p.age, sort: (p) => p.age, className: "c" },
     { key: "rating", label: "Stärke", render: (p) => <Rating value={p.rating} />, sort: (p) => p.rating, className: "c" },
-    { key: "pot", label: "Pot.", title: "Potenzial", render: (p) => <span className="faint">{p.potential}</span>, sort: (p) => p.potential, className: "c" },
-    { key: "form", label: "Form", render: (p) => <span className="num">{p.form.toFixed(1)}</span>, sort: (p) => p.form, className: "c" },
-    { key: "fit", label: "Fitness", render: (p) => <div style={{ width: 60 }}><Progress value={p.fitness} tone={p.fitness < 70 ? "danger" : p.fitness < 85 ? "warn" : undefined} /></div>, sort: (p) => p.fitness },
-    { key: "mor", label: "Moral", render: (p) => <span>{p.morale >= 75 ? "😀" : p.morale >= 50 ? "🙂" : p.morale >= 30 ? "😐" : "😟"}</span>, sort: (p) => p.morale, className: "c" },
+    { key: "pot", label: "Pot", title: "Potenzial", render: (p) => <span className="cond faint" style={{ fontWeight: 700, fontSize: 14 }}>{p.potential}</span>, sort: (p) => p.potential, className: "c" },
+    { key: "fit", label: "Kond.", title: "Kondition", render: (p) => <Condition value={p.fitness} />, sort: (p) => p.fitness, className: "c" },
+    { key: "mor", label: "Moral", render: (p) => { const m = moraleLabel(p.morale); return <span style={{ color: m.color, fontWeight: 600 }}>{m.text}</span>; }, sort: (p) => p.morale },
+    { key: "form", label: "Form", render: (p) => <span className="cond" style={{ fontWeight: 700, fontSize: 14 }}>{p.form.toFixed(1)}</span>, sort: (p) => p.form, className: "c" },
     { key: "apps", label: "Sp", title: "Einsätze", render: (p) => p.stats.apps, sort: (p) => p.stats.apps, className: "c" },
-    { key: "goals", label: "T", title: "Tore", render: (p) => p.stats.goals, sort: (p) => p.stats.goals, className: "c" },
-    { key: "avg", label: "Ø Note", render: (p) => (p.stats.apps ? (p.stats.ratingSum / p.stats.apps).toFixed(2) : "–"), sort: (p) => (p.stats.apps ? p.stats.ratingSum / p.stats.apps : 0), className: "c" },
+    { key: "goals", label: "Tore", render: (p) => p.stats.goals, sort: (p) => p.stats.goals, className: "c" },
+    { key: "ast", label: "Vor", title: "Vorlagen", render: (p) => p.stats.assists, sort: (p) => p.stats.assists, className: "c" },
+    { key: "avg", label: "Ø Note", render: (p) => (p.stats.apps ? <span className="cond" style={{ fontWeight: 700, fontSize: 14 }}>{(p.stats.ratingSum / p.stats.apps).toFixed(2)}</span> : <span className="faint">–</span>), sort: (p) => (p.stats.apps ? p.stats.ratingSum / p.stats.apps : 0), className: "c" },
     { key: "value", label: "Marktwert", render: (p) => money(p.value), sort: (p) => p.value, className: "r" },
-    { key: "wage", label: "Gehalt/W", render: (p) => money(p.contract?.wage), sort: (p) => p.contract?.wage ?? 0, className: "r" },
-    { key: "until", label: "Vertrag", render: (p) => <span className={p.contract?.untilSeason <= season ? "badge badge-warn" : ""}>{p.contract?.untilSeason ?? "–"}</span>, sort: (p) => p.contract?.untilSeason ?? 0, className: "c" },
+    { key: "wage", label: "Gehalt", render: (p) => money(p.contract?.wage), sort: (p) => p.contract?.wage ?? 0, className: "r" },
+    { key: "until", label: "Bis", render: (p) => <span style={{ color: p.contract?.untilSeason <= season ? "var(--warn)" : undefined, fontWeight: 600 }}>{p.contract?.untilSeason ?? "–"}</span>, sort: (p) => p.contract?.untilSeason ?? 0, className: "c" },
   ];
 
-  const wages = data.players.reduce((s: number, p: any) => s + (p.contract?.wage ?? 0), 0);
-  const avgAge = data.players.reduce((s: number, p: any) => s + p.age, 0) / data.players.length;
+  const ps = data.players;
+  const wages = ps.reduce((s: number, p: any) => s + (p.contract?.wage ?? 0), 0);
+  const avgAge = ps.reduce((s: number, p: any) => s + p.age, 0) / ps.length;
+  const injured = ps.filter((p: any) => p.injuryWeeks > 0).length;
+  const value = ps.reduce((s: number, p: any) => s + p.value, 0);
 
   return (
     <>
-      <MobileSubnav section="team" />
       <div className="page-head">
-        <div>
-          <h1>Kader</h1>
-          <p>{data.players.length} Spieler · Ø Alter {avgAge.toFixed(1)} · Gehälter {money(wages)} pro Woche</p>
-        </div>
+        <div><h1>Kader</h1><p>{data.club.name} · Saison {season}</p></div>
         <Seg<Group> value={group} onChange={setGroup} options={[{ value: "ALL", label: "Alle" }, { value: "GK", label: "Tor" }, { value: "DEF", label: "Abwehr" }, { value: "MID", label: "Mittelfeld" }, { value: "ATT", label: "Angriff" }]} />
       </div>
+      <div className="card" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14 }}>
+        <div className="stat"><span className="label">Spieler</span><span className="value">{ps.length}</span></div>
+        <div className="stat"><span className="label">Ø Alter</span><span className="value">{avgAge.toFixed(1)}</span></div>
+        <div className="stat"><span className="label">Kaderwert</span><span className="value">{money(value)}</span></div>
+        <div className="stat"><span className="label">Gehälter / Woche</span><span className="value">{money(wages)}</span></div>
+        <div className="stat"><span className="label">Verletzt</span><span className="value" style={{ color: injured ? "var(--neg)" : undefined }}>{injured}</span></div>
+      </div>
       <div className="card card-flush">
-        <SortTable rows={rows} columns={cols} rowKey={(p) => p.id} onRowClick={(p) => router.push(`/c/${id}/player/${p.id}`)} />
+        <SortTable rows={rows} columns={cols} rowKey={(p) => p.id} initialSort={{ key: "pos", dir: 1 }} onRowClick={(p) => router.push(`/c/${id}/player/${p.id}`)} />
       </div>
     </>
   );

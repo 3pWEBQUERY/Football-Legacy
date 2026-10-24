@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { api, useApi } from "@/lib/client/api";
 import { money } from "@/lib/client/format";
 import { MobileSubnav, useGame } from "@/components/GameShell";
-import { ErrorBox, Loading, Pos, Rating, useToast } from "@/components/ui";
+import { ErrorBox, Icon, Loading, Nat, Pos, Rating, useToast } from "@/components/ui";
 
 const POSITIONS = ["", "GK", "DR", "DC", "DL", "DM", "MR", "MC", "ML", "AMR", "AMC", "AML", "ST"];
 const POS_DE: Record<string, string> = { "": "Alle Positionen", GK: "Torwart", DR: "Rechter Verteidiger", DC: "Innenverteidiger", DL: "Linker Verteidiger", DM: "Defensives Mittelfeld", MR: "Rechtes Mittelfeld", MC: "Zentrales Mittelfeld", ML: "Linkes Mittelfeld", AMR: "Rechtsaussen", AMC: "Offensives Mittelfeld", AML: "Linksaussen", ST: "Stürmer" };
@@ -48,7 +48,7 @@ export default function Market() {
       <MobileSubnav section="market" />
       <div className="page-head">
         <div>
-          <h1>Transfermarkt</h1>
+          <h1>Spielersuche</h1>
           <p>{data ? <>{data.window.label} · Transferbudget <b>{money(data.club?.transferBudget)}</b> · Kontostand {money(data.club?.balance)}</> : " "}</p>
         </div>
       </div>
@@ -82,14 +82,15 @@ export default function Market() {
           <div className="card card-flush">
             <div className="table-wrap">
               <table className="table">
-                <thead><tr><th>Pos</th><th>Name</th><th className="c">Alter</th><th className="c">Stärke</th><th>Verein</th><th className="r">Marktwert</th></tr></thead>
+                <thead><tr><th>Pos</th><th>Name</th><th>Nat</th><th className="c">Alter</th><th className="c">Stärke</th><th>Verein</th><th className="r">Marktwert</th></tr></thead>
                 <tbody>
                   {data.players.map((p: any) => (
                     <tr key={p.id} className="clickable" onClick={() => router.push(`/c/${id}/player/${p.id}`)}>
                       <td><Pos p={p.position} /></td>
                       <td>
-                        <span className="row" style={{ gap: 6 }}>{p.flag} <b>{p.name}</b>{p.shortlisted && <span title="Beobachtet">★</span>}{p.listed && <span className="badge badge-blue">gelistet</span>}</span>
+                        <span className="row" style={{ gap: 6 }}><span className="name">{p.name}</span>{p.shortlisted && <span title="Beobachtet" style={{ color: "var(--accent)", display: "inline-flex" }}><Icon name="eye" size={14} /></span>}{p.listed && <span className="badge badge-blue">Transferliste</span>}</span>
                       </td>
+                      <td><Nat code={p.nationality} /></td>
                       <td className="c">{p.age}</td>
                       <td className="c"><Rating value={p.rating} range={p.ratingRange} /></td>
                       <td className="small dim truncate" style={{ maxWidth: 220 }}>{p.clubName ?? <span className="badge badge-accent">vereinslos</span>}</td>
@@ -108,25 +109,25 @@ export default function Market() {
           </div>
           <div className="stack">
             <div className="card stack">
-              <h3>🌍 Scouting-Netzwerk</h3>
+              <div className="card-head"><h3>Scouting-Netzwerk</h3></div>
               <p className="dim small">Auf dem Markt erscheinen Spieler aus Ligen, die detailliert simuliert werden: dein Heimatland und Ligen im Netzwerk. Vereine anderer Ligen kannst du über die Tabellen öffnen.</p>
-              <div className="row-wrap">{data.activeCountries.map((c: string) => <span key={c} className="badge">{data.countries.find((x: any) => x.code === c)?.flag} {data.countries.find((x: any) => x.code === c)?.name}</span>)}</div>
+              <div className="row-wrap">{data.activeCountries.map((c: string) => <span key={c} className="badge">{data.countries.find((x: any) => x.code === c)?.name}</span>)}</div>
               {data.scoutingNetwork ? (
                 <div className="row">
                   <select className="select" value={scoutCountry} onChange={(e) => setScoutCountry(e.target.value)} style={{ flex: 1 }} aria-label="Land">
                     <option value="">Land hinzufügen …</option>
-                    {data.countries.filter((c: any) => !data.activeCountries.includes(c.code)).sort((a: any, b: any) => b.strength - a.strength).map((c: any) => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
+                    {data.countries.filter((c: any) => !data.activeCountries.includes(c.code)).sort((a: any, b: any) => b.strength - a.strength).map((c: any) => <option key={c.code} value={c.code}>{c.name}</option>)}
                   </select>
                   <button className="btn btn-primary" onClick={activate} disabled={!scoutCountry}>Scouten</button>
                 </div>
-              ) : <span className="badge badge-blue" style={{ whiteSpace: "normal" }}>🔓 Freischaltung mit Manager-Level 5</span>}
+              ) : <span className="badge badge-blue" style={{ whiteSpace: "normal" }}>Freischaltung mit Manager-Level 5</span>}
             </div>
             <div className="card stack-sm">
-              <h3>Deine Verhandlungen</h3>
+              <div className="card-head"><h3>Verhandlungen</h3></div>
               {data.transfers.length === 0 && <p className="faint small">Noch keine Angebote in dieser Saison.</p>}
               {data.transfers.slice(0, 12).map((t: any) => (
                 <div key={t.id} className="between small">
-                  <span className="truncate">{t.kind === "offer_in" ? "⬅️" : "➡️"} {t.player_name}</span>
+                  <span className="truncate row" style={{ gap: 6 }}><span className="faint" style={{ display: "inline-flex" }}><Icon name={t.kind === "offer_in" ? "down" : "up"} size={13} /></span>{t.player_name}</span>
                   <span className={`badge ${t.status === "completed" ? "badge-accent" : t.status === "rejected" || t.status === "expired" ? "badge-danger" : "badge-warn"}`}>
                     {({ completed: "abgeschlossen", rejected: "abgelehnt", countered: "Gegenangebot", pending: "offen", expired: "abgelaufen" } as any)[t.status] ?? t.status}
                   </span>

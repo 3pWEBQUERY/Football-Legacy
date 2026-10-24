@@ -21,7 +21,7 @@ const GK_CATS: { label: string; keys: string[] }[] = [
 export function Radar({ value, gk, size = 220 }: { value: (key: string) => number; gk?: boolean; size?: number }) {
   const cats = gk ? GK_CATS : CATS;
   const c = size / 2;
-  const r = size / 2 - 34;
+  const r = size / 2 - 46;
   const pt = (i: number, f: number) => {
     const a = -Math.PI / 2 + (i / cats.length) * Math.PI * 2;
     return [c + Math.cos(a) * r * f, c + Math.sin(a) * r * f];
@@ -29,7 +29,7 @@ export function Radar({ value, gk, size = 220 }: { value: (key: string) => numbe
   const vals = cats.map((cat) => cat.keys.reduce((s, k) => s + value(k), 0) / cat.keys.length / 20);
   const poly = vals.map((v, i) => pt(i, Math.max(0.05, v)).join(",")).join(" ");
   return (
-    <svg width="100%" viewBox={`0 0 ${size} ${size}`} style={{ maxWidth: size }} role="img" aria-label="Stärkenprofil">
+    <svg width="100%" viewBox={`0 0 ${size} ${size}`} style={{ maxWidth: size, display: "block", margin: "0 auto" }} role="img" aria-label="Stärkenprofil">
       {[0.25, 0.5, 0.75, 1].map((f) => (
         <polygon key={f} points={cats.map((_, i) => pt(i, f).join(",")).join(" ")} fill="none" stroke="var(--border-strong)" strokeWidth="1" />
       ))}
@@ -41,7 +41,7 @@ export function Radar({ value, gk, size = 220 }: { value: (key: string) => numbe
       {cats.map((cat, i) => {
         const [x, y] = pt(i, 1.2);
         return (
-          <text key={cat.label} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fontSize="10.5" fill="var(--text-dim)" fontWeight="600">
+          <text key={cat.label} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fontSize="12" fill="var(--text-2)" fontWeight="600" fontFamily="'Barlow Condensed', sans-serif">
             {cat.label} {Math.round(vals[i] * 20)}
           </text>
         );

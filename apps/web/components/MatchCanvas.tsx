@@ -70,7 +70,7 @@ export function MatchCanvas({ frames, playhead, colors, numbers, skin, flash }: 
         ctx.strokeStyle = "rgba(255,255,255,0.9)";
         ctx.stroke();
         ctx.fillStyle = s === 0 ? "#fff" : colors[side].ink;
-        ctx.font = "700 12px system-ui, sans-serif";
+        ctx.font = "700 13px 'Barlow Condensed', system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(String(numbers[side][s] ?? s + 1), px, py + 0.5);
@@ -96,7 +96,7 @@ export function MatchCanvas({ frames, playhead, colors, numbers, skin, flash }: 
       ctx.fillStyle = "rgba(0,0,0,0.45)";
       ctx.fillRect(0, H / 2 - 60, W, 120);
       ctx.fillStyle = "#fff";
-      ctx.font = "800 64px system-ui, sans-serif";
+      ctx.font = "700 72px 'Barlow Condensed', system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(flash, W / 2, H / 2);

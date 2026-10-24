@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, useApi } from "@/lib/client/api";
 import { Crest, Icon, Loading, Rating, useToast } from "@/components/ui";
 
-const CONFED_LABEL: Record<string, string> = { UEFA: "Europa", CONMEBOL: "Südamerika", CONCACAF: "Nord- & Mittelamerika", AFC: "Asien & Australien", CAF: "Afrika", OFC: "Ozeanien" };
+const CONFED: Record<string, string> = { UEFA: "Europa", CONMEBOL: "Südamerika", CONCACAF: "Nord-/Mittelamerika", AFC: "Asien", CAF: "Afrika", OFC: "Ozeanien" };
 
 export default function NewCareer() {
   const router = useRouter();
@@ -13,7 +13,9 @@ export default function NewCareer() {
   const [seed] = useState(() => Math.floor(Math.random() * 2 ** 31));
   const [country, setCountry] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const [confed, setConfed] = useState<string>("UEFA");
   const [preview, setPreview] = useState<any[] | null>(null);
+  const [leagueKey, setLeagueKey] = useState<string | null>(null);
   const [club, setClub] = useState<any | null>(null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -22,16 +24,12 @@ export default function NewCareer() {
     if (!country) return;
     setPreview(null);
     setClub(null);
-    api(`world/preview?country=${country}&seed=${seed}`).then(setPreview).catch((e) => toast(e.message, "error"));
+    api<any[]>(`world/preview?country=${country}&seed=${seed}`).then((p) => { setPreview(p); setLeagueKey(p[0]?.key ?? null); }).catch((e) => toast(e.message, "error"));
   }, [country, seed, toast]);
 
-  const grouped = useMemo(() => {
-    const list = (world.data?.countries ?? []).filter((c) => c.name.toLowerCase().includes(filter.toLowerCase()));
-    const g: Record<string, any[]> = {};
-    for (const c of list) (g[c.confed] ??= []).push(c);
-    for (const k of Object.keys(g)) g[k].sort((a, b) => b.strength - a.strength || a.name.localeCompare(b.name));
-    return g;
-  }, [world.data, filter]);
+  const countries = useMemo(() => (world.data?.countries ?? [])
+    .filter((c) => (filter ? c.name.toLowerCase().includes(filter.toLowerCase()) : c.confed === confed))
+    .sort((a, b) => b.strength - a.strength || a.name.localeCompare(b.name, "de")), [world.data, filter, confed]);
 
   async function create() {
     if (!country || !club) return;
@@ -45,77 +43,105 @@ export default function NewCareer() {
     }
   }
 
+  const league = preview?.find((l) => l.key === leagueKey);
   const countryInfo = world.data?.countries.find((c) => c.code === country);
 
   return (
-    <div className="content" style={{ maxWidth: 1200 }}>
-      <div className="page-head">
-        <div>
-          <button className="btn btn-ghost btn-sm" onClick={() => router.push("/careers")}><Icon name="back" size={16} /> Zurück</button>
-          <h1 style={{ marginTop: 8 }}>Neue Karriere</h1>
-          <p>Du startest als Co-Trainer, der kurzfristig die Mannschaft übernimmt. Wähle ein Land und einen Verein.</p>
+    <div className="landing">
+      <header className="landing-top">
+        <div className="row" style={{ gap: 10 }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => router.push("/careers")}><Icon name="back" size={15} /></button>
+          <div className="brand-mark">FL</div>
+          <div className="brand-name">Neue Karriere<small>Land und Verein wählen</small></div>
         </div>
-      </div>
-      <div className="grid grid-main" style={{ alignItems: "start" }}>
-        <div className="card stack">
-          <div className="between">
-            <h3>1. Land wählen</h3>
-            <input className="input" placeholder="Land suchen …" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ maxWidth: 220 }} />
-          </div>
-          {world.loading && <Loading lines={3} />}
-          {Object.entries(grouped).map(([confed, list]) => (
-            <div key={confed} className="stack-sm">
-              <div className="faint small" style={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>{CONFED_LABEL[confed] ?? confed}</div>
-              <div className="row-wrap">
-                {list.map((c) => (
-                  <button key={c.code} className={`btn btn-sm ${country === c.code ? "btn-primary" : ""}`} onClick={() => setCountry(c.code)} title={`Stärke ${c.strength}/10 · ${c.tiers} Liga(en)`}>
-                    <span>{c.flag}</span> {c.name}
-                  </button>
-                ))}
-              </div>
+        <div className="row">
+          <input className="input" placeholder="Name des Managers" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} style={{ width: 220 }} aria-label="Name des Managers" />
+          <button className="btn btn-primary" disabled={!club || busy} onClick={create}>{busy ? "Welt wird erstellt …" : "Karriere starten"}</button>
+        </div>
+      </header>
+      <div className="content" style={{ maxWidth: 1400 }}>
+        <div className="grid" style={{ gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 1.3fr)", alignItems: "start" }}>
+          <section className="card card-flush">
+            <div className="card-head">
+              <h3><Icon name="flag" size={15} /> Land</h3>
+              <input className="input" placeholder="Suchen …" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ height: 26, width: 160 }} aria-label="Land suchen" />
             </div>
-          ))}
-        </div>
-        <div className="stack" style={{ position: "sticky", top: 16 }}>
-          <div className="card stack">
-            <h3>2. Verein wählen {countryInfo && <span className="dim">· {countryInfo.flag} {countryInfo.name}</span>}</h3>
-            {!country && <p className="dim">Wähle links ein Land.</p>}
-            {country && !preview && <Loading lines={3} />}
-            {preview?.map((league) => (
-              <div key={league.key} className="stack-sm">
-                <div className="between"><strong>{league.name}</strong><span className="badge">Stufe {league.tier} · {league.size} Vereine</span></div>
-                <div className="stack-sm" style={{ maxHeight: 260, overflowY: "auto" }}>
-                  {league.clubs.map((c: any) => (
-                    <button key={c.index} className="card-soft row" style={{ cursor: "pointer", textAlign: "left", borderColor: club?.index === c.index ? "var(--accent)" : undefined }} onClick={() => setClub(c)}>
-                      <Crest colors={c.colors} name={c.name} size={24} />
-                      <span className="truncate" style={{ flex: 1 }}>{c.name}</span>
-                      <span className="faint small">Erw. Platz {c.expected}</span>
-                      <Rating value={c.rating} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="card stack">
-            <h3>3. Dein Name</h3>
-            <input className="input" placeholder="Name des Managers" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} />
-            {club && (
-              <div className="card-soft row">
-                <Crest colors={club.colors} name={club.name} size={36} />
-                <div>
-                  <strong>{club.name}</strong>
-                  <div className="dim small">Stärke {club.rating} · {club.capacity.toLocaleString("de-CH")} Plätze · erwarteter Platz {club.expected}</div>
-                </div>
+            {!filter && (
+              <div className="tabs" style={{ padding: "0 8px" }}>
+                {Object.entries(CONFED).map(([k, v]) => <button key={k} className={`tab ${confed === k ? "active" : ""}`} onClick={() => setConfed(k)}>{v}</button>)}
               </div>
             )}
-            <button className="btn btn-primary btn-lg" disabled={!club || busy} onClick={create}>
-              {busy ? "Die Welt wird erschaffen …" : "Karriere starten"}
-            </button>
-            {busy && <p className="faint small">155 Länder, über 3000 Vereine und tausende Spieler werden erzeugt. Das dauert nur einen Moment.</p>}
+            {world.loading ? <div style={{ padding: 14 }}><Loading lines={3} /></div> : (
+              <div style={{ maxHeight: 620, overflowY: "auto" }}>
+                <table className="table">
+                  <thead><tr><th>Land</th><th className="c">Niveau</th><th className="c">Ligen</th></tr></thead>
+                  <tbody>
+                    {countries.map((c) => (
+                      <tr key={c.code} className={`clickable ${country === c.code ? "highlight" : ""}`} onClick={() => setCountry(c.code)}>
+                        <td className="name">{c.name}</td>
+                        <td className="c"><Stars value={c.strength} /></td>
+                        <td className="c">{c.tiers}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <div className="stack">
+            <section className="card card-flush">
+              <div className="card-head"><h3><Icon name="trophy" size={15} /> Verein {countryInfo && <span className="faint">· {countryInfo.name}</span>}</h3></div>
+              {!country && <div className="empty">Wähle links ein Land.</div>}
+              {country && !preview && <div style={{ padding: 14 }}><Loading lines={3} /></div>}
+              {preview && (
+                <>
+                  <div className="tabs" style={{ padding: "0 8px" }}>
+                    {preview.map((l) => <button key={l.key} className={`tab ${leagueKey === l.key ? "active" : ""}`} onClick={() => setLeagueKey(l.key)}>{l.tier}. {l.name}</button>)}
+                  </div>
+                  <div style={{ maxHeight: 460, overflowY: "auto" }}>
+                    <table className="table">
+                      <thead><tr><th>Verein</th><th className="c">Stärke</th><th className="c">Erwartung</th><th className="r">Stadion</th></tr></thead>
+                      <tbody>
+                        {league?.clubs.map((c: any) => (
+                          <tr key={c.index} className={`clickable ${club?.index === c.index ? "highlight" : ""}`} onClick={() => setClub(c)}>
+                            <td><span className="row" style={{ gap: 8 }}><Crest colors={c.colors} name={c.name} size={18} /><span className="name">{c.name}</span></span></td>
+                            <td className="c"><Rating value={c.rating} /></td>
+                            <td className="c">{c.expected}.</td>
+                            <td className="r">{c.capacity.toLocaleString("de-CH")}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </section>
+            {club && (
+              <section className="card" style={{ boxShadow: `inset 6px 0 0 ${club.colors.primary}` }}>
+                <div className="row" style={{ gap: 14, paddingLeft: 6 }}>
+                  <Crest colors={club.colors} name={club.name} size={52} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="cond up" style={{ fontSize: 24, fontWeight: 700 }}>{club.name}</div>
+                    <div className="dim small">{club.city} · {club.capacity.toLocaleString("de-CH")} Plätze · erwarteter Platz {club.expected}</div>
+                  </div>
+                  <button className="btn btn-primary btn-lg" disabled={busy} onClick={create}>{busy ? "Welt wird erstellt …" : "Übernehmen"}</button>
+                </div>
+                {busy && <p className="faint small" style={{ marginTop: 10 }}>155 Länder, über 3000 Vereine und tausende Spieler werden erzeugt.</p>}
+              </section>
+            )}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function Stars({ value }: { value: number }) {
+  const full = Math.round(value / 2);
+  return (
+    <span className="cond" style={{ letterSpacing: 1, fontWeight: 700, fontSize: 13 }} title={`Niveau ${value}/10`}>
+      {Array.from({ length: 5 }).map((_, i) => <span key={i} style={{ color: i < full ? "var(--gold)" : "var(--line-2)" }}>■</span>)}
+    </span>
   );
 }

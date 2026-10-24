@@ -6,7 +6,10 @@ import { api, refreshAll, useApi } from "@/lib/client/api";
 import { ATTR_GROUPS, POS_LABEL, attrColor, money } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { Radar } from "@/components/Radar";
-import { Crest, ErrorBox, Icon, Loading, Modal, Pos, Progress, Rating, useNotes, useToast } from "@/components/ui";
+import { Condition, Crest, ErrorBox, Icon, Loading, Modal, Nat, Panel, Pos, moraleLabel, useNotes, useToast } from "@/components/ui";
+import { PositionMap } from "@/components/PositionMap";
+
+const POS_LONG: Record<string, string> = { GK: "Torwart", DR: "Rechter Verteidiger", DC: "Innenverteidiger", DL: "Linker Verteidiger", DM: "Defensives Mittelfeld", MR: "Rechtes Mittelfeld", MC: "Zentrales Mittelfeld", ML: "Linkes Mittelfeld", AMR: "Rechtsaussen", AMC: "Offensives Mittelfeld", AML: "Linksaussen", ST: "Stürmer" };
 
 export default function PlayerPage() {
   const { id } = useGame();
@@ -89,109 +92,119 @@ export default function PlayerPage() {
   return (
     <>
       <div className="row"><button className="btn btn-ghost btn-sm" onClick={() => router.back()}><Icon name="back" size={16} /> Zurück</button></div>
-      <div className="card">
-        <div className="between" style={{ flexWrap: "wrap", gap: 16 }}>
-          <div className="row" style={{ gap: 16 }}>
-            <div className="rating" style={{ width: 64, height: 64, fontSize: 24, borderRadius: 16 }}>
-              <Rating value={p.rating} range={p.ratingRange} />
+      <section className="card card-flush">
+        <div style={{ display: "flex", flexWrap: "wrap", boxShadow: `inset 6px 0 0 ${data.club?.colors.primary ?? "var(--line-2)"}` }}>
+          <div style={{ padding: "16px 20px 14px 24px", flex: "1 1 360px", minWidth: 0 }}>
+            <div className="faint small up" style={{ fontWeight: 600 }}>{POS_LONG[p.position]} · {p.archetype}</div>
+            <h1 style={{ fontSize: 34, marginTop: 2 }}>{p.name}</h1>
+            <div className="row-wrap dim" style={{ marginTop: 6 }}>
+              <Pos p={p.position} />
+              {p.altPositions.map((x: string) => <span key={x} className="badge">{POS_LABEL[x]}</span>)}
+              <Nat code={p.nationality} />
+              <span>{p.age} Jahre</span>
+              <span className="faint">·</span>
+              <span>Fuss {p.foot === "L" ? "links" : p.foot === "R" ? "rechts" : "beidfüssig"}</span>
+              {p.wonderkid && <span className="badge badge-gold">Ausnahmetalent</span>}
+              {p.injuryWeeks > 0 && <span className="badge badge-danger">Verletzt · {p.injuryWeeks} W</span>}
             </div>
-            <div className="stack-sm">
-              <h1>{p.flag} {p.name} {p.wonderkid && <span className="badge badge-gold">★ Wunderkind</span>}</h1>
-              <div className="row-wrap dim">
-                <Pos p={p.position} />
-                {p.altPositions.map((x: string) => <span key={x} className="badge">{POS_LABEL[x]}</span>)}
-                <span>{p.age} Jahre</span>·<span>{p.archetype}</span>·<span>Fuss {p.foot === "L" ? "links" : p.foot === "R" ? "rechts" : "beidfüssig"}</span>
-              </div>
+            <div style={{ marginTop: 8 }}>
               {data.club ? (
-                <Link href={`/c/${id}/club/${data.club.id}`} className="row small"><Crest colors={data.club.colors} name={data.club.name} size={18} /> {data.club.name} <span className="faint">· {data.league?.name}</span></Link>
+                <Link href={`/c/${id}/club/${data.club.id}`} className="row small" style={{ gap: 8 }}><Crest colors={data.club.colors} name={data.club.name} size={18} /> <b>{data.club.name}</b> <span className="faint">{data.league?.name}</span></Link>
               ) : <span className="badge badge-blue">Vereinslos</span>}
             </div>
           </div>
-          <div className="row-wrap">
-            {data.own ? (
-              <>
-                <button className="btn" disabled={busy} onClick={openRenew}>Vertrag verlängern</button>
-                <button className="btn" disabled={busy} onClick={async () => { const r = await action("list"); if (r) { toast(r.listed ? "Auf die Transferliste gesetzt" : "Von der Transferliste genommen"); reload(); } }}>
-                  {p.listed ? "Von Transferliste nehmen" : "Auf Transferliste"}
-                </button>
-                <button className="btn btn-danger" disabled={busy} onClick={async () => {
-                  if (!confirm(`Vertrag mit ${p.name} auflösen? Es wird eine Abfindung fällig.`)) return;
-                  const r = await action("release");
-                  if (r) { toast(`Vertrag aufgelöst. Abfindung: ${money(r.compensation)}`); router.push(`/c/${id}/team`); refreshAll(); }
-                }}>Vertrag auflösen</button>
-              </>
-            ) : (
-              <>
-                <button className="btn" disabled={busy} onClick={async () => { const r = await action("shortlist"); if (r) { toast(r.shortlisted ? "Zur Beobachtungsliste hinzugefügt" : "Von der Beobachtungsliste entfernt"); reload(); } }}>
-                  {data.shortlisted ? "★ Beobachtet" : "☆ Beobachten"}
-                </button>
-                <button className="btn" disabled={busy} onClick={async () => { const r = await action("scout"); if (r) { toast("Scoutbericht erstellt", "success"); reload(); } }}>🔍 Scouten</button>
-                <button className="btn btn-primary" disabled={busy || (!data.window.open && p.clubId !== null)} onClick={startOffer} title={!data.window.open && p.clubId !== null ? "Transferfenster geschlossen" : ""}>
-                  {p.clubId === null ? "Verpflichten" : "Angebot abgeben"}
-                </button>
-              </>
-            )}
+          <div style={{ display: "flex", borderLeft: "1px solid var(--line)" }}>
+            {[
+              ["Stärke", p.rating ?? `${p.ratingRange[0]}–${p.ratingRange[1]}`],
+              ["Potenzial", exact ? p.potential : data.report ? `${data.report.potentialMin}–${data.report.potentialMax}` : "?"],
+              ["Marktwert", money(p.value)],
+            ].map(([k, v]) => (
+              <div key={k as string} style={{ padding: "16px 20px", borderRight: "1px solid var(--line)", minWidth: 110 }} className="stat">
+                <span className="label">{k}</span><span className="value">{v}</span>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+        <div className="row-wrap" style={{ padding: "10px 16px", borderTop: "1px solid var(--line)", background: "var(--panel-2)" }}>
+          {data.own ? (
+            <>
+              <button className="btn" disabled={busy} onClick={openRenew}><Icon name="contract" size={15} /> Vertrag verlängern</button>
+              <button className="btn" disabled={busy} onClick={async () => { const r = await action("list"); if (r) { toast(r.listed ? "Auf die Transferliste gesetzt" : "Von der Transferliste genommen"); reload(); } }}>
+                <Icon name="transfer" size={15} /> {p.listed ? "Von Transferliste nehmen" : "Auf Transferliste"}
+              </button>
+              <button className="btn btn-danger ml-auto" disabled={busy} onClick={async () => {
+                if (!confirm(`Vertrag mit ${p.name} auflösen? Es wird eine Abfindung fällig.`)) return;
+                const r = await action("release");
+                if (r) { toast(`Vertrag aufgelöst. Abfindung: ${money(r.compensation)}`); router.push(`/c/${id}/team`); refreshAll(); }
+              }}>Vertrag auflösen</button>
+            </>
+          ) : (
+            <>
+              <button className="btn" disabled={busy} onClick={async () => { const r = await action("shortlist"); if (r) { toast(r.shortlisted ? "Zur Beobachtungsliste hinzugefügt" : "Von der Beobachtungsliste entfernt"); reload(); } }}>
+                <Icon name="eye" size={15} /> {data.shortlisted ? "Beobachtet" : "Beobachten"}
+              </button>
+              <button className="btn" disabled={busy} onClick={async () => { const r = await action("scout"); if (r) { toast("Scoutbericht erstellt", "success"); reload(); } }}><Icon name="search" size={15} /> Scouten</button>
+              <button className="btn btn-primary" disabled={busy || (!data.window.open && p.clubId !== null)} onClick={startOffer} title={!data.window.open && p.clubId !== null ? "Transferfenster geschlossen" : ""}>
+                {p.clubId === null ? "Vertrag anbieten" : "Angebot abgeben"}
+              </button>
+              {data.askingPrice && <span className="faint small ml-auto">Ablöseforderung ca. <b style={{ color: "var(--text)" }}>{money(data.askingPrice)}</b></span>}
+            </>
+          )}
+        </div>
+      </section>
 
-      <div className="grid grid-main" style={{ alignItems: "start" }}>
-        <div className="card stack">
-          <div className="between">
-            <h3>Attribute</h3>
-            {!exact && <span className="badge badge-warn">Geschätzt – Genauigkeit: {p.knowledge === "good" ? "gut (gleiche Liga)" : "grob"}. Scouten für exakte Werte.</span>}
-          </div>
-          <div className="grid grid-3">
+      <div className="grid grid-side" style={{ alignItems: "start" }}>
+        <Panel title="Attribute" icon="chart" actions={!exact && <span className="badge badge-warn">{p.knowledge === "good" ? "Geschätzt (gleiche Liga)" : "Grob geschätzt"} – scouten für exakte Werte</span>}>
+          <div className="grid grid-3" style={{ gap: 18 }}>
             {ATTR_GROUPS.map((g) => (
               <div key={g.title}>
-                <div className="faint small" style={{ fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>{g.title}</div>
+                <div className="attr-group-title">{g.title}</div>
                 {g.keys.map(([k, label]) => {
                   const v = val(k);
                   return (
                     <div key={k} className="attr">
                       <span className="dim">{label}</span>
-                      <span className="attr-v" style={{ color: attrColor(v) }}>{exact ? p.attrs[k] : `${p.attrRanges[k][0]}–${p.attrRanges[k][1]}`}</span>
-                      <div className="bar"><span style={{ width: `${(v / 20) * 100}%`, background: attrColor(v) }} /></div>
+                      <span className="attr-v" style={{ color: attrColor(v) }}>{exact ? p.attrs[k] : `${p.attrRanges[k][0]}-${p.attrRanges[k][1]}`}</span>
                     </div>
                   );
                 })}
               </div>
             ))}
           </div>
-        </div>
+          {data.report && <div className="card-soft small" style={{ marginTop: 12 }}><span className="faint up">Scoutbericht</span> · {data.report.verdict}</div>}
+        </Panel>
         <div className="stack">
-          <div className="card" style={{ display: "grid", placeItems: "center" }}><Radar value={val} gk={isGk} /></div>
-          <div className="card stack-sm">
-            <div className="between"><span className="dim">Marktwert</span><b>{money(p.value)}</b></div>
-            {data.askingPrice && <div className="between"><span className="dim">Ablöseforderung ca.</span><b>{money(data.askingPrice)}</b></div>}
-            <div className="between"><span className="dim">Potenzial</span><b>{exact ? p.potential : data.report ? `${data.report.potentialMin}–${data.report.potentialMax}` : "?"}</b></div>
-            <div className="between"><span className="dim">Gehalt</span><b>{p.contract ? `${money(p.contract.wage)}/Woche` : "–"}</b></div>
-            <div className="between"><span className="dim">Vertrag bis</span><b>{p.contract?.untilSeason ?? "–"}</b></div>
-            {p.contract?.releaseClause && <div className="between"><span className="dim">Ausstiegsklausel</span><b>{money(p.contract.releaseClause)}</b></div>}
-            <div className="divider" />
-            <div className="stack-sm">
-              <div className="between small"><span className="dim">Fitness</span><span>{p.fitness}%</span></div><Progress value={p.fitness} />
-              <div className="between small"><span className="dim">Moral</span><span>{p.morale}%</span></div><Progress value={p.morale} tone={p.morale < 35 ? "danger" : p.morale < 55 ? "warn" : undefined} />
-              <div className="between small"><span className="dim">Form</span><span>{p.form.toFixed(1)} / 10</span></div><Progress value={p.form} max={10} />
+          <Panel title="Positionen & Profil" icon="board">
+            <div style={{ display: "grid", gridTemplateColumns: "0.8fr 1.2fr", gap: 10, alignItems: "center" }}>
+              <PositionMap natural={p.position} alt={p.altPositions} />
+              <Radar value={val} gk={isGk} size={260} />
             </div>
-            {p.injuryWeeks > 0 && <span className="badge badge-danger">Verletzt: noch {p.injuryWeeks} Wochen</span>}
-            {data.report && <div className="card-soft small"><b>Scoutbericht:</b> {data.report.verdict}</div>}
-          </div>
-          <div className="card stack-sm">
-            <h3>Saison {season}</h3>
-            <div className="grid grid-4" style={{ gap: 8, gridTemplateColumns: "repeat(4, 1fr)" }}>
+          </Panel>
+          <Panel title="Vertrag" icon="contract">
+            <div className="kv"><span className="k">Gehalt</span><span className="v">{p.contract ? `${money(p.contract.wage)} / Woche` : "–"}</span></div>
+            <div className="kv"><span className="k">Vertrag bis</span><span className="v">{p.contract?.untilSeason ?? "–"}</span></div>
+            <div className="kv"><span className="k">Ausstiegsklausel</span><span className="v">{p.contract?.releaseClause ? money(p.contract.releaseClause) : "–"}</span></div>
+            <div className="kv"><span className="k">Torprämie</span><span className="v">{p.contract?.goalBonus ? money(p.contract.goalBonus) : "–"}</span></div>
+          </Panel>
+          <Panel title="Zustand" icon="medical">
+            <div className="kv"><span className="k">Kondition</span><span className="v"><Condition value={p.fitness} /></span></div>
+            <div className="kv"><span className="k">Moral</span><span className="v" style={{ color: moraleLabel(p.morale).color }}>{moraleLabel(p.morale).text}</span></div>
+            <div className="kv"><span className="k">Form</span><span className="v">{p.form.toFixed(1)} / 10</span></div>
+          </Panel>
+          <Panel title={`Saison ${season}`} icon="calendar" flush>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", padding: 12, gap: 8 }}>
               <div className="stat"><span className="label">Spiele</span><span className="value">{p.stats.apps}</span></div>
               <div className="stat"><span className="label">Tore</span><span className="value">{p.stats.goals}</span></div>
               <div className="stat"><span className="label">Vorl.</span><span className="value">{p.stats.assists}</span></div>
-              <div className="stat"><span className="label">Ø Note</span><span className="value">{p.stats.apps ? (p.stats.ratingSum / p.stats.apps).toFixed(1) : "–"}</span></div>
+              <div className="stat"><span className="label">Ø Note</span><span className="value">{p.stats.apps ? (p.stats.ratingSum / p.stats.apps).toFixed(2) : "–"}</span></div>
             </div>
             {p.history.length > 0 && (
-              <table className="table small">
+              <table className="table">
                 <thead><tr><th>Saison</th><th>Verein</th><th className="c">Sp</th><th className="c">T</th><th className="c">Ø</th></tr></thead>
                 <tbody>{[...p.history].reverse().map((h: any) => <tr key={h.season}><td>{h.season}</td><td className="truncate">{h.clubName}</td><td className="c">{h.apps}</td><td className="c">{h.goals}</td><td className="c">{h.avgRating}</td></tr>)}</tbody>
               </table>
             )}
-          </div>
+          </Panel>
         </div>
       </div>
 

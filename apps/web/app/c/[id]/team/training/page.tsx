@@ -3,16 +3,16 @@ import { useState } from "react";
 import { api, refreshAll, useApi } from "@/lib/client/api";
 import { money } from "@/lib/client/format";
 import { MobileSubnav, useGame } from "@/components/GameShell";
-import { ErrorBox, Loading, Progress, Seg, useToast } from "@/components/ui";
+import { ErrorBox, Icon, Loading, Progress, Seg, useToast } from "@/components/ui";
 
 const FOCUS = [
-  { id: "balanced", label: "Ausgewogen", icon: "⚖️", text: "Alle Bereiche gleichmässig – solide Entwicklung." },
-  { id: "attack", label: "Angriff", icon: "🎯", text: "Abschluss, Laufwege, Dribbling, Flanken." },
-  { id: "defense", label: "Abwehr", icon: "🛡️", text: "Tackling, Manndeckung, Stellungsspiel, Kopfball." },
-  { id: "physical", label: "Physis", icon: "💪", text: "Tempo, Ausdauer, Kraft. Bremst die Alterung." },
-  { id: "technical", label: "Technik", icon: "🪄", text: "Ballannahme, Passen, Technik, Standards." },
-  { id: "mental", label: "Taktik & Mentalität", icon: "🧠", text: "Entscheidungen, Übersicht, Antizipation." },
-  { id: "recovery", label: "Regeneration", icon: "🛌", text: "Schnellere Erholung, kaum Entwicklung." },
+  { id: "balanced", label: "Ausgewogen", icon: "board", text: "Alle Bereiche gleichmässig – solide Entwicklung." },
+  { id: "attack", label: "Angriff", icon: "target", text: "Abschluss, Laufwege, Dribbling, Flanken." },
+  { id: "defense", label: "Abwehr", icon: "shield", text: "Tackling, Manndeckung, Stellungsspiel, Kopfball." },
+  { id: "physical", label: "Physis", icon: "bolt", text: "Tempo, Ausdauer, Kraft. Bremst die Alterung." },
+  { id: "technical", label: "Technik", icon: "ball", text: "Ballannahme, Passen, Technik, Standards." },
+  { id: "mental", label: "Taktik & Mentalität", icon: "info", text: "Entscheidungen, Übersicht, Antizipation." },
+  { id: "recovery", label: "Regeneration", icon: "medical", text: "Schnellere Erholung, kaum Entwicklung." },
 ];
 
 const STAFF: Record<string, { label: string; text: string }> = {
@@ -65,27 +65,28 @@ export default function Training() {
       <MobileSubnav section="team" />
       <div className="page-head">
         <div>
-          <h1>Training</h1>
+          <h1>Training & Stab</h1>
           <p>Der Wochenplan wirkt jede Woche auf Entwicklung, Fitness und Verletzungsrisiko.</p>
         </div>
-        {shell?.career?.trainingBoostWeeks > 0 && <span className="badge badge-gold">🔥 Trainingsbonus aktiv: noch {shell.career.trainingBoostWeeks} Wochen</span>}
+        {shell?.career?.trainingBoostWeeks > 0 && <span className="badge badge-gold">Trainingsbonus aktiv: noch {shell.career.trainingBoostWeeks} Wochen</span>}
       </div>
       <div className="grid grid-main" style={{ alignItems: "start" }}>
         <div className="stack">
           <div className="card stack">
-            <h3>Schwerpunkt</h3>
+            <div className="card-head"><h3>Trainingsschwerpunkt</h3></div>
             <div className="grid grid-2" style={{ gap: 8 }}>
               {FOCUS.map((f) => (
                 <button key={f.id} disabled={busy} onClick={() => setPlan({ focus: f.id })} className="card-soft row" style={{ cursor: "pointer", textAlign: "left", borderColor: plan.focus === f.id ? "var(--accent)" : undefined, background: plan.focus === f.id ? "var(--accent-soft)" : undefined }}>
-                  <span style={{ fontSize: 22 }}>{f.icon}</span>
+                  <span style={{ color: plan.focus === f.id ? "var(--accent)" : "var(--text-3)", display: "inline-flex" }}><Icon name={f.icon} size={20} /></span>
                   <div><b>{f.label}</b><div className="faint small">{f.text}</div></div>
                 </button>
               ))}
             </div>
           </div>
           <div className="card stack">
+            <div className="card-head"><h3>Intensität & Optionen</h3></div>
             <div className="between">
-              <div><h3>Intensität</h3><p className="faint small">Hoch: schnellere Entwicklung, weniger Erholung, mehr Verletzungen.</p></div>
+              <div><b>Intensität</b><p className="faint small">Hoch: schnellere Entwicklung, weniger Erholung, mehr Verletzungen.</p></div>
               <Seg value={plan.intensity} onChange={(v) => setPlan({ intensity: v })} options={[{ value: "low", label: "Niedrig" }, { value: "normal", label: "Normal" }, { value: "high", label: "Hoch" }]} />
             </div>
             <label className="row" style={{ cursor: "pointer" }}>
@@ -99,8 +100,8 @@ export default function Training() {
           </div>
         </div>
         <div className="card stack">
-          <h3>Trainerstab</h3>
-          {!unlockedStaff && <p className="badge badge-blue" style={{ whiteSpace: "normal" }}>🔓 Ausbau ab Manager-Level 7</p>}
+          <div className="card-head"><h3>Trainerstab</h3></div>
+          {!unlockedStaff && <p className="badge badge-blue" style={{ whiteSpace: "normal" }}>Ausbau ab Manager-Level 7</p>}
           {Object.entries(STAFF).map(([k, s]) => (
             <div key={k} className="stack-sm">
               <div className="between"><b>{s.label}</b><span className="num">{data.staff[k]}/20</span></div>

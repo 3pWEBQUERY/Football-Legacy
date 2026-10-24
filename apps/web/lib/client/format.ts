@@ -22,19 +22,18 @@ export function ratingClass(r: number | null | undefined): string {
 }
 
 export function attrColor(v: number): string {
-  if (v >= 16) return "var(--purple)";
-  if (v >= 13) return "var(--accent)";
-  if (v >= 10) return "var(--blue)";
-  if (v >= 7) return "var(--warn)";
-  return "var(--danger)";
+  if (v >= 16) return "var(--a4)";
+  if (v >= 11) return "var(--a3)";
+  if (v >= 6) return "var(--a2)";
+  return "var(--a1)";
 }
 
 export function matchRatingColor(v: number): string {
-  if (v >= 8) return "var(--purple)";
-  if (v >= 7) return "var(--accent)";
-  if (v >= 6.3) return "var(--blue)";
+  if (v >= 8) return "var(--a4)";
+  if (v >= 7) return "var(--a3)";
+  if (v >= 6.3) return "var(--text)";
   if (v >= 5.5) return "var(--warn)";
-  return "var(--danger)";
+  return "var(--neg)";
 }
 
 export const POS_LABEL: Record<string, string> = {
@@ -66,9 +65,6 @@ export const ATTR_GROUPS: { title: string; keys: [string, string][] }[] = [
   },
 ];
 
-export const CATEGORY_ICON: Record<string, string> = {
-  board: "🏛️", tips: "💡", match: "⚽", transfer: "🔁", medical: "🩺", contract: "📝", youth: "🌱", news: "📰", finance: "💶", career: "⭐",
-};
 
 export function seasonLabel(season: number) {
   return `${season}/${String((season + 1) % 100).padStart(2, "0")}`;

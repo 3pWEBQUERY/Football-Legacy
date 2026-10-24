@@ -13,9 +13,9 @@ export default function CareersPage() {
   const toast = useToast();
 
   async function remove(id: string, name: string) {
-    if (!confirm(`Karriere „${name}“ wirklich löschen? Das kann nicht rückgängig gemacht werden.`)) return;
+    if (!confirm(`Spielstand „${name}“ wirklich löschen? Das kann nicht rückgängig gemacht werden.`)) return;
     await api(`careers/${id}`, { method: "DELETE" });
-    toast("Karriere gelöscht");
+    toast("Spielstand gelöscht");
     reload();
   }
 
@@ -25,61 +25,66 @@ export default function CareersPage() {
     router.refresh();
   }
 
+  const streak = me.data?.account?.login_streak ?? 0;
+
   return (
-    <div className="content" style={{ maxWidth: 920 }}>
-      <div className="between">
-        <div className="brand" style={{ padding: 0 }}>
+    <div className="landing">
+      <header className="landing-top">
+        <div className="row" style={{ gap: 10 }}>
           <div className="brand-mark">FL</div>
-          <div>Football Legacy<small>{me.data?.account ? `Angemeldet als ${me.data.account.displayName}` : " "}</small></div>
+          <div className="brand-name">Football Legacy<small>{me.data?.account?.displayName ?? "Manager"}</small></div>
         </div>
         <div className="row">
           <ThemeToggle compact />
-          <Link className="btn btn-ghost btn-sm" href="/leaderboards"><Icon name="competition" size={16} /> Ranglisten</Link>
-          <button className="btn btn-ghost btn-sm" onClick={logout}><Icon name="logout" size={16} /> Abmelden</button>
+          <Link className="btn btn-ghost btn-sm" href="/leaderboards"><Icon name="trophy" size={15} /> Ranglisten</Link>
+          <button className="btn btn-ghost btn-sm" onClick={logout}><Icon name="logout" size={15} /> Abmelden</button>
         </div>
-      </div>
-      <div className="page-head">
-        <div>
-          <h1>Deine Karrieren</h1>
-          <p>Bis zu fünf Spielstände parallel, jeder mit eigener Welt.</p>
-        </div>
-        <Link className="btn btn-primary" href="/careers/new"><Icon name="plus" size={16} /> Neue Karriere</Link>
-      </div>
-      {me.data?.account?.login_streak > 1 && (
-        <div className="card row" style={{ borderColor: "var(--warn)" }}>
-          <span style={{ fontSize: 22 }}>🔥</span>
-          <div><strong>{me.data?.account?.login_streak}-Tage-Serie!</strong> <span className="dim">Bei 3, 7 und 14 Tagen gibt es Manager-Punkte und Trainingsboni.</span></div>
-        </div>
-      )}
-      {loading && <Loading />}
-      {error && <ErrorBox message={error} />}
-      {data && data.careers.length === 0 && (
-        <div className="card">
-          <Empty>
-            <div style={{ fontSize: 34 }}>⚽</div>
-            <p>Noch keine Karriere. Wähle ein Land und einen Verein – und los geht’s.</p>
-            <div style={{ marginTop: 14 }}><Link className="btn btn-primary" href="/careers/new">Erste Karriere starten</Link></div>
-          </Empty>
-        </div>
-      )}
-      <div className="stack">
-        {data?.careers.map((c) => (
-          <div key={c.id} className="card between">
-            <Link href={`/c/${c.id}`} className="row" style={{ minWidth: 0, flex: 1 }}>
-              {c.colors ? <Crest colors={c.colors} name={c.club_name ?? "?"} size={40} /> : <div style={{ width: 40 }} />}
-              <div style={{ minWidth: 0 }}>
-                <h3 className="truncate">{c.club_name ?? "Vereinslos"}</h3>
-                <div className="dim small truncate">
-                  {c.manager_name} · Level {c.level} · {c.league_name ?? "–"} · Saison {seasonLabel(c.season)}, Woche {c.week}/{c.season_weeks}
-                </div>
-              </div>
-            </Link>
-            <div className="row">
-              <Link className="btn btn-primary btn-sm" href={`/c/${c.id}`}>Weiterspielen</Link>
-              <button className="btn btn-ghost btn-sm" onClick={() => remove(c.id, c.club_name ?? c.manager_name)} aria-label="Karriere löschen"><Icon name="trash" size={16} /></button>
-            </div>
+      </header>
+      <div className="content" style={{ maxWidth: 1000 }}>
+        <div className="page-head">
+          <div>
+            <h1>Spielstände</h1>
+            <p>Bis zu fünf Karrieren parallel, jede mit eigener Welt.{streak > 1 ? ` Login-Serie: ${streak} Tage.` : ""}</p>
           </div>
-        ))}
+          <Link className="btn btn-primary btn-lg" href="/careers/new"><Icon name="plus" size={16} /> Neue Karriere</Link>
+        </div>
+        {loading && <Loading />}
+        {error && <ErrorBox message={error} />}
+        {data && (
+          <section className="card card-flush">
+            <div className="card-head"><h3>Gespeicherte Karrieren</h3><span className="faint small">{data.careers.length} / 5</span></div>
+            {data.careers.length === 0 ? (
+              <Empty>
+                <p>Noch keine Karriere. Wähle ein Land und einen Verein.</p>
+                <div style={{ marginTop: 12 }}><Link className="btn btn-primary" href="/careers/new">Erste Karriere starten</Link></div>
+              </Empty>
+            ) : (
+              <table className="table">
+                <thead><tr><th>Verein</th><th>Manager</th><th>Liga</th><th className="c">Saison</th><th className="c">Level</th><th /></tr></thead>
+                <tbody>
+                  {data.careers.map((c) => (
+                    <tr key={c.id} className="clickable" onClick={() => router.push(`/c/${c.id}`)}>
+                      <td>
+                        <span className="row" style={{ gap: 10 }}>
+                          {c.colors ? <Crest colors={c.colors} name={c.club_name ?? "?"} size={26} /> : <span style={{ width: 26 }} />}
+                          <span className="cond up" style={{ fontSize: 16, fontWeight: 700 }}>{c.club_name ?? "Vereinslos"}</span>
+                        </span>
+                      </td>
+                      <td>{c.manager_name}</td>
+                      <td className="dim">{c.league_name ?? "–"}</td>
+                      <td className="c">{seasonLabel(c.season)} · W{c.week}</td>
+                      <td className="c cond" style={{ fontWeight: 700 }}>{c.level}</td>
+                      <td className="r nowrap" onClick={(e) => e.stopPropagation()}>
+                        <Link className="btn btn-primary btn-sm" href={`/c/${c.id}`}>Laden</Link>{" "}
+                        <button className="btn btn-ghost btn-sm" onClick={() => remove(c.id, c.club_name ?? c.manager_name)} aria-label="Spielstand löschen"><Icon name="trash" size={15} /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );

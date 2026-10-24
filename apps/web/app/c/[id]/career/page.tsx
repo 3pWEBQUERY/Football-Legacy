@@ -3,7 +3,7 @@ import { useApi } from "@/lib/client/api";
 import { seasonLabel } from "@/lib/client/format";
 import { MobileSubnav, useGame } from "@/components/GameShell";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { ErrorBox, Loading, Progress, Stat } from "@/components/ui";
+import { ErrorBox, Icon, Loading, Progress, Stat } from "@/components/ui";
 
 export default function CareerPage() {
   const { id } = useGame();
@@ -25,7 +25,7 @@ export default function CareerPage() {
       <div className="card stack">
         <div className="between">
           <div className="row" style={{ gap: 14 }}>
-            <div className="brand-mark" style={{ width: 52, height: 52, fontSize: 20, borderRadius: 14 }}>{c.level}</div>
+            <div className="cond" style={{ width: 56, height: 56, fontSize: 30, fontWeight: 700, display: "grid", placeItems: "center", border: "2px solid var(--accent)", color: "var(--accent)", borderRadius: 2 }}>{c.level}</div>
             <div><h2>Level {c.level} – {c.title}</h2><span className="dim">{c.xp} XP gesamt · noch {c.xpNextLevel - c.xp} XP bis Level {c.level + 1}</span></div>
           </div>
           <span className="badge badge-gold" style={{ fontSize: 14, padding: "4px 12px" }}>{c.points} Manager-Punkte</span>
@@ -45,43 +45,43 @@ export default function CareerPage() {
       </div>
       <div className="grid grid-main" style={{ alignItems: "start" }}>
         <div className="card stack">
-          <div className="between"><h3>Erfolge</h3><span className="faint">{unlocked}/{data.achievements.length}</span></div>
+          <div className="card-head"><h3>Erfolge</h3><span className="faint">{unlocked}/{data.achievements.length}</span></div>
           <div className="grid grid-2" style={{ gap: 8 }}>
             {data.achievements.map((a: any) => (
               <div key={a.id} className="card-soft row" style={{ opacity: a.unlockedAt ? 1 : 0.5 }}>
-                <span style={{ fontSize: 24, filter: a.unlockedAt ? "none" : "grayscale(1)" }}>{a.icon}</span>
+                <span style={{ width: 30, height: 30, borderRadius: 2, display: "grid", placeItems: "center", background: a.unlockedAt ? "var(--gold-soft)" : "var(--panel-h)", color: a.unlockedAt ? "var(--gold)" : "var(--text-3)", flex: "none" }}><Icon name="trophy" size={16} /></span>
                 <div style={{ flex: 1 }}>
                   <b>{a.name}</b>
                   <div className="faint small">{a.description}</div>
                 </div>
-                {a.unlockedAt ? <span className="badge badge-accent">✓</span> : <span className="faint small nowrap">+{a.xp} XP</span>}
+                {a.unlockedAt ? <span className="badge badge-accent">Erreicht</span> : <span className="faint small nowrap">+{a.xp} XP</span>}
               </div>
             ))}
           </div>
         </div>
         <div className="stack">
           <div className="card stack-sm">
-            <h3>Freischaltungen</h3>
+            <div className="card-head"><h3>Freischaltungen</h3></div>
             {data.unlocks.map((u: any) => (
               <div key={u.id} className="row" style={{ opacity: u.unlocked ? 1 : 0.55 }}>
-                <span>{u.unlocked ? "🔓" : "🔒"}</span>
+                <span style={{ color: u.unlocked ? "var(--pos)" : "var(--text-3)", display: "inline-flex" }}><Icon name={u.unlocked ? "unlock" : "lock"} size={16} /></span>
                 <div style={{ flex: 1 }}><b>{u.name}</b> <span className="faint small">· Level {u.level}</span><div className="faint small">{u.description}</div></div>
               </div>
             ))}
           </div>
           <div className="card stack-sm">
-            <h3>Karriereverlauf</h3>
+            <div className="card-head"><h3>Karriereverlauf</h3></div>
             {data.history.length === 0 && <p className="faint small">Noch keine abgeschlossene Saison.</p>}
             {[...data.history].reverse().map((h: any) => (
               <div key={h.season} className="between small">
                 <span>{seasonLabel(h.season)} · {h.clubName} <span className="faint">({h.leagueName})</span></span>
-                <span>{h.champion ? "🏆 " : h.promoted ? "📈 " : h.relegated ? "📉 " : ""}<b>Platz {h.position}</b> · {h.points} P</span>
+                <span>{h.champion ? <span className="badge badge-gold">Meister</span> : h.promoted ? <span className="badge badge-accent">Aufstieg</span> : h.relegated ? <span className="badge badge-danger">Abstieg</span> : null} <b>Platz {h.position}</b> · {h.points} P</span>
               </div>
             ))}
           </div>
           {data.jobOffers?.length > 0 && (
             <div className="card stack-sm">
-              <h3>Jobangebote</h3>
+              <div className="card-head"><h3>Jobangebote</h3></div>
               <p className="faint small">Wechsel sind in der Saisonvorbereitung (Woche 0) im Büro möglich.</p>
               {data.jobOffers.map((o: any) => <div key={o.clubId} className="small">• {o.clubName} <span className="faint">({o.leagueName})</span></div>)}
             </div>

@@ -12,10 +12,10 @@ export function applyTheme(choice: ThemeChoice) {
 }
 
 export function useTheme(): [ThemeChoice, (t: ThemeChoice) => void] {
-  const [theme, setTheme] = useState<ThemeChoice>("system");
+  const [theme, setTheme] = useState<ThemeChoice>("dark");
   useEffect(() => {
     try {
-      setTheme((localStorage.getItem("fl-theme") as ThemeChoice) || "system");
+      setTheme((localStorage.getItem("fl-theme") as ThemeChoice) || "dark");
     } catch {}
   }, []);
   return [theme, (t) => { setTheme(t); applyTheme(t); }];

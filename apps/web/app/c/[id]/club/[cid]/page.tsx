@@ -3,7 +3,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/lib/client/api";
 import { money } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
-import { Crest, ErrorBox, Icon, Loading, Pos, Rating, SortTable } from "@/components/ui";
+import { Crest, ErrorBox, Icon, Loading, Nat, Pos, Rating, SortTable } from "@/components/ui";
 
 export default function ClubPage() {
   const { id } = useGame();
@@ -39,7 +39,7 @@ export default function ClubPage() {
           onRowClick={(p: any) => router.push(`/c/${id}/player/${p.id}`)}
           columns={[
             { key: "pos", label: "Pos", render: (p: any) => <Pos p={p.position} /> },
-            { key: "name", label: "Name", render: (p: any) => <span>{p.flag} <b>{p.name}</b></span>, sort: (p: any) => p.lastName },
+            { key: "name", label: "Name", render: (p: any) => <span className="row" style={{ gap: 8 }}><Nat code={p.nationality} /><span className="name">{p.name}</span></span>, sort: (p: any) => p.lastName },
             { key: "age", label: "Alter", render: (p: any) => p.age, sort: (p: any) => p.age, className: "c" },
             { key: "rating", label: "Stärke", render: (p: any) => <Rating value={p.rating} range={p.ratingRange} />, sort: (p: any) => p.rating ?? p.ratingRange[0], className: "c" },
             { key: "apps", label: "Sp", render: (p: any) => p.stats.apps, sort: (p: any) => p.stats.apps, className: "c" },

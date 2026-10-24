@@ -46,18 +46,18 @@ export default function Collection() {
       </div>
       <div className="grid grid-2" style={{ alignItems: "start" }}>
         <div className="card stack">
-          <div className="between"><h3>🃏 Kartenpaket</h3><b>{data.cardPack.price} MP</b></div>
+          <div className="card-head"><h3>Kartenpaket</h3><b className="cond">{data.cardPack.price} MP</b></div>
           <p className="dim small">{data.cardPack.size} Spielerkarten aus der ganzen Welt. Offene Chancen pro Karte:</p>
           <div className="row-wrap">
             {Object.entries(data.cardPack.odds).map(([k, v]: [string, any]) => <span key={k} className="badge">{RARITY[k]}: {(v * 100).toLocaleString("de-CH", { maximumFractionDigits: 1 })} %</span>)}
           </div>
           <button className="btn btn-primary" disabled={!has("card_packs") || busy || c.points < data.cardPack.price} onClick={() => buy("pack")}>
-            {has("card_packs") ? "Paket öffnen" : "🔒 ab Level 2"}
+            {has("card_packs") ? "Paket öffnen" : "Ab Level 2"}
           </button>
         </div>
         <div className="card stack">
-          <h3>🏟️ Stadion-Skins</h3>
-          {!has("skins") && <span className="badge badge-blue">🔒 ab Level 3</span>}
+          <div className="card-head"><h3>Stadion-Skins</h3></div>
+          {!has("skins") && <span className="badge badge-blue">Ab Level 3</span>}
           <div className="grid grid-3" style={{ gap: 8 }}>
             {data.skins.map((s: any) => (
               <button key={s.id} disabled={!has("skins") || busy} onClick={() => buy(s.id)} className="card-soft stack-sm" style={{ cursor: "pointer", borderColor: s.active ? "var(--accent)" : undefined }}>
@@ -70,7 +70,7 @@ export default function Collection() {
         </div>
       </div>
       <div className="card stack">
-        <div className="between"><h3>Deine Spielerkarten</h3><span className="faint">{cards.length}</span></div>
+        <div className="card-head"><h3>Spielerkarten</h3><span className="faint">{cards.length}</span></div>
         {cards.length === 0 && <Empty>Karten bekommst du für Verpflichtungen, Wunderkinder aus der Jugend und aus Kartenpaketen.</Empty>}
         <div className="grid grid-4" style={{ gap: 10 }}>
           {cards.map((k: any) => (

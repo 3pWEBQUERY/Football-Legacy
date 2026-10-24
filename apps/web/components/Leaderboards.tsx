@@ -10,14 +10,14 @@ export function Leaderboards() {
   return (
     <div className="grid grid-3" style={{ alignItems: "start" }}>
       <div className="card card-flush">
-        <div className="card-head" style={{ paddingBottom: 8 }}><h3>📈 Beste Punkteausbeute pro Saison</h3></div>
+        <div className="card-head" ><h3>Beste Punkteausbeute</h3></div>
         {data.best.length === 0 ? <Empty>Noch keine abgeschlossenen Saisons.</Empty> : (
           <table className="table">
             <tbody>
               {data.best.map((r: any, i: number) => (
                 <tr key={i}>
                   <td className="num faint">{i + 1}.</td>
-                  <td><b>{r.display_name}</b><div className="faint small">{r.club_name} · {seasonLabel(r.season)} · Platz {r.position}{r.champion ? " 🏆" : r.promoted ? " 📈" : ""}</div></td>
+                  <td><b>{r.display_name}</b><div className="faint small">{r.club_name} · {seasonLabel(r.season)} · Platz {r.position}{r.champion ? " · Meister" : r.promoted ? " · Aufstieg" : ""}</div></td>
                   <td className="r num"><b>{Number(r.ppg).toFixed(2)}</b><div className="faint small">P/Spiel</div></td>
                 </tr>
               ))}
@@ -26,7 +26,7 @@ export function Leaderboards() {
         )}
       </div>
       <div className="card card-flush">
-        <div className="card-head" style={{ paddingBottom: 8 }}><h3>⭐ Höchstes Manager-Level</h3></div>
+        <div className="card-head" ><h3>Manager-Level</h3></div>
         {data.levels.length === 0 ? <Empty>Noch keine Manager.</Empty> : (
           <table className="table">
             <tbody>
@@ -42,7 +42,7 @@ export function Leaderboards() {
         )}
       </div>
       <div className="card card-flush">
-        <div className="card-head" style={{ paddingBottom: 8 }}><h3>🏆 Titel & Aufstiege</h3></div>
+        <div className="card-head" ><h3>Titel & Aufstiege</h3></div>
         {data.titles.length === 0 ? <Empty>Noch niemand hat einen Titel geholt.</Empty> : (
           <table className="table">
             <tbody>
@@ -50,7 +50,7 @@ export function Leaderboards() {
                 <tr key={i}>
                   <td className="num faint">{i + 1}.</td>
                   <td><b>{r.display_name}</b><div className="faint small">{r.manager_name} · {r.seasons} Saisons</div></td>
-                  <td className="r">🏆 {r.titles} · 📈 {r.promotions}</td>
+                  <td className="r cond" style={{ fontWeight: 700 }}>{r.titles} T · {r.promotions} A</td>
                 </tr>
               ))}
             </tbody>

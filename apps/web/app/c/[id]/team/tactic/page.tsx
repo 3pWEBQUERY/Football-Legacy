@@ -2,9 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, useApi } from "@/lib/client/api";
 import { POS_LABEL } from "@/lib/client/format";
-import { MobileSubnav, useGame } from "@/components/GameShell";
+import { useGame } from "@/components/GameShell";
 import { PitchBoard, type BoardSlot } from "@/components/PitchBoard";
-import { ErrorBox, Loading, Pos, Rating, useNotes, useToast } from "@/components/ui";
+import { Condition, ErrorBox, Loading, Panel, Pos, Rating, useNotes, useToast } from "@/components/ui";
 
 export default function TacticPage() {
   const { id } = useGame();
@@ -46,7 +46,7 @@ export default function TacticPage() {
       label: p ? p.lastName : "frei",
       sub: p ? `${p.ratings[s.position]}` : undefined,
       color: data.club.colors.primary,
-      ink: "#fff",
+      ink: inkFor(data.club.colors.primary),
       empty: !p,
     };
   });
@@ -138,25 +138,33 @@ export default function TacticPage() {
 
   return (
     <>
-      <MobileSubnav section="team" />
       <div className="page-head">
         <div>
-          <h1>Aufstellung & Taktik</h1>
-          <p>Tippe eine Position an und wähle rechts einen Spieler. Positionen lassen sich auf der Tafel verschieben.</p>
+          <h1>Taktik</h1>
+          <p>Position auf der Tafel wählen, dann den Spieler in der Liste. Positionen lassen sich verschieben.</p>
         </div>
-        <div className="row">
-          <button className="btn" onClick={autoPick}>Automatisch aufstellen</button>
-          <button className="btn btn-primary" onClick={save} disabled={!dirty || saving}>{saving ? "Speichere …" : dirty ? "Speichern" : "Gespeichert"}</button>
-        </div>
-      </div>
-      <div className="grid grid-tactic" style={{ alignItems: "start" }}>
-        <div className="card stack">
-          <div className="between">
+        <div className="row-wrap">
+          <div className="field" style={{ minWidth: 120 }}>
+            <label>Formation</label>
             <select className="select" value={t.formation} onChange={(e) => changeFormation(e.target.value)} aria-label="Formation">
               {Object.keys(data.formations).map((f) => <option key={f}>{f}</option>)}
             </select>
-            {t.slotOffsets?.some(Boolean) && <button className="btn btn-ghost btn-sm" onClick={() => update((n) => { n.slotOffsets = []; })}>Positionen zurücksetzen</button>}
           </div>
+          <div className="field" style={{ minWidth: 150 }}>
+            <label>Spielidee</label>
+            <select className="select" value="" onChange={(e) => { const v = data.presets[e.target.value]; if (v) update((n) => { n.style = { ...v.style }; }); }} aria-label="Spielidee">
+              <option value="">Vorlage wählen …</option>
+              {Object.entries(data.presets).map(([k, v]: [string, any]) => <option key={k} value={k}>{v.name}</option>)}
+            </select>
+          </div>
+          <div className="row" style={{ alignSelf: "flex-end" }}>
+            <button className="btn" onClick={autoPick}>Auto-Aufstellung</button>
+            <button className="btn btn-primary" onClick={save} disabled={!dirty || saving}>{saving ? "Speichere …" : dirty ? "Speichern" : "Gespeichert"}</button>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-tactic" style={{ alignItems: "start" }}>
+        <Panel title={`Formation ${t.formation}`} icon="board" actions={t.slotOffsets?.some(Boolean) && <button className="btn btn-ghost btn-sm" onClick={() => update((n) => { n.slotOffsets = []; })}>Zurücksetzen</button>}>
           <PitchBoard
             slots={slots}
             selected={selected}
@@ -168,39 +176,37 @@ export default function TacticPage() {
             })}
           />
           {selected !== null && (
-            <div className="card-soft stack-sm">
-              <div className="between"><b>{POS_LABEL[formation[selected].position]} – Rolle</b><button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)}>Fertig</button></div>
+            <div className="card-soft stack-sm" style={{ marginTop: 12 }}>
+              <div className="between"><span className="faint small up">Rolle · {POS_LABEL[formation[selected].position]}</span><button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)}>Fertig</button></div>
               <select className="select" value={t.roles[selected] || rolesFor(formation[selected].position)[0]?.id} onChange={(e) => update((n) => { n.roles[selected] = e.target.value; })}>
                 {rolesFor(formation[selected].position).map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
               <small className="dim">{rolesFor(formation[selected].position).find((r: any) => r.id === (t.roles[selected] || rolesFor(formation[selected].position)[0]?.id))?.description}</small>
             </div>
           )}
-        </div>
+        </Panel>
 
-        <div className="card card-flush">
-          <div className="card-head" style={{ paddingBottom: 8 }}>
-            <h3>{selPos ? `Spieler für ${POS_LABEL[selPos]}` : "Spieler"}</h3>
-            <span className="faint small">Bank {t.bench.length}/9</span>
-          </div>
-          <div style={{ maxHeight: 640, overflowY: "auto" }}>
+        <Panel title={selPos ? `Kandidaten · ${POS_LABEL[selPos]}` : "Kader"} icon="users" flush actions={<span className="faint small">Bank {t.bench.length}/9</span>}>
+          <div style={{ maxHeight: 720, overflowY: "auto" }}>
             <table className="table">
+              <thead><tr><th>Pos</th><th>Name</th><th className="c">Kond.</th><th className="c">{selPos ? "Eignung" : "Stärke"}</th><th className="r">Status</th></tr></thead>
               <tbody>
                 {sortedPlayers.map((p: any) => {
                   const unavailable = p.injuryWeeks > 0 || p.suspendedWeeks > 0;
                   const status = inLineup.has(p.id) ? "Elf" : t.bench.includes(p.id) ? "Bank" : "";
                   return (
-                    <tr key={p.id} className="clickable" style={{ opacity: unavailable ? 0.5 : 1 }} onClick={() => !unavailable && assign(p.id)}>
+                    <tr key={p.id} className={`clickable ${status === "Elf" ? "highlight" : ""}`} style={{ opacity: unavailable ? 0.45 : 1 }} onClick={() => !unavailable && assign(p.id)}>
                       <td><Pos p={p.position} /></td>
                       <td>
-                        <div className="truncate" style={{ maxWidth: 150 }}><b>{p.name}</b></div>
-                        <div className="faint small">{unavailable ? (p.injuryWeeks > 0 ? `verletzt (${p.injuryWeeks} W)` : "gesperrt") : `Fit ${p.fitness}% · Form ${p.form.toFixed(1)}`}</div>
+                        <div className="truncate name" style={{ maxWidth: 160 }}>{p.name}</div>
+                        {unavailable && <div className="small neg-txt">{p.injuryWeeks > 0 ? `Verletzt · ${p.injuryWeeks} W` : "Gesperrt"}</div>}
                       </td>
+                      <td className="c"><Condition value={p.fitness} /></td>
                       <td className="c"><Rating value={selPos ? p.ratings[selPos] : p.rating} /></td>
                       <td className="r">
-                        {status === "Elf" ? <span className="badge badge-accent">Elf</span> : (
-                          <button className="btn btn-ghost btn-sm" disabled={unavailable} onClick={(e) => { e.stopPropagation(); toggleBench(p.id); }}>
-                            {status === "Bank" ? "Bank ✓" : "+ Bank"}
+                        {status === "Elf" ? <span className="badge badge-blue">Startelf</span> : (
+                          <button className={`btn btn-sm ${status === "Bank" ? "" : "btn-ghost"}`} disabled={unavailable} onClick={(e) => { e.stopPropagation(); toggleBench(p.id); }}>
+                            {status === "Bank" ? "Bank" : "+ Bank"}
                           </button>
                         )}
                       </td>
@@ -210,49 +216,61 @@ export default function TacticPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Panel>
 
         <div className="stack">
-          <div className="card stack">
-            <h3>Spielstil</h3>
-            <div className="row-wrap">
-              {Object.entries(data.presets).map(([k, v]: [string, any]) => (
-                <button key={k} className="btn btn-sm" onClick={() => update((n) => { n.style = { ...v.style }; })}>{v.name}</button>
-              ))}
-            </div>
-            {Object.entries(data.styleLabels).map(([k, [label, lo, hi]]: [string, any]) => (
-              <div key={k}>
-                <div className="slider">
-                  <label htmlFor={`s-${k}`} className="small" style={{ fontWeight: 600 }}>{label}</label>
-                  <input id={`s-${k}`} type="range" min={0} max={100} step={5} value={t.style[k]} onChange={(e) => update((n) => { n.style[k] = Number(e.target.value); })} />
-                  <span className="num small" style={{ textAlign: "right" }}>{t.style[k]}</span>
-                </div>
-                <div className="slider"><span /><div className="ends"><span>{lo}</span><span>{hi}</span></div></div>
+          {[
+            { title: "Mit Ball", icon: "ball", keys: ["tempo", "passLength", "width", "risk"] },
+            { title: "Gegen den Ball", icon: "shield", keys: ["pressing", "defensiveLine", "hardness"] },
+          ].map((g) => (
+            <Panel key={g.title} title={g.title} icon={g.icon}>
+              <div className="stack">
+                {g.keys.map((k) => {
+                  const [label, lo, hi] = data.styleLabels[k];
+                  return (
+                    <div key={k}>
+                      <div className="slider">
+                        <label htmlFor={`s-${k}`} className="small" style={{ fontWeight: 600 }}>{label}</label>
+                        <input id={`s-${k}`} type="range" min={0} max={100} step={5} value={t.style[k]} onChange={(e) => update((n) => { n.style[k] = Number(e.target.value); })} />
+                        <span className="cond" style={{ textAlign: "right", fontWeight: 700, fontSize: 15 }}>{t.style[k]}</span>
+                      </div>
+                      <div className="slider"><span /><div className="ends"><span>{lo}</span><span>{hi}</span></div></div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-          <div className="card stack">
-            <h3>Standards</h3>
-            <div className="field">
-              <label>Eckball-Variante</label>
-              <select className="select" value={t.setPieces.corners} onChange={(e) => update((n) => { n.setPieces.corners = e.target.value; })}>
-                <option value="far">Hoch an den zweiten Pfosten</option>
-                <option value="near">Scharf an den ersten Pfosten</option>
-                <option value="short">Kurz ausführen</option>
-              </select>
-            </div>
-            {[["cornerTaker", "Eckenschütze", "corners"], ["freeKickTaker", "Freistossschütze", "freeKicks"], ["penaltyTaker", "Elfmeterschütze", "penalties"]].map(([key, label, attr]) => (
-              <div key={key} className="field">
-                <label>{label}</label>
-                <select className="select" value={t.setPieces[key] ?? ""} onChange={(e) => update((n) => { n.setPieces[key] = e.target.value ? Number(e.target.value) : null; })}>
-                  <option value="">Automatisch</option>
-                  {lineupPlayers.sort((a: any, b: any) => b.attrs[attr] - a.attrs[attr]).map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.attrs[attr]})</option>)}
+            </Panel>
+          ))}
+          <Panel title="Standards" icon="flag">
+            <div className="stack">
+              <div className="field">
+                <label>Eckbälle</label>
+                <select className="select" value={t.setPieces.corners} onChange={(e) => update((n) => { n.setPieces.corners = e.target.value; })}>
+                  <option value="far">Hoch an den zweiten Pfosten</option>
+                  <option value="near">Scharf an den ersten Pfosten</option>
+                  <option value="short">Kurz ausführen</option>
                 </select>
               </div>
-            ))}
-          </div>
+              {[["cornerTaker", "Eckenschütze", "corners"], ["freeKickTaker", "Freistossschütze", "freeKicks"], ["penaltyTaker", "Elfmeterschütze", "penalties"]].map(([key, label, attr]) => (
+                <div key={key} className="field">
+                  <label>{label}</label>
+                  <select className="select" value={t.setPieces[key] ?? ""} onChange={(e) => update((n) => { n.setPieces[key] = e.target.value ? Number(e.target.value) : null; })}>
+                    <option value="">Automatisch</option>
+                    {lineupPlayers.sort((a: any, b: any) => b.attrs[attr] - a.attrs[attr]).map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.attrs[attr]})</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </Panel>
         </div>
       </div>
     </>
   );
+}
+
+function inkFor(hex: string) {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return r * 0.299 + g * 0.587 + b * 0.114 > 160 ? "#111" : "#fff";
 }

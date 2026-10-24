@@ -166,6 +166,6 @@ export async function announceNotes(db: Db, career: CareerRow, notes: RewardNote
   if (!important.length) return;
   await addInbox(
     db, career.id, career.season, career.week, "career", important.length === 1 ? important[0].text : "Neue Erfolge und Freischaltungen",
-    important.map((n) => `${n.icon ?? "•"} ${n.text}`).join("\n"),
+    important.map((n) => `– ${n.text}`).join("\n"),
   );
 }

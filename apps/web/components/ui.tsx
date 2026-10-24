@@ -31,6 +31,27 @@ const PATHS: Record<string, string> = {
   whistle: "M3 12a6 6 0 1012 0V8h6V5H9a6 6 0 00-6 7z",
   bolt: "M13 2L4 14h7l-1 8 9-12h-7z",
   mail: "M3 6h18v12H3zM3 6l9 7 9-7",
+  board: "M3 21h18M5 21V10M19 21V10M9 21V10M15 21V10M2 10l10-6 10 6z",
+  info: "M12 8h.01M11 12h1v5h1M12 3a9 9 0 100 18 9 9 0 000-18z",
+  ball: "M12 3a9 9 0 100 18 9 9 0 000-18zM12 7.5l4 2.9-1.5 4.7h-5L8 10.4zM12 3v4.5M16 10.4l4.4-1.4M14.5 15.1l2.7 3.8M9.5 15.1l-2.7 3.8M8 10.4L3.6 9",
+  transfer: "M4 8h13l-4-4M20 16H7l4 4",
+  medical: "M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z",
+  contract: "M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6",
+  youth: "M12 21V11M12 11c0-4 3-7 7-7 0 4-3 7-7 7zM12 14c0-3-2.5-5.5-6-5.5 0 3 2.5 5.5 6 5.5z",
+  news: "M4 5h13v14H6a2 2 0 01-2-2zM17 9h3v8a2 2 0 01-2 2M8 9h5M8 13h5M8 16h3",
+  target: "M12 3a9 9 0 100 18 9 9 0 000-18zM12 7a5 5 0 100 10 5 5 0 000-10zM12 11a1 1 0 100 2 1 1 0 000-2z",
+  shield: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z",
+  swap: "M7 4v16M7 4L3 8M7 4l4 4M17 20V4M17 20l-4-4M17 20l4-4",
+  card: "M8 3h8v18H8z",
+  calendar: "M4 6h16v15H4zM4 10h16M8 3v4M16 3v4",
+  lock: "M6 11h12v10H6zM9 11V7a3 3 0 016 0v4",
+  unlock: "M6 11h12v10H6zM9 11V7a3 3 0 015.8-1",
+  trophy: "M8 4h8v5a4 4 0 01-8 0zM5 5H3a3 3 0 003 4M19 5h2a3 3 0 01-3 4M12 13v4M8 20h8",
+  up: "M12 19V5M6 11l6-6 6 6",
+  down: "M12 5v14M6 13l6 6 6-6",
+  fire: "M12 3c1 4 5 5 5 10a5 5 0 01-10 0c0-3 2-4 2-7 1.5 1 2 2 2 3 1-2 1-4 1-6z",
+  eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z",
+  stadium: "M3 9c0-2 4-4 9-4s9 2 9 4v8c0 2-4 4-9 4s-9-2-9-4zM3 9c0 2 4 4 9 4s9-2 9-4",
 };
 
 export function Icon({ name, size = 18, stroke = 1.8 }: { name: keyof typeof PATHS | string; size?: number; stroke?: number }) {
@@ -56,9 +77,9 @@ export function Crest({ colors, name, size = 32 }: { colors: { primary: string; 
   const ink = light ? "#111827" : "#ffffff";
   return (
     <svg className="crest" width={size} height={size * 1.12} viewBox="0 0 40 45" role="img" aria-label={`Wappen ${name}`}>
-      <path d="M20 1 L38 6 V22 C38 33 30 40 20 44 C10 40 2 33 2 22 V6 Z" fill={colors.primary} stroke={colors.secondary} strokeWidth="2.5" />
-      <path d="M20 1 L38 6 V14 H2 V6 Z" fill={colors.secondary} opacity="0.9" />
-      <text x="20" y="31" textAnchor="middle" fontSize="13" fontWeight="800" fill={ink} fontFamily="system-ui, sans-serif">{initials}</text>
+      <path d="M20 1.5 L37.5 6 V22 C37.5 32.5 30 39.5 20 43.5 C10 39.5 2.5 32.5 2.5 22 V6 Z" fill={colors.primary} stroke={colors.secondary} strokeWidth="2" />
+      <path d="M2.5 13 H37.5" stroke={colors.secondary} strokeWidth="2" />
+      <text x="20" y="31.5" textAnchor="middle" fontSize="13.5" fontWeight="700" fill={ink} fontFamily="'Barlow Condensed', system-ui, sans-serif" letterSpacing="0.5">{initials}</text>
     </svg>
   );
 }
@@ -245,7 +266,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="toasts" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={`toast ${t.kind}`}>
-            {t.icon && <span>{t.icon}</span>}
             <span>{t.text}</span>
           </div>
         ))}
@@ -264,7 +284,70 @@ export function useNotes() {
   return useCallback((notes: { text: string; icon?: string; kind?: string }[] | undefined) => {
     for (const n of notes ?? []) {
       if (n.kind === "xp") continue;
-      toast(n.text, "success", n.icon);
+      toast(n.text, "success");
     }
   }, [toast]);
+}
+
+// ---------------------------------------------------------------- Ereignis-Symbole
+
+const EVENT_SHAPE: Record<string, { icon?: string; color: string; block?: boolean }> = {
+  goal: { icon: "ball", color: "var(--pos)" }, penalty_goal: { icon: "ball", color: "var(--pos)" }, own_goal: { icon: "ball", color: "var(--neg)" },
+  penalty_miss: { icon: "close", color: "var(--neg)" }, save: { icon: "shield", color: "var(--accent)" }, miss: { icon: "target", color: "var(--text-3)" },
+  yellow: { color: "#f2c230", block: true }, red: { color: "#e5534b", block: true }, sub: { icon: "swap", color: "var(--accent)" },
+  injury: { icon: "medical", color: "var(--neg)" }, corner: { icon: "flag", color: "var(--text-3)" }, freekick: { icon: "target", color: "var(--text-3)" },
+  halftime: { icon: "pause", color: "var(--text-3)" }, fulltime: { icon: "whistle", color: "var(--text-3)" }, tactic: { icon: "board", color: "var(--text-3)" },
+  foul: { icon: "close", color: "var(--warn)" }, kickoff: { icon: "whistle", color: "var(--text-3)" },
+};
+
+export function EventIcon({ type }: { type: string }) {
+  const s = EVENT_SHAPE[type] ?? { icon: "info", color: "var(--text-3)" };
+  if (s.block) return <span className="ev-dot" style={{ width: 9, height: 12, background: s.color }} aria-label={type === "red" ? "Rote Karte" : "Gelbe Karte"} />;
+  return <span style={{ color: s.color, display: "inline-flex" }}><Icon name={s.icon!} size={15} stroke={2} /></span>;
+}
+
+const CATEGORY_ICONS: Record<string, string> = {
+  board: "board", tips: "info", match: "ball", transfer: "transfer", medical: "medical", contract: "contract", youth: "youth",
+  news: "news", finance: "euro", career: "star",
+};
+
+export function CategoryIcon({ category }: { category: string }) {
+  return <Icon name={CATEGORY_ICONS[category] ?? "mail"} size={16} />;
+}
+
+/** Panel mit Kopfzeile im Manager-Stil. */
+export function Panel({ title, icon, actions, children, flush, className }: {
+  title: ReactNode; icon?: string; actions?: ReactNode; children: ReactNode; flush?: boolean; className?: string;
+}) {
+  return (
+    <section className={`card ${flush ? "card-flush" : ""} ${className ?? ""}`}>
+      <div className="card-head">
+        <h3>{icon && <Icon name={icon} size={15} />}{title}</h3>
+        {actions && <div className="row" style={{ gap: 6 }}>{actions}</div>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** Nationalität als kompaktes Länderkürzel (Flaggen-Emojis rendern nicht überall). */
+export function Nat({ code }: { code: string }) {
+  return (
+    <span className="cond" title={code} style={{ display: "inline-block", minWidth: 30, padding: "0 3px", border: "1px solid var(--line-2)", borderRadius: 2, fontSize: 11.5, fontWeight: 700, color: "var(--text-2)", textAlign: "center", lineHeight: "16px", letterSpacing: "0.04em" }}>
+      {code}
+    </span>
+  );
+}
+
+export function moraleLabel(m: number): { text: string; color: string } {
+  if (m >= 80) return { text: "Super", color: "var(--a4)" };
+  if (m >= 62) return { text: "Gut", color: "var(--a3)" };
+  if (m >= 42) return { text: "Okay", color: "var(--text-2)" };
+  if (m >= 25) return { text: "Mässig", color: "var(--warn)" };
+  return { text: "Schlecht", color: "var(--neg)" };
+}
+
+export function Condition({ value }: { value: number }) {
+  const color = value >= 90 ? "var(--a4)" : value >= 80 ? "var(--a3)" : value >= 70 ? "var(--warn)" : "var(--neg)";
+  return <span className="cond" style={{ fontWeight: 700, color, fontSize: 14 }}>{value}%</span>;
 }
