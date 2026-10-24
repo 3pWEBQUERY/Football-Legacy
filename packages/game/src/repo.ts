@@ -66,6 +66,14 @@ export interface JobOffer {
   countryCode: string;
   reputation: number;
   expires: number; // Saison
+  /** Frist als fortlaufender Tag (Saison * 1000 + Tag) */
+  expiresDay?: number;
+  kind?: "angebot" | "bewerbung";
+  wage?: number; // pro Jahr
+  years?: number;
+  expectation?: string;
+  tier?: number;
+  colors?: { primary: string; secondary: string };
 }
 
 export interface LeagueRow {

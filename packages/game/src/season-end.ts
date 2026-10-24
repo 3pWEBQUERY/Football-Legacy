@@ -300,7 +300,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
     db, career.id, newSeason, 0, "board", title,
     `Abschlussplatz: ${position} mit ${pts?.points ?? 0} Punkten.\n` +
       `Saisonziel ${objectiveMet ? "erfüllt" : "verfehlt"} – Vertrauen des Vorstands: ${career.board.confidence}/100.\n` +
-      (dismissed ? "\nDer Vorstand hat sich von dir getrennt. Wähle im Büro eines der Jobangebote, um weiterzumachen." :
+      (dismissed ? "\nDer Vorstand hat sich von dir getrennt. Unter Karriere → Freie Stellen findest du Angebote und offene Trainerposten in aller Welt." :
         `\nNeues Saisonziel: ${career.board.objective}`) +
       `\n\nMeister der Topligen: ${champions.slice(0, 8).map((c) => `${c.clubName} (${c.leagueName})`).join(", ")}`,
   );
@@ -324,7 +324,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
     await addInbox(db, career.id, newSeason, 0, "youth", "Neuer Jugendjahrgang", `Aus der Akademie rücken nach:\n${youthNames.join("\n")}`);
   }
   if (offers.length && !dismissed) {
-    await addInbox(db, career.id, newSeason, 0, "career", "Jobangebote", `Andere Vereine sind auf dich aufmerksam geworden:\n${offers.map((o) => `• ${o.clubName} (${o.leagueName})`).join("\n")}\n\nDu kannst im Bereich Karriere wechseln.`);
+    await addInbox(db, career.id, newSeason, 0, "career", "Jobangebote", `Andere Vereine sind auf dich aufmerksam geworden:\n${offers.map((o) => `• ${o.clubName} (${o.leagueName})`).join("\n")}\n\nDetails und Annahme unter Karriere → Freie Stellen.`);
   }
   if (userClub) {
     await addInbox(db, career.id, newSeason, 0, "finance", "Finanzbericht", `Kontostand zum Saisonstart: ${formatMoney(newUserClub?.balance ?? 0)}.`);

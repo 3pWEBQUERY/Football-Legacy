@@ -399,4 +399,10 @@ create table if not exists online_posts (
 create index if not exists online_posts_league on online_posts(league_id, id desc);
 `,
   },
+  {
+    name: "014_jobs.sql",
+    sql: `
+alter table careers add column if not exists jobs jsonb;
+`,
+  },
 ];

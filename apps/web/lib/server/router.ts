@@ -230,6 +230,16 @@ route("GET", career("finances"), async (c) => game.financeView(c.params.id, acc(
 route("GET", career("career"), async (c) => game.careerView(c.params.id, acc(c)));
 route("POST", career("shop"), async (c) => (c.body.item === "pack" ? game.buyCardPack(c.params.id, acc(c)) : game.buySkin(c.params.id, acc(c), str(c.body.item))));
 route("POST", career("job"), async (c) => game.acceptJob(c.params.id, acc(c), num(c.body.clubId)));
+route("GET", career("jobs"), async (c) => game.jobsView(c.params.id, acc(c), {
+  status: str(c.query.get("status")), confed: str(c.query.get("confed")), country: str(c.query.get("country")),
+  tier: c.query.get("tier") ? num(c.query.get("tier")) : undefined, q: str(c.query.get("q")), reachable: c.query.get("reachable") === "1",
+  page: c.query.get("page") ? num(c.query.get("page")) : 1,
+}));
+route("POST", career("jobs/apply"), async (c) => game.applyForJob(c.params.id, acc(c), num(c.body.clubId)));
+route("POST", career("jobs/withdraw"), async (c) => game.withdrawApplication(c.params.id, acc(c), num(c.body.clubId)));
+route("POST", career("jobs/interest"), async (c) => game.toggleInterest(c.params.id, acc(c), num(c.body.clubId)));
+route("POST", career("jobs/decline"), async (c) => game.declineOffer(c.params.id, acc(c), num(c.body.clubId)));
+route("POST", career("jobs/resign"), async (c) => game.resignJob(c.params.id, acc(c)));
 route("POST", career("inbox"), async (c) => game.markInboxRead(c.params.id, acc(c), c.body.ids === "all" ? "all" : ((c.body.ids as unknown[]) ?? []).map(num)));
 route("GET", career("match/preview"), async (c) => {
   const cr = await game.readCareer(c.params.id, acc(c));

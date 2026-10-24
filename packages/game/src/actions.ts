@@ -478,34 +478,6 @@ export async function upgradeStaff(careerId: string, accountId: string, role: "c
 
 // ---------------------------------------------------------------- Karriere
 
-export async function acceptJob(careerId: string, accountId: string, clubId: number) {
-  return withCareer(careerId, accountId, async (db, career) => {
-    const offer = career.job_offers.find((o) => o.clubId === clubId);
-    if (!offer) throw new GameError("Dieses Angebot gibt es nicht (mehr).");
-    if (career.week !== 0) throw new GameError("Vereinswechsel sind nur in der Saisonvorbereitung möglich.");
-    const club = await getClub(db, career.id, clubId);
-    if (!club) throw new GameError("Verein nicht gefunden");
-    const league = (await getLeague(db, career.id, club.league_id))!;
-    if (!league.active) await activateLeague(db, career, league.id);
-    const fresh = (await getClub(db, career.id, clubId))!;
-    career.club_id = clubId;
-    career.status = "active";
-    career.job_offers = [];
-    // Neuer Verein: Kalender (Spieltage und Pokal) neu planen
-    await query(db, "delete from fixtures where career_id = $1 and season = $2", [career.id, career.season]);
-    await query(db, "delete from cups where career_id = $1 and season = $2", [career.id, career.season]);
-    await scheduleSeason(db, career);
-    career.board = await boardObjectives(db, career, fresh, league);
-    career.board.confidence = 60;
-    // Der Trainerstab gehört zum alten Verein: beim neuen Verein neu zusammenstellen
-    await query(db, "update careers set staff_team = null where id = $1", [career.id]);
-    await saveCareer(db, career);
-    await addInbox(db, career.id, career.season, 0, "board", `Neuer Job: ${fresh.name}`,
-      `Willkommen bei ${fresh.name}! Saisonziel: ${career.board.objective}`);
-    return { clubId };
-  });
-}
-
 export async function markInboxRead(careerId: string, accountId: string, ids: number[] | "all") {
   return withCareer(careerId, accountId, async (db, career) => {
     if (ids === "all") await query(db, "update inbox set read = true where career_id = $1", [career.id]);

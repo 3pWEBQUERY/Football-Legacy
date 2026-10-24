@@ -594,3 +594,107 @@ describe("Verein, Fans und Online-Ligen", () => {
     expect(after.table.reduce((n: number, r: { p: number }) => n + r.p, 0)).toBe(6);
   }, 60_000);
 });
+
+describe("Stellenmarkt", () => {
+  async function playOn(until: (c: { week: number }) => boolean, max = 80) {
+    for (let i = 0; i < max; i++) {
+      const c = (await pool().query("select week, club_id from careers where id = $1", [careerId])).rows[0];
+      if (until(c)) return;
+      const r = await advance(careerId, accountId);
+      if (r.kind === "match") await quickMatch(careerId, accountId);
+    }
+    throw new Error("Ziel nicht erreicht");
+  }
+
+  it("Freie Stellen: alle Vereine der Welt mit Status, Filter und Seiten", async () => {
+    const v = await game.jobsView(careerId, accountId, {});
+    const total = v.counts.frei + v.counts.unsicher + v.counts.besetzt;
+    expect(total).toBeGreaterThan(1000);
+    expect(v.rows.length).toBe(40);
+    expect(v.rows.every((r) => r.coach === null ? r.status === "frei" : r.coach.length > 3)).toBe(true);
+    expect(v.me.club?.name).toBe("Testclub Legacy");
+    const ger = await game.jobsView(careerId, accountId, { country: "GER", tier: 1 });
+    expect(ger.total).toBe(18);
+    expect(ger.rows.every((r) => r.countryCode === "GER" && r.tier === 1)).toBe(true);
+    const page2 = await game.jobsView(careerId, accountId, { page: 2 });
+    expect(page2.rows[0].clubId).not.toBe(v.rows[0].clubId);
+    const reach = await game.jobsView(careerId, accountId, { reachable: true });
+    expect(reach.total).toBeLessThan(total);
+  });
+
+  it("Bewerbung: verschicken, doppelt abgelehnt, Antwort nach einigen Tagen", async () => {
+    const v = await game.jobsView(careerId, accountId, { country: "ESP", tier: 2 });
+    const target = v.rows[0];
+    const r = await game.applyForJob(careerId, accountId, target.clubId);
+    expect(r.message).toMatch(/bewerbung/i);
+    await expect(game.applyForJob(careerId, accountId, target.clubId)).rejects.toThrow(/läuft/);
+    await expect(game.applyForJob(careerId, accountId, v.me.club!.id)).rejects.toThrow();
+    let after = await game.jobsView(careerId, accountId, { country: "ESP", tier: 2 });
+    expect(after.applications[0].status).toBe("pending");
+    expect(after.rows.find((x) => x.clubId === target.clubId)?.applied).toBe(true);
+    for (let i = 0; i < 12; i++) {
+      const res = await advance(careerId, accountId);
+      if (res.kind === "match") await quickMatch(careerId, accountId);
+    }
+    after = await game.jobsView(careerId, accountId, {});
+    const app = after.applications.find((a) => a.clubId === target.clubId)!;
+    expect(["rejected", "offer"]).toContain(app.status);
+    const inbox = await pool().query("select title from inbox where career_id = $1 and title like $2", [careerId, `%${target.name}%`]);
+    expect(inbox.rows.length).toBeGreaterThan(0);
+  }, 60_000);
+
+  it("Vereinswechsel mitten in der Saison und Rücktritt", async () => {
+    await playOn((c) => c.week >= 2);
+    const before = (await pool().query("select club_id, season from careers where id = $1", [careerId])).rows[0];
+    // Angebot eines Vereins aus einer anderen Liga
+    const pick = (await pool().query(
+      `select c.id, c.name, c.reputation, c.country_code, l.name as league from clubs c join leagues l on l.id = c.league_id
+        where c.career_id = $1 and l.country_code = 'ITA' and l.tier = 2 order by c.reputation desc limit 1`, [careerId])).rows[0];
+    await pool().query("update careers set job_offers = $2 where id = $1", [careerId, JSON.stringify([{ clubId: pick.id, clubName: pick.name, leagueName: pick.league, countryCode: "ITA", reputation: pick.reputation, expires: before.season + 1, expiresDay: before.season * 1000 + 999, kind: "angebot", wage: 300000, years: 2 }])]);
+    await expect(game.acceptJob(careerId, accountId, 999999)).rejects.toThrow();
+    await game.acceptJob(careerId, accountId, pick.id);
+    const d = await dashboard(careerId, accountId);
+    expect(d.club?.id).toBe(pick.id);
+    expect(d.career.week).toBeGreaterThanOrEqual(2);
+    const squad = await squadView(careerId, accountId);
+    expect(squad.players.length).toBeGreaterThan(15);
+    const v = await game.jobsView(careerId, accountId, {});
+    expect(v.me.contract?.untilSeason).toBe(before.season + 1);
+    expect(v.offers.length).toBe(0);
+    const old = await game.jobsView(careerId, accountId, { q: "Testclub Legacy" });
+    expect(old.rows[0].status).toBe("frei");
+    // weiterspielen mit dem neuen Verein: nächste Runde inklusive eigenem Spiel
+    const week = d.career.week;
+    await playOn((c) => c.week > week);
+    const played = await pool().query("select count(*)::int as n from fixtures where career_id = $1 and season = $2 and played and $3 in (home_id, away_id)", [careerId, before.season, pick.id]);
+    expect(played.rows[0].n).toBeGreaterThanOrEqual(week);
+
+    await game.resignJob(careerId, accountId);
+    const free = await dashboard(careerId, accountId);
+    expect(free.career.status).toBe("unemployed");
+    expect(free.club).toBeFalsy();
+    await expect(game.resignJob(careerId, accountId)).rejects.toThrow();
+    // ohne Verein läuft die Zeit weiter
+    const w0 = free.career.week;
+    await playOn((c) => c.week > w0 + 1, 40);
+    const now = await dashboard(careerId, accountId);
+    expect(now.career.week).toBeGreaterThan(w0 + 1);
+    const jobs = await game.jobsView(careerId, accountId, { status: "frei" });
+    expect(jobs.me.club).toBeNull();
+    expect(jobs.total).toBeGreaterThan(0);
+    // Interesse bekunden und zurücknehmen
+    const t = (await game.jobsView(careerId, accountId, { status: "besetzt" })).rows[0];
+    expect((await game.toggleInterest(careerId, accountId, t.clubId)).interest).toBe(true);
+    expect((await game.toggleInterest(careerId, accountId, t.clubId)).interest).toBe(false);
+    // wieder einsteigen über ein Angebot
+    const pick2 = jobs.rows[0];
+    await pool().query("update careers set job_offers = $2 where id = $1", [careerId, JSON.stringify([{ clubId: pick2.clubId, clubName: pick2.name, leagueName: pick2.league, countryCode: pick2.countryCode, reputation: pick2.reputation, expires: 9999, expiresDay: 9_999_999 }])]);
+    await game.declineOffer(careerId, accountId, pick2.clubId);
+    expect((await dashboard(careerId, accountId)).jobOffers.length).toBe(0);
+    await pool().query("update careers set job_offers = $2 where id = $1", [careerId, JSON.stringify([{ clubId: pick2.clubId, clubName: pick2.name, leagueName: pick2.league, countryCode: pick2.countryCode, reputation: pick2.reputation, expires: 9999, expiresDay: 9_999_999 }])]);
+    await game.acceptJob(careerId, accountId, pick2.clubId);
+    const back = await dashboard(careerId, accountId);
+    expect(back.career.status).toBe("active");
+    expect(back.club?.id).toBe(pick2.clubId);
+  }, 120_000);
+});

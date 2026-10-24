@@ -12,6 +12,7 @@ import {
 import type pg from "pg";
 import { windowFor } from "./window";
 import { type Db, query } from "./db";
+import { jobsDaily } from "./jobs";
 import { type CareerRow, type FixtureRow, addInbox, getClub, getClubs, getPlayers, saveCareer, savePlayers } from "./repo";
 import { aiTactic, teamSetup } from "./setup";
 import { competitionOf } from "./cup";
@@ -86,8 +87,13 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
     const t2 = dayType(cal, day + o, new Set(fixtures.keys()));
     return { day: day + o, date: iso(day + o), type: t2, label: DAY_TYPE_LABEL[t2] };
   });
+  events.push(...(await jobsDaily(db, career)));
   if (!career.club_id) {
-    return { day, date: iso(day), type, label: DAY_TYPE_LABEL[type], events, inbox: [], training: null, squad: { fitness: 0, injured: 0, unhappy: 0 }, next: null, outlook };
+    // Ohne Verein: nur Stellenmarkt und Nationalteam
+    events.push(...(await nationalDay(db, career, [])));
+    await saveCareer(db, career);
+    const inbox = await query<{ id: number; title: string; category: string }>(db, "select id, title, category from inbox where career_id = $1 and id > $2 order by id", [career.id, lastInbox]);
+    return { day, date: iso(day), type, label: DAY_TYPE_LABEL[type], events, inbox, training: null, squad: { fitness: 0, injured: 0, unhappy: 0 }, next: null, outlook };
   }
 
   const squad = await getPlayers(db, career.id, [career.club_id]);

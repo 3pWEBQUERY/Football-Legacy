@@ -34,7 +34,7 @@ const NAV = [
   { key: "market", label: "Transfers", icon: "transfer", href: "/market", subs: [{ href: "/market", label: "Spielersuche" }, { href: "/market/scouting", label: "Scouting" }, { href: "/market/contracts", label: "Verträge" }, { href: "/market/finances", label: "Finanzen" }] },
   { key: "competition", label: "Wettbewerb", icon: "trophy", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/cup", label: "Pokal" }, { href: "/competition/continental", label: "Kontinentalpokal" }, { href: "/competition/stats", label: "Statistiken" }, { href: "/competition/awards", label: "Auszeichnungen" }] },
   { key: "national", label: "Nationalteam", icon: "flag", href: "/national", subs: [{ href: "/national", label: "Übersicht" }, { href: "/national/squad", label: "Kader & Taktik" }, { href: "/national/matches", label: "Spiele" }] },
-  { key: "career", label: "Karriere", icon: "star", href: "/career", subs: [{ href: "/career", label: "Manager" }, { href: "/career/review", label: "Saisonrückblick" }, { href: "/career/collection", label: "Sammlung & Shop" }, { href: "/career/leaderboards", label: "Ranglisten" }, { href: "/career/settings", label: "Einstellungen" }] },
+  { key: "career", label: "Karriere", icon: "star", href: "/career", subs: [{ href: "/career", label: "Manager" }, { href: "/career/jobs", label: "Freie Stellen" }, { href: "/career/review", label: "Saisonrückblick" }, { href: "/career/collection", label: "Sammlung & Shop" }, { href: "/career/leaderboards", label: "Ranglisten" }, { href: "/career/settings", label: "Einstellungen" }] },
 ];
 
 function activeSection(path: string, base: string) {
@@ -160,7 +160,15 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
                 </div>
               </Link>
             ) : (
-              <strong className="cond up">{c?.status === "unemployed" ? "Vereinslos" : ""}</strong>
+              c?.status === "unemployed" ? (
+                <Link href={`${base}/career/jobs`} className="club unemployed" title="Freie Stellen ansehen">
+                  <span className="unemployed-mark"><Icon name="search" size={16} /></span>
+                  <div style={{ minWidth: 0 }}>
+                    <strong className="truncate">Vereinslos</strong>
+                    <span className="truncate">{c?.managerName} · Freie Stellen ansehen</span>
+                  </div>
+                </Link>
+              ) : null
             )}
             <div className="metabar">
               {d?.club && (
@@ -183,7 +191,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
               )}
             </div>
           </div>
-          <button className={`continue ${busy ? "running" : matchday && hasMatch ? "matchday" : ""}`} onClick={advance} disabled={!d || c?.status !== "active"} title={busy ? "Verarbeitung anhalten" : "Weiter (Strg + Leertaste)"}>
+          <button className={`continue ${busy ? "running" : matchday && hasMatch ? "matchday" : ""}`} onClick={advance} disabled={!d} title={busy ? "Verarbeitung anhalten" : "Weiter (Strg + Leertaste)"}>
             <span style={{ textAlign: "left" }}>
               {nextLabel}
               <span className="sub">{busy ? `Verarbeite · ${fmtDate(liveDate ?? c?.date, { year: false })}` : nextSub}</span>

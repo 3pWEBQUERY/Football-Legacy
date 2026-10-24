@@ -28,3 +28,4 @@ export { nationalJobs, nationalMatchReport, nationalSquadView, nationalView, res
 export { fireStaff, hireStaff, renewStaff, staffView } from "./staff";
 export { clubManagementView, fanAction, setTicketLevel, updateIdentity } from "./clubmgmt";
 export { addOnlineBots, createOnlineLeague, joinOnlineLeague, kickOnlineMember, leaveOnlineLeague, onlineLeagueView, onlineMatchReport, onlineOverview, playOnlineRound, postOnlineMessage, roundRobin, setOnlineReady, startOnlineLeague, switchOnlineTeam } from "./online";
+export { acceptJob, applyForJob, declineOffer, jobsView, resignJob, toggleInterest, withdrawApplication } from "./jobs";

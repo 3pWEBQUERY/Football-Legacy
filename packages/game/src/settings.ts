@@ -5,12 +5,12 @@ import { saveCareer } from "./repo";
 /** Kategorien des Posteingangs, bei denen "Weiter" standardmässig anhält. */
 export const DEFAULT_STOP_ON: Record<string, boolean> = {
   transfer: true, contract: true, medical: true, scout: true, youth: true, board: true,
-  international: true, award: true, news: false, finance: false, training: false,
+  international: true, award: true, career: true, news: false, finance: false, training: false,
 };
 
 export const STOP_ON_LABEL: Record<string, string> = {
   transfer: "Transfers und Angebote", contract: "Verträge", medical: "Verletzungen und Genesungen", scout: "Scoutberichte",
-  youth: "Jugendakademie", board: "Vorstand", international: "Nationalmannschaften", award: "Auszeichnungen",
+  youth: "Jugendakademie", board: "Vorstand", international: "Nationalmannschaften", award: "Auszeichnungen", career: "Jobangebote und Bewerbungen",
   news: "Neuigkeiten aus der Fussballwelt", finance: "Finanzberichte", training: "Trainingsereignisse",
 };
 

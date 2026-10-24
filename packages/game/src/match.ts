@@ -46,7 +46,8 @@ function ensureMatchday(career: CareerRow) {
 /** "Weiter": spielfreie Woche simulieren oder zum Spieltag führen. */
 export async function advance(careerId: string, accountId: string): Promise<AdvanceResult> {
   return withCareer(careerId, accountId, async (db, career) => {
-    ensurePlayable(career);
+    // Ohne Verein läuft die Zeit trotzdem weiter (Stellensuche)
+    if (career.club_id) ensurePlayable(career);
     if (career.pending_match) return { kind: "match", fixtureId: career.pending_match.fixtureId };
     // Bis zum nächsten Spieltag geht es Tag für Tag weiter
     if (!isMatchday(career)) return { kind: "day", day: await advanceDay(db, career) };

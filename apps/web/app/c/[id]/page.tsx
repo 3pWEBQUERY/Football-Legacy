@@ -61,7 +61,8 @@ export default function Office() {
     }
   }
 
-  async function acceptJob(clubId: number) {
+  async function acceptJob(clubId: number, name: string) {
+    if (c.status !== "unemployed" && !confirm(`Wirklich zu ${name} wechseln? Du verlässt deinen aktuellen Verein sofort.`)) return;
     try {
       await api(`careers/${id}/job`, { body: { clubId } });
       toast("Neuer Verein übernommen.", "success");
@@ -76,20 +77,26 @@ export default function Office() {
 
   return (
     <>
-      {c.status === "unemployed" && (
-        <Panel title="Jobangebote" icon="board">
-          <p className="dim" style={{ marginBottom: 10 }}>Du bist aktuell ohne Verein. Wähle ein Angebot, um weiterzumachen.</p>
-          <table className="table">
-            <tbody>
-              {d.jobOffers.map((o: any) => (
-                <tr key={o.clubId}>
-                  <td className="name">{o.clubName}</td>
-                  <td className="dim">{o.leagueName}</td>
-                  <td className="r"><button className="btn btn-primary btn-sm" onClick={() => acceptJob(o.clubId)}>Übernehmen</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {(c.status === "unemployed" || d.jobOffers?.length > 0) && (
+        <Panel title={c.status === "unemployed" ? "Du bist vereinslos" : "Jobangebote"} icon="board" actions={<Link className="btn btn-ghost btn-sm" href={`${base}/career/jobs`}>Freie Stellen</Link>}>
+          <p className="dim" style={{ marginTop: 0, marginBottom: d.jobOffers?.length ? 10 : 0 }}>
+            {c.status === "unemployed"
+              ? d.jobOffers?.length ? "Diese Vereine wollen dich. Oder bewirb dich selbst auf offene Stellen – die Zeit läuft weiter." : "Noch keine Angebote. Bewirb dich unter Karriere → Freie Stellen oder lass die Zeit laufen und warte auf Anfragen."
+              : "Andere Vereine haben Interesse an dir. Du kannst jederzeit wechseln."}
+          </p>
+          {d.jobOffers?.length > 0 && (
+            <table className="table">
+              <tbody>
+                {d.jobOffers.map((o: any) => (
+                  <tr key={o.clubId}>
+                    <td className="name">{o.colors && <Crest colors={o.colors} name={o.clubName} size={18} />} {o.clubName}</td>
+                    <td className="dim hide-sm">{o.leagueName}</td>
+                    <td className="r"><button className="btn btn-primary btn-sm" onClick={() => acceptJob(o.clubId, o.clubName)}>Übernehmen</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </Panel>
       )}
 
@@ -186,6 +193,7 @@ export default function Office() {
                     {open.action?.type === "scouting" && <div><Link className="btn" href={`${base}/market/scouting`}>Zur Scouting-Zentrale</Link></div>}
                     {open.action?.type === "academy" && <div><Link className="btn" href={`${base}/team/youth`}>Zur Jugendakademie</Link></div>}
                     {open.action?.type === "club" && <div><Link className="btn" href={`${base}/verein`}>Zu Verein & Fans</Link></div>}
+                    {open.action?.type === "jobs" && <div><Link className="btn" href={`${base}/career/jobs`}>Zu den freien Stellen</Link></div>}
                     {open.action?.type === "awards" && <div><Link className="btn" href={`${base}/competition/awards`}>Zu den Auszeichnungen</Link></div>}
                     {open.action?.type === "national" && <div className="row"><Link className="btn" href={`${base}/national`}>Zum Nationalteam</Link><Link className="btn btn-ghost" href={`${base}/national/squad`}>Kader nominieren</Link></div>}
                     {open.action?.type === "player" && <div><Link className="btn" href={`${base}/player/${open.action.playerId}`}>Spielerprofil öffnen</Link></div>}
@@ -216,6 +224,7 @@ export default function Office() {
         )}
         </div>
         <div className="stack">
+        {d.club && (
         <Panel title="Vorstand" icon="board" actions={<Link href={`${base}/board`} className="btn btn-ghost btn-sm">Anfragen</Link>}>
           <p style={{ fontWeight: 600, marginBottom: 10 }}>{board.objective}</p>
           <div className="stack-sm" style={{ marginBottom: 6 }}>
@@ -226,6 +235,7 @@ export default function Office() {
           <div className="kv"><span className="k">Zielplatz</span><span className="v">{board.targetPosition}. oder besser</span></div>
           <div className="kv"><span className="k">Kontostand mindestens</span><span className="v">{money(board.financeTarget)}</span></div>
         </Panel>
+        )}
           {d.table?.length > 0 && (
             <Panel title="Tabelle" icon="trophy" flush actions={<Link href={`${base}/competition`} className="btn btn-ghost btn-sm">Vollständig</Link>}>
               <table className="table">
