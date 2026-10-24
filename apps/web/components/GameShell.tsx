@@ -1,13 +1,12 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api, refreshAll, useApi } from "@/lib/client/api";
 import { fmtDate, money, seasonLabel } from "@/lib/client/format";
 import { Crest, Icon, Modal, Progress, useNotes, useToast } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
 import { WeekSummaryView } from "./WeekSummary";
-import { DayReport } from "./DayReport";
 
 interface ShellCtx {
   id: string;
@@ -19,6 +18,10 @@ interface ShellCtx {
   pendingMessage: number | null;
   clearPendingMessage: () => void;
 }
+
+/** Nachrichten dieser Kategorien halten die Verarbeitung nicht an. */
+const QUIET = new Set(["news", "finance", "training"]);
+const MAX_DAYS = 120;
 
 const Ctx = createContext<ShellCtx>({ id: "", shell: null, advance: async () => {}, busy: false, reloadShell: () => {}, pendingMessage: null, clearPendingMessage: () => {} });
 export const useGame = () => useContext(Ctx);
@@ -48,7 +51,8 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
   const shell = useApi<any>(`careers/${id}/dashboard`);
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<any | null>(null);
-  const [report, setReport] = useState<any | null>(null);
+  const [liveDate, setLiveDate] = useState<string | null>(null);
+  const stopRef = useRef(false);
   const [pendingMessage, setPendingMessage] = useState<number | null>(null);
   const base = `/c/${id}`;
   const section = activeSection(path, base);
@@ -58,29 +62,51 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
     api(`careers/${id}/checkin`, { body: {} }).then((r: any) => showNotes(r.notes)).catch(() => {});
   }, [id, showNotes]);
 
+  /**
+   * „Weiter“ wie im Fussball Manager: die Tage laufen automatisch ab, bis
+   * etwas Wichtiges passiert (Nachricht, Spieltag, Saisonende). Ein zweiter
+   * Klick hält die Verarbeitung an.
+   */
   const advance = useCallback(async () => {
-    if (busy) return;
+    if (busy) {
+      stopRef.current = true;
+      return;
+    }
+    stopRef.current = false;
     setBusy(true);
     try {
-      const res = await api<any>(`careers/${id}/advance`, { body: {} });
-      if (res.kind === "match") {
-        setReport(null);
-        router.push(`${base}/match`);
-      } else if (res.kind === "day") {
-        setReport(res.day);
-        refreshAll();
-      } else {
-        setReport(null);
-        setSummary(res.summary);
-        showNotes(res.summary.notes);
-        refreshAll();
+      for (let i = 0; i < MAX_DAYS; i++) {
+        const res = await api<any>(`careers/${id}/advance`, { body: {} });
+        if (res.kind === "match") {
+          router.push(`${base}/match`);
+          break;
+        }
+        if (res.kind === "week") {
+          // Spielrunde ohne eigenes Spiel: nur am Saisonende anhalten
+          if (res.summary.seasonEnd) {
+            setSummary(res.summary);
+            showNotes(res.summary.notes);
+            break;
+          }
+          continue;
+        }
+        setLiveDate(res.day.date);
+        const important = res.day.inbox.filter((m: any) => !QUIET.has(m.category));
+        if (important.length) {
+          setPendingMessage(important[0].id);
+          if (path !== base) router.push(base);
+          break;
+        }
+        if (stopRef.current) break;
       }
     } catch (e) {
       toast((e as Error).message, "error");
     } finally {
       setBusy(false);
+      setLiveDate(null);
+      refreshAll();
     }
-  }, [busy, id, base, router, toast, showNotes]);
+  }, [busy, id, base, path, router, toast, showNotes]);
 
   // Tastenkürzel wie im Original-Manager: Strg + Leertaste = Weiter
   useEffect(() => {
@@ -105,7 +131,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
   const matchday = !!c && c.nextMatchday !== null && c.day >= c.nextMatchday;
   const today = d?.schedule?.[0];
   const daysToMatch = c && d?.next?.day !== null && d?.next?.day !== undefined ? d.next.day - c.day : null;
-  const nextLabel = c?.pendingMatch ? "Spiel fortsetzen" : matchday ? (hasMatch ? "Zum Spiel" : "Spieltag") : "Weiter";
+  const nextLabel = busy ? "Stopp" : c?.pendingMatch ? "Spiel fortsetzen" : matchday ? (hasMatch ? "Zum Spiel" : "Spieltag") : "Weiter";
   const nextSub = !c ? "" : c.pendingMatch || (matchday && hasMatch) ? `${d.next.home.short} – ${d.next.away.short}` : matchday ? "Andere Spiele" : `Morgen: ${d?.schedule?.[1]?.label ?? ""}`;
   const clubStyle = d?.club ? ({ "--club": d.club.colors.primary, "--club-2": d.club.colors.secondary } as CSSProperties) : undefined;
   const nav = NAV.find((n) => n.key === section)!;
@@ -147,18 +173,19 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
               {c && (
                 <Link href={`${base}/calendar`} className="meta-cell date" title="Kalender öffnen">
                   <span className="k">Saison {seasonLabel(c.season)}{today ? ` · ${today.label}` : ""}</span>
-                  <span className="v">{fmtDate(c.date)}</span>
+                  <span className="v">{fmtDate(liveDate ?? c.date)}</span>
                 </Link>
               )}
             </div>
           </div>
-          <button className={`continue ${matchday && hasMatch ? "matchday" : ""}`} onClick={advance} disabled={busy || !d || c?.status !== "active"} title="Weiter (Strg + Leertaste)">
+          <button className={`continue ${busy ? "running" : matchday && hasMatch ? "matchday" : ""}`} onClick={advance} disabled={!d || c?.status !== "active"} title={busy ? "Verarbeitung anhalten" : "Weiter (Strg + Leertaste)"}>
             <span style={{ textAlign: "left" }}>
-              {busy ? "Bitte warten" : nextLabel}
-              <span className="sub">{busy ? "Simuliere" : nextSub}</span>
+              {nextLabel}
+              <span className="sub">{busy ? `Verarbeite · ${fmtDate(liveDate ?? c?.date, { year: false })}` : nextSub}</span>
             </span>
-            <Icon name="next" size={18} stroke={2.2} />
+            {busy ? <span className="continue-spin" aria-hidden="true" /> : <Icon name="next" size={18} stroke={2.2} />}
           </button>
+          <div className={`processing-bar ${busy ? "on" : ""}`} aria-hidden="true"><span /></div>
         </header>
 
         <nav className="mainnav" aria-label="Hauptmenü">
@@ -210,21 +237,6 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
 
         <main className="main"><div className="content">{children}</div></main>
       </div>
-      {report && (
-        <DayReport
-          report={report}
-          base={base}
-          busy={busy}
-          matchday={!!c && c.nextMatchday !== null && c.day >= c.nextMatchday && hasMatch}
-          onContinue={advance}
-          onClose={() => setReport(null)}
-          onOpenMessage={(mid) => {
-            setPendingMessage(mid);
-            setReport(null);
-            router.push(base);
-          }}
-        />
-      )}
       <Modal open={!!summary} onClose={() => setSummary(null)} wide>
         {summary && <WeekSummaryView summary={summary} base={base} onClose={() => setSummary(null)} />}
       </Modal>

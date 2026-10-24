@@ -20,12 +20,12 @@ export default function Office() {
   useEffect(() => {
     if (pendingMessage === null || !d?.inbox) return;
     const m = d.inbox.find((x: any) => x.id === pendingMessage);
-    if (m) {
-      setOpenId(m.id);
-      if (!m.read) {
-        m.read = true;
-        api(`careers/${id}/inbox`, { body: { ids: [m.id] } }).catch(() => {});
-      }
+    // Die Nachricht kann erst mit dem nächsten Laden des Büros ankommen
+    if (!m) return;
+    setOpenId(m.id);
+    if (!m.read) {
+      m.read = true;
+      api(`careers/${id}/inbox`, { body: { ids: [m.id] } }).catch(() => {});
     }
     clearPendingMessage();
   }, [pendingMessage, d, id, clearPendingMessage]);
