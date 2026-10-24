@@ -31,6 +31,7 @@ const NAV = [
   { key: "team", label: "Team", icon: "team", href: "/team", subs: [{ href: "/team", label: "Kader" }, { href: "/team/tactic", label: "Taktik" }, { href: "/team/dynamics", label: "Dynamik" }, { href: "/team/training", label: "Training & Stab" }, { href: "/team/youth", label: "Jugend" }, { href: "/team/medical", label: "Medizin" }] },
   { key: "market", label: "Transfers", icon: "transfer", href: "/market", subs: [{ href: "/market", label: "Spielersuche" }, { href: "/market/scouting", label: "Scouting" }, { href: "/market/contracts", label: "Verträge" }, { href: "/market/finances", label: "Finanzen" }] },
   { key: "competition", label: "Wettbewerb", icon: "trophy", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/cup", label: "Pokal" }, { href: "/competition/continental", label: "Kontinentalpokal" }, { href: "/competition/stats", label: "Statistiken" }, { href: "/competition/awards", label: "Auszeichnungen" }] },
+  { key: "national", label: "Nationalteam", icon: "flag", href: "/national", subs: [{ href: "/national", label: "Übersicht" }, { href: "/national/squad", label: "Kader & Taktik" }, { href: "/national/matches", label: "Spiele" }] },
   { key: "career", label: "Karriere", icon: "star", href: "/career", subs: [{ href: "/career", label: "Manager" }, { href: "/career/review", label: "Saisonrückblick" }, { href: "/career/collection", label: "Sammlung & Shop" }, { href: "/career/leaderboards", label: "Ranglisten" }, { href: "/career/settings", label: "Einstellungen" }] },
 ];
 
@@ -40,6 +41,7 @@ function activeSection(path: string, base: string) {
   if (rest.startsWith("/market")) return "market";
   if (rest.startsWith("/competition") || rest.startsWith("/club") || rest.startsWith("/report")) return "competition";
   if (rest.startsWith("/career")) return "career";
+  if (rest.startsWith("/national")) return "national";
   return "office";
 }
 

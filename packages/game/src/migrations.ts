@@ -303,4 +303,31 @@ create table if not exists media (
 create index if not exists media_career on media(career_id, id desc);
 `,
   },
+  {
+    name: "010_national.sql",
+    sql: `
+create table if not exists national_teams (
+  career_id uuid primary key references careers(id) on delete cascade,
+  data jsonb not null
+);
+create table if not exists national_matches (
+  id serial primary key,
+  career_id uuid not null references careers(id) on delete cascade,
+  season int not null,
+  day int not null,
+  kind text not null,
+  stage text not null,
+  home text not null,
+  away text not null,
+  home_goals int,
+  away_goals int,
+  pen_home int,
+  pen_away int,
+  played boolean not null default false,
+  user_match boolean not null default false,
+  data jsonb
+);
+create index if not exists national_matches_day on national_matches(career_id, season, day);
+`,
+  },
 ];

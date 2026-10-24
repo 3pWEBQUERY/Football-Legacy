@@ -657,3 +657,14 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .switch input:checked + span { background: var(--accent); }
 .switch input:checked + span::before { transform: translateX(16px); }
 .switch input:focus-visible + span { box-shadow: var(--focus); }
+
+/* ---------------------------------------------------------------- Nationalteam */
+.nation-badge { flex-shrink: 0; display: inline-block; vertical-align: middle; }
+.nat-match { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--line); min-width: 0; }
+.nat-match:first-child { border-top: 0; }
+.nat-score { font-family: var(--font-cond); font-weight: 700; font-size: 16px; min-width: 64px; text-align: center; padding: 2px 6px; border-radius: var(--r-sm); background: var(--panel-2); }
+.nat-score.pos { color: var(--pos); }
+.nat-score.neg { color: var(--neg); }
+.nat-own { font-weight: 700; }
+.squad-count { font-family: var(--font-cond); font-weight: 700; font-size: 18px; }
+.starter-btn { min-width: 74px; }

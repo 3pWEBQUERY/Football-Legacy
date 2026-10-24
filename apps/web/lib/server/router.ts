@@ -189,6 +189,12 @@ route("GET", career("settings"), async (c) => {
   return { autoSubs: cr.manager.autoSubs ?? true, stopOn: { ...game.DEFAULT_STOP_ON, ...(cr.manager.stopOn ?? {}) }, labels: game.STOP_ON_LABEL };
 });
 route("POST", career("settings"), async (c) => game.updateCareerSettings(c.params.id, acc(c), c.body));
+route("GET", career("national"), async (c) => game.nationalView(c.params.id, acc(c)));
+route("POST", career("national/job"), async (c) => game.takeNationalJob(c.params.id, acc(c), str(c.body.code)));
+route("POST", career("national/resign"), async (c) => game.resignNationalJob(c.params.id, acc(c)));
+route("GET", career("national/squad"), async (c) => game.nationalSquadView(c.params.id, acc(c)));
+route("POST", career("national/squad"), async (c) => game.saveNationalSquad(c.params.id, acc(c), c.body));
+route("GET", career("national/matches/:mid"), async (c) => game.nationalMatchReport(c.params.id, acc(c), num(c.params.mid)));
 route("GET", career("media"), async (c) => game.mediaView(c.params.id, acc(c), c.query.get("filter")));
 route("GET", career("dynamics"), async (c) => game.dynamicsView(c.params.id, acc(c)));
 route("GET", career("awards"), async (c) => game.awardsView(c.params.id, acc(c)));

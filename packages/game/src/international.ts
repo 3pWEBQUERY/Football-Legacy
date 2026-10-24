@@ -19,14 +19,15 @@ export function isAway(p: Player, career: CareerRow): boolean {
 }
 
 /** Am ersten und letzten Tag eines Fensters: Abstellung bzw. Rückkehr. Gibt Ereignistitel zurück. */
-export async function internationalDuty(db: pg.PoolClient, career: CareerRow, squad: Player[]): Promise<string[]> {
+export async function internationalDuty(db: pg.PoolClient, career: CareerRow, squad: Player[], coached: string | null = null): Promise<string[]> {
   if (!career.calendar) return [];
   const windows = internationalWindows(career.calendar, career.season);
   const start = windows.find(([a]) => a === career.day);
   const end = windows.find(([, b]) => b + 1 === career.day);
   const out: string[] = [];
   if (start) {
-    const called = squad.filter((p) => p.injuryWeeks === 0 && p.rating >= threshold(p.nationality));
+    // Spieler der eigenen Nationalmannschaft nominierst du selbst
+    const called = squad.filter((p) => p.injuryWeeks === 0 && p.nationality !== coached && p.rating >= threshold(p.nationality));
     for (const p of called) p.away = { season: career.season, until: start[1] };
     if (called.length) {
       const byNation = new Map<string, Player[]>();
@@ -38,7 +39,10 @@ export async function internationalDuty(db: pg.PoolClient, career: CareerRow, sq
     }
   }
   if (end) {
-    const back = squad.filter((p) => p.away && p.away.season === career.season && p.away.until === end[1]);
+    const all = squad.filter((p) => p.away && p.away.season === career.season && p.away.until === end[1]);
+    // Eigene Nationalspieler: Einsätze zählt das Nationalteam selbst
+    for (const p of all) if (p.nationality === coached) p.away = null;
+    const back = all.filter((p) => p.nationality !== coached);
     if (back.length) {
       const rng = new Rng(seedFor(career.seed, "international", career.season, end[0]));
       // Zwei Länderspiele je Nation gegen Gegner aus dem eigenen Verband

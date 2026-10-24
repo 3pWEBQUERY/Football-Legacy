@@ -19,6 +19,7 @@ import { type RewardNote, announceNotes, ensureMissions, rewardMatch } from "./r
 import { aiTactic, teamSetup } from "./setup";
 import { trackPlayingTime, weeklyDynamics } from "./dynamics";
 import { leagueRoundup, matchArticle, transferArticles } from "./media";
+import { nationalNewSeason, nationalTournament } from "./national";
 import { advanceCup, type CupWeekInfo } from "./cup";
 import { academyWeek } from "./academy";
 import { facilitiesOf } from "./facilities";
@@ -331,7 +332,9 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
 
   let seasonEnd: SeasonSummary | null = null;
   if (week >= career.season_weeks) {
+    await nationalTournament(db, career);
     seasonEnd = await endSeason(db, career);
+    await nationalNewSeason(db, career);
   }
   await saveCareer(db, career);
   return { week, season: career.season, userFixtureId: userFixture?.id ?? null, results: lines, cupResults: cupLines, cup: cupInfo, notes, news, seasonEnd };

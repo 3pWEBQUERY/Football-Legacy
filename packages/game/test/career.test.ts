@@ -17,6 +17,7 @@ let promised = 0;
 let trainingApproved = false;
 let retrainId = 0;
 let retrainPos = "";
+let nationCode = "";
 
 beforeAll(async () => {
   await pool().query("drop schema public cascade; create schema public;");
@@ -130,6 +131,28 @@ describe("Karriere", () => {
     expect((await pressConference(careerId, accountId)).done).toBe(true);
   });
 
+  it("Nationaltrainer: Job übernehmen und Kader nominieren", async () => {
+    const jobs = await game.nationalJobs(careerId, accountId);
+    const job = jobs.jobs.find((j) => j.available && !j.home)!;
+    expect(job).toBeTruthy();
+    await expect(game.takeNationalJob(careerId, accountId, "GER")).rejects.toThrow();
+    await game.takeNationalJob(careerId, accountId, job.code);
+    nationCode = job.code;
+    const v = await game.nationalView(careerId, accountId);
+    expect(v.coach).toBe(true);
+    if (!v.coach) return;
+    expect(v.group?.table.length).toBe(4);
+    expect(v.upcoming.length).toBe(6);
+    const sq = await game.nationalSquadView(careerId, accountId);
+    expect(sq.players.length).toBeGreaterThan(15);
+    expect(sq.players.filter((p) => p.selected).length).toBeLessThanOrEqual(23);
+    const picked = sq.players.slice(0, 22).map((p) => p.id);
+    const saved = await game.saveNationalSquad(careerId, accountId, { squad: picked, starters: picked.slice(0, 11), formation: "4-4-2", preset: "counter" });
+    expect(saved.squad.length).toBe(22);
+    expect(saved.formation).toBe("4-4-2");
+    await expect(game.saveNationalSquad(careerId, accountId, { squad: sq.players.slice(0, 30).map((p) => p.id) })).rejects.toThrow();
+  });
+
   it("geht Tag für Tag bis zum ersten Spieltag", async () => {
     await expect(startMatch(careerId, accountId)).rejects.toThrow(/später/);
     const sa = await game.startAssignment(careerId, accountId, { country: "SUI", position: "ST", maxAge: 25 });
@@ -230,6 +253,16 @@ describe("Karriere", () => {
       const summary = a.kind === "match" ? await quickMatch(careerId, accountId) : a.summary;
       seasonEnd = summary.seasonEnd;
       if (matches === 12 && !midDynamics) midDynamics = await game.dynamicsView(careerId, accountId);
+      if (matches === 18) {
+        // Endrunde erzwingen: ggf. neuen Job übernehmen und als qualifiziert markieren
+        let row = await pool().query("select data from national_teams where career_id = $1", [careerId]);
+        if (!row.rows[0]) {
+          const jobs = await game.nationalJobs(careerId, accountId);
+          await game.takeNationalJob(careerId, accountId, jobs.jobs.find((j) => j.available)!.code);
+          row = await pool().query("select data from national_teams where career_id = $1", [careerId]);
+        }
+        await pool().query("update national_teams set data = jsonb_set(data, '{qualified}', 'true') where career_id = $1", [careerId]);
+      }
     }
     // Einsatzzeit wird pro Pflichtspiel gezählt, Status erwartet Startelfanteile
     expect(midDynamics).not.toBeNull();
@@ -322,6 +355,33 @@ describe("Karriere", () => {
     expect(res.morale).toBeLessThan(before);
     expect((await game.dynamicsView(careerId, accountId)).players.find((p) => p.id === star.id)?.status).toBe("backup");
   }, 240_000);
+
+  it("Nationaltrainer: Qualifikation gespielt und Endrunde ausgewertet", async () => {
+    const played = await pool().query("select kind, stage, home, away, home_goals, away_goals, user_match, data is not null as report from national_matches where career_id = $1 and season = 2026 order by day, id", [careerId]);
+    const userQual = played.rows.filter((r) => r.kind === "qual" && r.user_match);
+    expect(userQual.length).toBe(6);
+    expect(userQual.every((r) => r.home_goals !== null && r.report)).toBe(true);
+    expect(played.rows.filter((r) => r.kind === "qual").length).toBe(12);
+    const st = await pool().query("select data from national_teams where career_id = $1", [careerId]);
+    const mail = await pool().query("select title from inbox where career_id = $1 and category = 'international' and (title like 'Gruppensieg%' or title like '%Playoffs%' or title like '%Endrunde%' or title like '%trennt sich%' or title like '%gewinnt die%' or title like '%beendet')", [careerId]);
+    expect(mail.rows.length).toBeGreaterThan(0);
+    console.log("Nationalteam:", nationCode, mail.rows.map((r) => r.title).join(" | "));
+    const tour = played.rows.filter((r) => r.kind === "tournament");
+    expect(tour.filter((r) => r.user_match).length).toBeGreaterThanOrEqual(3);
+    expect(tour.every((r) => r.home_goals !== null)).toBe(true);
+    const finals = tour.filter((r) => String(r.stage).endsWith("Finale") && !String(r.stage).includes("Halb") && !String(r.stage).includes("Viertel"));
+    expect(finals.length).toBe(1);
+    if (st.rows[0]) {
+      const v = await game.nationalView(careerId, accountId);
+      if (v.coach) {
+        expect(v.record.p).toBeGreaterThanOrEqual(3);
+        expect(v.upcoming.filter((m) => m.kind === "qual").length).toBe(6);
+        expect(v.history.some((h) => h.text.includes("meisterschaft") || h.text.includes("Weltmeisterschaft"))).toBe(true);
+        const rep = await game.nationalMatchReport(careerId, accountId, v.results[0].id);
+        expect(rep.data).toBeTruthy();
+      }
+    }
+  });
 
   it("Medien: Spielberichte, Liga, Gerüchte und Schlagzeilen", async () => {
     const counts = await pool().query("select kind, count(*)::int as n from media where career_id = $1 group by kind", [careerId]);

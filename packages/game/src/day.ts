@@ -4,6 +4,7 @@
  */
 import { monthlyAwards } from "./awards";
 import { dailyRumours } from "./media";
+import { getNational, nationalDay } from "./national";
 import {
   DAY_TYPE_LABEL, Rng, applyTrainingRating, injure, dailyRecovery, sessionName, trainingRating, dateOf, dayType, formatMoney, playMatch, seedFor, squadRanks, validateTactic,
   type DayType, type Player, type SeasonCalendar,
@@ -123,7 +124,9 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
   events.push(...(await completeScouting(db, career)));
   events.push(...(await completeAssignments(db, career)));
   events.push(...(await checkPromises(db, career, squad)));
-  events.push(...(await internationalDuty(db, career, squad)));
+  const national = await getNational(db, career.id);
+  events.push(...(await internationalDuty(db, career, squad, national?.code ?? null)));
+  events.push(...(await nationalDay(db, career, squad)));
   events.push(...(await checkProjects(db, career)));
   if (day === youthIntakeDay(cal)) {
     const e = await runYouthIntake(db, career);
