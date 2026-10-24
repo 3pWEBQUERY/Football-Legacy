@@ -46,6 +46,11 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
 
   const userClub = career.club_id ? w.clubs.get(career.club_id) : undefined;
   const userLeague = userClub ? w.leagues.get(userClub.league_id) : undefined;
+  // Qualifikation für den Kontinentalpokal der nächsten Saison: Abschlusstabellen aller Topligen
+  career.qualifiers = {
+    season: career.season + 1,
+    tables: Object.fromEntries([...w.leagues.values()].filter((l) => l.tier === 1).map((l) => [l.country_code, tables.get(l.id) ?? []])),
+  };
   const userTable = userLeague ? tables.get(userLeague.id)! : [];
   const position = userClub ? userTable.indexOf(userClub.id) + 1 : 0;
   const champion = position === 1;
@@ -59,7 +64,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
       [...w.clubs.values()].filter((c) => c.league_id === userLeague.id).map((c) => c.id),
       (byLeague.get(userLeague.id) ?? []).map((f) => ({ homeId: f.home_id, awayId: f.away_id, homeGoals: f.home_goals, awayGoals: f.away_goals, round: f.round })),
     );
-    const cupInfo = await query<{ id: number; rounds: { round: number; name: string }[]; winner_club_id: number | null }>(db, "select id, rounds, winner_club_id from cups where career_id = $1 and season = $2", [career.id, career.season]);
+    const cupInfo = await query<{ id: number; rounds: { round: number; name: string }[]; winner_club_id: number | null }>(db, "select id, rounds, winner_club_id from cups where career_id = $1 and season = $2 and kind = 'national'", [career.id, career.season]);
     let userCup: string | null = null;
     if (cupInfo[0]) {
       const cf = await query<FixtureRow>(db, "select * from fixtures where career_id = $1 and cup_id = $2 and $3 in (home_id, away_id) order by cup_round desc limit 1", [career.id, cupInfo[0].id, userClub.id]);
@@ -135,7 +140,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   let dismissed = false;
   // Abschneiden im Pokal
   let cupResult: string | undefined;
-  const cupRow = await query<{ id: number; rounds: { round: number; name: string }[]; winner_club_id: number | null }>(db, "select id, rounds, winner_club_id from cups where career_id = $1 and season = $2", [career.id, career.season]);
+  const cupRow = await query<{ id: number; rounds: { round: number; name: string }[]; winner_club_id: number | null }>(db, "select id, rounds, winner_club_id from cups where career_id = $1 and season = $2 and kind = 'national'", [career.id, career.season]);
   if (cupRow[0] && career.club_id) {
     const cf = await query<FixtureRow>(db, "select * from fixtures where career_id = $1 and cup_id = $2 and $3 in (home_id, away_id) order by cup_round desc limit 1", [career.id, cupRow[0].id, career.club_id]);
     if (cupRow[0].winner_club_id === career.club_id) cupResult = "Pokalsieger";
@@ -269,7 +274,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   if (dismissed) career.status = "unemployed";
 
   // Alte Spielpläne aufräumen (eigene Liga bleibt als Historie)
-  await query(db, "delete from fixtures where career_id = $1 and season = $2 and league_id <> $3", [career.id, career.season, userLeague?.id ?? -1]);
+  await query(db, "delete from fixtures where career_id = $1 and season = $2 and league_id <> $3 and cup_id is null", [career.id, career.season, userLeague?.id ?? -1]);
 
   // Neue Saison
   const summary: SeasonSummary = { season: career.season, position, points: pts?.points ?? 0, champion, promoted, relegated, objectiveMet, dismissed, champions };

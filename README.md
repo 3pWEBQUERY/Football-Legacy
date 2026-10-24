@@ -27,6 +27,9 @@ Ein tiefgehender Fussball-Manager im Browser: Kader, Taktik, Transfers und Saiso
 | Saisonrückblick | Auszeichnungen der Liga (Spieler der Saison, Torschützenkönig, Vorbereiter, Talent, Torhüter), Elf der Saison, Abschlusstabelle und Bilanz des eigenen Vereins für jede gespielte Saison |
 | Leihgeschäfte | Spieler bis Saisonende ausleihen (Gehaltsanteil verhandelbar) oder eigene Spieler verleihen; Rückkehr zum Saisonende, Gehälter werden anteilig verrechnet |
 | Tageskalender | Die Zeit läuft Tag für Tag: Saisonstart Anfang Juli, zwei Testspiele in der Vorbereitung, Ligaspiele samstags, Pokal mittwochs, Winterpause bei langen Ligen. Kondition erholt sich täglich (Regenerationstage stärker), Trainingsereignisse, Gegneranalyse zwei Tage vor dem Spiel, Scoutberichte mit Laufzeit, Monatsberichte der Finanzen, Deadline Day. Monatskalender im Büro |
+| Kontinentalpokal | Die besten Vereine des eigenen Kontinentalverbands (32 Teams, bis zu vier pro Topliga, Qualifikation über die Abschlusstabelle, in der ersten Saison über den Ruf). Gruppenphase mit acht Vierergruppen am Dienstag, K.-o.-Runden in einem Spiel mit Elfmeterschiessen, Antritts-, Sieg- und Rundenprämien, eigene Seite mit Gruppentabellen und Turnierbaum |
+| Spielergespräche | Loben, Kritisieren, Zuspruch, Einsatzzeit versprechen. Wirkung hängt von Form, Moral und Nervenstärke ab; gebrochene Versprechen kosten viel Moral |
+| Transferfenster | Nach Datum: Sommer bis 31. August, Winter rund um die Winterpause, mit Hinweisen zur Öffnung, eine Woche vorher und am Deadline Day |
 | Navigation | Horizontales Hauptmenü mit Untermenüs, Datum und Weiter-Button in der Kopfleiste |
 
 ## Architektur

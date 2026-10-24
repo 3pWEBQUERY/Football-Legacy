@@ -1,4 +1,5 @@
-import { buildCalendar, dateOf, dayType, seasonStart } from "../src/calendar";
+import { buildCalendar, dateOf, dayType, marketWindow, seasonStart } from "../src/calendar";
+import { allocateSlots, drawGroups, groupMatchdays } from "../src/continental";
 import { describe, expect, it } from "vitest";
 import {
   COUNTRIES, Rng, computeStandings, createSchedule, evaluateFee, generatePlayer, generateSquad, generateWorld,
@@ -194,3 +195,32 @@ describe("Saisonkalender", () => {
     expect(dayType(cal, 9, new Set())).toBe("friendly");
   });
 });
+
+describe("Transferfenster und Kontinentalpokal", () => {
+  it("öffnet das Fenster im Sommer bis Ende August und in der Winterpause", () => {
+    const cal = buildCalendar(Array.from({ length: 34 }, () => "league" as const));
+    expect(marketWindow(cal, 0).open).toBe(true);
+    expect(dateOf(2026, marketWindow(cal, 0).closes!).toISOString().slice(0, 10)).toBe("2026-08-31");
+    expect(marketWindow(cal, 70).open).toBe(false);
+    expect(marketWindow(cal, cal.winterBreak![0] + 10).open).toBe(true);
+  });
+
+  it("verteilt 32 Startplätze und lost Gruppen ohne Duelle aus demselben Land", () => {
+    const countries = COUNTRIES.filter((c) => c.confed === "UEFA").map((c) => ({ code: c.code, strength: c.strength, leagueSize: c.tiers[0] }));
+    const slots = allocateSlots(countries, 32);
+    expect([...slots.values()].reduce((a, b) => a + b, 0)).toBe(32);
+    expect(slots.get("ENG")).toBe(4);
+    const teams = [...slots.entries()].flatMap(([code, n]) => Array.from({ length: n }, (_, i) => ({ id: teams0++, rating: 80 - i * 3, country: code })));
+    const groups = drawGroups(new Rng(7), teams);
+    expect(groups.length).toBe(8);
+    for (const g of groups) {
+      const countriesInGroup = g.map((id) => teams.find((t) => t.id === id)!.country);
+      expect(new Set(countriesInGroup).size).toBe(4);
+    }
+    const md = groupMatchdays([1, 2, 3, 4]);
+    const games = md.flat();
+    expect(games.length).toBe(12);
+    expect(new Set(games.map((g) => g.join("-"))).size).toBe(12);
+  });
+});
+let teams0 = 1;

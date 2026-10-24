@@ -102,6 +102,10 @@ export interface Player {
   history?: PlayerSeason[];
   /** Leihe: clubId ist der aufnehmende Verein, parentClubId der Stammverein. */
   loan?: { parentClubId: number; untilSeason: number; wageShare: number } | null;
+  /** Letztes Gespräch mit dem Trainer (Saison, Tag) */
+  talk?: { season: number; day: number } | null;
+  /** Versprochene Einsatzzeit: Startelfeinsätze bis zum Tag `until` */
+  promise?: { season: number; until: number; needed: number; starts: number } | null;
 }
 
 export interface PlayerSeason {

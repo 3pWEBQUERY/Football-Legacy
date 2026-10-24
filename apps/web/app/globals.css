@@ -549,3 +549,21 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .week-day { padding: 8px 6px; }
   .week-day .ty { font-size: 11px; }
 }
+
+/* ------------------------------------------------------------ Kontinentalpokal */
+.intl-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.intl-group { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; }
+.intl-group:nth-child(2n) { border-right: none; }
+.intl-group.mine .intl-group-head { color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
+.intl-group-head { padding: 8px 12px; font-family: var(--font-cond); font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-2); background: var(--panel-2); border-bottom: 1px solid var(--line); }
+.intl-bracket { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(200px, 1fr); overflow-x: auto; }
+.intl-round { border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; min-width: 0; }
+.intl-round:last-child { border-right: none; }
+.intl-round-head { padding: 8px 12px; font-family: var(--font-cond); font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em; background: var(--panel-2); border-bottom: 1px solid var(--line); }
+.intl-tie { margin: 0 10px; border: 1px solid var(--line-2); background: var(--panel-2); display: block; }
+.intl-tie:hover { border-color: var(--accent); }
+.intl-tie.mine { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.intl-side { display: flex; align-items: center; gap: 7px; padding: 5px 8px; font-size: 13px; min-width: 0; }
+.intl-side + .intl-side { border-top: 1px solid var(--line); }
+.intl-side.lost { color: var(--text-3); }
+@media (max-width: 860px) { .intl-groups { grid-template-columns: minmax(0, 1fr); } .intl-group { border-right: none; } }

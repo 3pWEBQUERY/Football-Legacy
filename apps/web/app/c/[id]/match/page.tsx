@@ -240,7 +240,7 @@ export default function MatchDay() {
           <Link href={base} className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }}><Icon name="back" size={15} /> Büro</Link>
           {!preview ? <Loading /> : (
             <section className="card card-flush" style={{ ["--home" as string]: preview.home.colors.primary, ["--away" as string]: preview.away.colors.primary }}>
-              <div className="card-head"><h3><Icon name={preview.competition?.kind === "cup" ? "trophy" : "calendar"} size={15} /> {preview.competition?.label} · Vorbericht</h3></div>
+              <div className="card-head"><h3><Icon name={preview.competition?.kind !== "league" ? "trophy" : "calendar"} size={15} /> {preview.competition?.label} · Vorbericht</h3></div>
               <div className="scoreboard" style={{ borderBottom: "1px solid var(--line)", minHeight: 110 }}>
                 <div className={`team home ${previewMine === 0 ? "mine" : "opp"}`} style={previewMine === 0 ? { ["--mine" as string]: preview.home.colors.primary } : undefined}><Crest colors={preview.home.colors} name={preview.home.name} size={64} /><div><strong>{preview.home.name}</strong><div className="faint small">Heim · Stärke {preview.home.rating}</div>{previewMine === 0 && <span className="mine-tag">Dein Team</span>}</div></div>
                 <div className="center"><div className="score" style={{ fontSize: 28 }}>VS</div></div>

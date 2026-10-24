@@ -13,6 +13,7 @@ const { pool, migrate, register, createCareer, previewClubs, advance, quickMatch
 let accountId = "";
 let careerId = "";
 const loans: { inId?: number; outId?: number; parentId?: number } = {};
+let promised = 0;
 
 beforeAll(async () => {
   await pool().query("drop schema public cascade; create schema public;");
@@ -80,6 +81,18 @@ describe("Karriere", () => {
       expect((after.loanedOut ?? []).map((p) => p.id)).toContain(fringe.id);
     }
     await expect(game.releasePlayer(careerId, accountId, loans.inId!)).rejects.toThrow(/Leihspieler/);
+  });
+
+  it("Spielergespräche mit Abklingzeit und Versprechen", async () => {
+    const squad = await squadView(careerId, accountId);
+    const sorted = [...squad.players].filter((p) => !p.loan).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    const r = await game.talkToPlayer(careerId, accountId, sorted[0].id, "encourage");
+    expect(typeof r.reaction).toBe("string");
+    await expect(game.talkToPlayer(careerId, accountId, sorted[0].id, "praise")).rejects.toThrow(/vor Kurzem/);
+    const fringe = sorted[sorted.length - 1];
+    const pr = await game.talkToPlayer(careerId, accountId, fringe.id, "promise");
+    expect(pr.promise?.needed).toBe(2);
+    promised = fringe.id;
   });
 
   it("Pressekonferenz vor dem Spiel", async () => {
@@ -183,6 +196,14 @@ describe("Karriere", () => {
     expect(cup.rounds.every((r) => r.matches.every((m) => m.played))).toBe(true);
     const next = await cupView(careerId, accountId);
     expect(next.rounds[0].matches.length).toBeGreaterThan(0);
+    const intl = await game.continentalView(careerId, accountId, 2026);
+    expect(intl.cup?.size).toBe(32);
+    expect(intl.groups.length).toBe(8);
+    expect(intl.groups.every((g) => g.table.every((r) => r.played === 6))).toBe(true);
+    expect(intl.rounds.filter((r) => !r.group).map((r) => r.matches.length)).toEqual([8, 4, 2, 1]);
+    expect(intl.cup?.winner).toBeTruthy();
+    const nextIntl = await game.continentalView(careerId, accountId);
+    expect(nextIntl.groups.length).toBe(8);
     const rv = await reviewView(careerId, accountId);
     expect(rv.seasons).toEqual([2026]);
     expect(rv.review?.awards.find((a) => a.key === "scorer")?.entry?.value).toMatch(/Tore/);
@@ -193,6 +214,11 @@ describe("Karriere", () => {
     for (const row of back.rows) expect(row.loan).toBeNull();
     expect(back.rows.find((r) => r.id === loans.inId)?.club_id).toBe(loans.parentId);
     if (loans.outId) expect(back.rows.find((r) => r.id === loans.outId)?.club_id).toBe(d.career.clubId);
+    // Das Versprechen wurde ausgewertet (gehalten oder gebrochen)
+    const pm = await pool().query("select data->'promise' as promise from players where career_id = $1 and id = $2", [careerId, promised]);
+    expect(pm.rows[0]?.promise ?? null).toBeNull();
+    const pmail = await pool().query("select title from inbox where career_id = $1 and title like 'Versprechen%'", [careerId]);
+    expect(pmail.rows.length).toBe(1);
     const lb = await leaderboards();
     expect(lb.best.length).toBe(1);
   }, 240_000);

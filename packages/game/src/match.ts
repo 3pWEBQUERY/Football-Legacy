@@ -1,9 +1,10 @@
 /** Spieltag des Nutzers: Vorschau, erste Halbzeit, Halbzeitpause, zweite Halbzeit. */
 import {
-  FORMATIONS, HALF_TICK, TICKS, applyChange, createMatch, currentFrame, isUnlocked, result, seedFor, simulate, transferWindow,
+  FORMATIONS, HALF_TICK, TICKS, applyChange, createMatch, currentFrame, isUnlocked, result, seedFor, simulate,
   validateTactic, type MatchState, type Side, type TacticChange,
 } from "@fl/sim";
 import type pg from "pg";
+import { windowFor } from "./window";
 import { one, query } from "./db";
 import { withCareer } from "./career";
 import { GameError } from "./errors";
@@ -11,6 +12,7 @@ import { type CareerRow, type FixtureRow, getClub, getPlayers, saveCareer } from
 import { aiTactic, teamSetup } from "./setup";
 import { processWeek, type WeekSummary } from "./week";
 import { advanceDay, nextSlotDay, type DayResult } from "./day";
+import { competitionOf } from "./cup";
 
 async function nextUserFixture(db: pg.PoolClient | import("pg").Pool, career: CareerRow): Promise<FixtureRow | null> {
   if (!career.club_id) return null;
@@ -258,15 +260,7 @@ export async function matchPreview(db: pg.Pool, career: CareerRow) {
       }),
     };
   }
-  let competition: { kind: "league" | "cup"; name: string; label: string };
-  if (f.cup_id) {
-    const cup = await one<{ name: string; rounds: { round: number; name: string }[] }>(db, "select name, rounds from cups where id = $1", [f.cup_id]);
-    const roundName = cup?.rounds.find((r) => r.round === f.cup_round)?.name ?? "Pokal";
-    competition = { kind: "cup", name: cup?.name ?? "Pokal", label: `${cup?.name ?? "Pokal"} · ${roundName}` };
-  } else {
-    const league = await one<{ name: string }>(db, "select name from leagues where id = $1", [f.league_id]);
-    competition = { kind: "league", name: league?.name ?? "Liga", label: `${league?.name ?? "Liga"} · ${f.round}. Spieltag` };
-  }
+  const competition = await competitionOf(db, f);
   return {
     fixtureId: f.id,
     week: f.week,
@@ -275,7 +269,7 @@ export async function matchPreview(db: pg.Pool, career: CareerRow) {
     home: { id: home.id, name: home.name, short: home.short_name, colors: home.colors, rating: home.rating },
     away: { id: away.id, name: away.name, short: away.short_name, colors: away.colors, rating: away.rating },
     analysis,
-    window: transferWindow(career.week + 1, career.season_weeks),
+    window: windowFor(career, career.calendar?.slots[f.week - 1]?.day ?? career.day),
     day: career.calendar?.slots[f.week - 1]?.day ?? null,
     today: isMatchday(career),
   };

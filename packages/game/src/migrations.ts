@@ -243,4 +243,13 @@ alter table careers add column if not exists calendar jsonb;
 alter table inbox add column if not exists day int;
 `,
   },
+  {
+    name: "005_continental.sql",
+    sql: `
+alter table cups add column if not exists kind text not null default 'national';
+alter table cups add column if not exists groups jsonb;
+alter table fixtures add column if not exists group_no int;
+alter table careers add column if not exists qualifiers jsonb;
+`,
+  },
 ];

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useApi } from "@/lib/client/api";
+import { dayIso, fmtDate } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { Crest, Empty, ErrorBox, Icon, Loading, Panel } from "@/components/ui";
 
@@ -79,7 +80,7 @@ export default function CupPage() {
             </table>
           )}
           <div className="faint small" style={{ padding: "8px 14px", borderTop: "1px solid var(--line)" }}>
-            Spielwoche {r.week}{r.round === 1 && data.cup.byes > 0 ? ` · ${data.cup.byes} Vereine mit Freilos steigen in Runde 2 ein` : ""}
+            {r.day !== null ? fmtDate(dayIso(data.cup.season, r.day), { long: true }) : `Runde ${r.round}`}{r.round === 1 && data.cup.byes > 0 ? ` · ${data.cup.byes} Vereine mit Freilos steigen in Runde 2 ein` : ""}
           </div>
         </section>
         <Panel title="Dein Pokalweg" icon="trophy">

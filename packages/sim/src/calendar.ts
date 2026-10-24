@@ -1,10 +1,11 @@
 /**
  * Saisonkalender: ordnet jeder Spielrunde ein echtes Datum zu. Tag 0 ist der
  * Montag, an dem die Saisonvorbereitung beginnt. Ligaspiele finden samstags
- * statt, Pokalrunden am Mittwoch danach. Lange Ligen machen eine Winterpause.
+ * statt, der Kontinentalpokal dienstags und der Landespokal mittwochs danach.
+ * Lange Ligen machen eine Winterpause.
  */
 
-export type SlotKind = "league" | "cup";
+export type SlotKind = "league" | "cup" | "intl";
 
 export interface CalendarSlot {
   /** Spielrunde (entspricht career.week nach der Verarbeitung) */
@@ -61,6 +62,9 @@ export function buildCalendar(kinds: SlotKind[]): SeasonCalendar {
       leagueNo++;
       day = FIRST_MATCHDAY + (leagueNo - 1) * 7 + (withBreak && leagueNo > mid ? WINTER_BREAK_DAYS : 0);
       lastLeagueDay = day;
+    } else if (kind === "intl") {
+      // Dienstag nach dem letzten Ligaspieltag
+      day = leagueNo === 0 ? FIRST_MATCHDAY - 4 : lastLeagueDay + 3;
     } else {
       // Mittwoch nach dem letzten Ligaspieltag; vor dem ersten Spieltag am Mittwoch davor
       day = leagueNo === 0 ? FIRST_MATCHDAY - 3 : lastLeagueDay + 4;
@@ -110,4 +114,35 @@ export function dayType(cal: SeasonCalendar, day: number, matchDays: Set<number>
   if (cal.winterBreak && day >= cal.winterBreak[0] && day <= cal.winterBreak[0] + 13) return "holiday";
   if (weekdayOf(day) === 6) return "off";
   return "training";
+}
+
+export interface MarketWindow {
+  open: boolean;
+  label: string;
+  /** Letzter Tag des Fensters */
+  closes: number | null;
+  /** Erster Tag des nächsten Fensters */
+  opens: number | null;
+}
+
+/**
+ * Transferfenster nach Datum: Sommer bis Ende August, Winter rund um die
+ * Winterpause (ohne Pause rund um die Saisonmitte).
+ */
+export function marketWindow(cal: SeasonCalendar, day: number): MarketWindow {
+  const league = cal.slots.filter((s) => s.kind === "league");
+  const summerEnd = (league[0]?.day ?? FIRST_MATCHDAY) + 37;
+  let ws: number;
+  let we: number;
+  if (cal.winterBreak) {
+    ws = cal.winterBreak[0] + 7;
+    we = cal.winterBreak[1] + 22;
+  } else {
+    const mid = league[Math.floor(league.length / 2)]?.day ?? summerEnd + 90;
+    ws = mid - 10;
+    we = mid + 18;
+  }
+  if (day <= summerEnd) return { open: true, label: "Sommer-Transferfenster", closes: summerEnd, opens: null };
+  if (day >= ws && day <= we) return { open: true, label: "Winter-Transferfenster", closes: we, opens: null };
+  return { open: false, label: "Transferfenster geschlossen", closes: null, opens: day < ws ? ws : null };
 }

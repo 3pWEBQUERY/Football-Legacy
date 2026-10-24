@@ -83,7 +83,7 @@ export default function CalendarPage() {
                       <span style={{ minWidth: 0 }}>
                         <span className="truncate" style={{ display: "block", fontWeight: 700 }}>{d.match.opponent?.short} ({d.match.home ? "H" : "A"})</span>
                         <span className="faint truncate" style={{ display: "block", fontSize: 11 }}>
-                          {d.match.played ? <b className={d.match.goalsFor > d.match.goalsAgainst ? "pos-txt" : d.match.goalsFor < d.match.goalsAgainst ? "neg-txt" : ""}>{d.match.goalsFor}:{d.match.goalsAgainst}</b> : d.match.cup ? "Pokal" : d.match.competition}
+                          {d.match.played ? <b className={d.match.goalsFor > d.match.goalsAgainst ? "pos-txt" : d.match.goalsFor < d.match.goalsAgainst ? "neg-txt" : ""}>{d.match.goalsFor}:{d.match.goalsAgainst}</b> : d.match.continental ? "Kontinentalpokal" : d.match.cup ? "Pokal" : d.match.competition}
                         </span>
                       </span>
                     </Link>

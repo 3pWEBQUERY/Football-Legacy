@@ -1,8 +1,9 @@
 /** Lesende Sichten für die Oberfläche. */
+import { windowFor } from "./window";
 import {
   ACHIEVEMENTS, ALL_ATTRS, CARD_PACK, COUNTRIES, COUNTRY_BY_CODE, FINANCE_LABEL, FORMATIONS, LEVEL_TITLES, MISSIONS, ROLES,
   Rng, SKINS, STYLE_LABEL, STYLE_PRESETS, UNLOCKS, askingPrice, computeStandings, flagEmoji, formatMoney, isUnlocked,
-  ratingAt, seedFor, squadRanks, streakReward, titleForLevel, transferWindow, validateTactic, wageBill, xpForLevel,
+  ratingAt, seedFor, squadRanks, streakReward, titleForLevel, validateTactic, wageBill, xpForLevel,
   type Player, type Position,
 } from "@fl/sim";
 import { one, pool, query } from "./db";
@@ -33,7 +34,7 @@ export function playerView(p: Player, knowledge: Knowledge, extra: Record<string
     nationality: p.nationality, flag: flagEmoji(p.nationality), position: p.position, altPositions: p.altPositions,
     foot: p.foot, archetype: p.archetype, form: p.form, fitness: p.fitness, morale: p.morale, value: p.value,
     contract: p.contract, injuryWeeks: p.injuryWeeks, suspendedWeeks: p.suspendedWeeks, stats: p.stats, listed: p.listed,
-    youth: p.youth, clubId: p.clubId, history: p.history ?? [], loan: p.loan ?? null, knowledge, ...extra,
+    youth: p.youth, clubId: p.clubId, history: p.history ?? [], loan: p.loan ?? null, promise: p.promise ?? null, talk: p.talk ?? null, knowledge, ...extra,
   };
   if (knowledge === "exact") {
     return { ...base, rating: p.rating, potential: p.potential, wonderkid: p.wonderkid, attrs: p.attrs, ratingRange: [p.rating, p.rating], attrRanges: null };
@@ -128,14 +129,15 @@ export async function dashboard(careerId: string, accountId: string) {
     const s = await standings(career, league.id);
     const pos = s.rows.findIndex((r) => r.clubId === club.id);
     table = s.rows.slice(Math.max(0, Math.min(pos - 3, s.rows.length - 7)), Math.max(7, pos + 4));
-    const own = await query<FixtureRow & { opponent: string }>(
+    const own = await query<FixtureRow & { opponent: string; cup_kind: string | null }>(
       pool(),
-      `select f.*, o.name as opponent from fixtures f join clubs o on o.id = case when f.home_id = $3 then f.away_id else f.home_id end
+      `select f.*, o.name as opponent, cu.kind as cup_kind from fixtures f join clubs o on o.id = case when f.home_id = $3 then f.away_id else f.home_id end
+        left join cups cu on cu.id = f.cup_id
         where f.career_id = $1 and f.season = $2 and f.played and $3 in (f.home_id, f.away_id) order by f.week desc limit 5`,
       [career.id, career.season, club.id],
     );
     recent = own.map((f) => ({
-      fixtureId: f.id, week: f.week, home: f.home_id === club.id, opponent: f.opponent, cup: !!f.cup_id,
+      fixtureId: f.id, week: f.week, home: f.home_id === club.id, opponent: f.opponent, cup: !!f.cup_id, continental: f.cup_kind === "continental",
       goalsFor: f.home_id === club.id ? f.home_goals : f.away_goals, goalsAgainst: f.home_id === club.id ? f.away_goals : f.home_goals,
       pens: f.pen_home !== null ? (f.home_id === club.id ? `${f.pen_home}:${f.pen_away}` : `${f.pen_away}:${f.pen_home}`) : null,
       won: f.pen_home !== null ? (f.home_id === club.id ? f.pen_home! > f.pen_away! : f.pen_away! > f.pen_home!) : null,
@@ -156,7 +158,7 @@ export async function dashboard(careerId: string, accountId: string) {
     offers,
     missions: career.manager.missions.items.map((i) => ({ ...MISSIONS.find((m) => m.kind === i.kind)!, done: i.done })),
     board: career.board,
-    window: transferWindow(career.week, career.season_weeks),
+    window: windowFor(career),
     loginStreak: account?.login_streak ?? 0,
     bestLoginStreak: account?.best_login_streak ?? 0,
     jobOffers: career.job_offers,
@@ -288,7 +290,7 @@ export async function playerDetail(careerId: string, accountId: string, playerId
     askingPrice: ask,
     own: p.clubId === career.club_id,
     transfers: history,
-    window: transferWindow(career.week, career.season_weeks),
+    window: windowFor(career),
     scoutLimit: scoutLimit(career),
     budget: userClub?.transfer_budget ?? 0,
     loanParent: p.loan ? (await clubNames(career.id, [p.loan.parentClubId])).get(p.loan.parentClubId) ?? null : null,
@@ -430,7 +432,7 @@ export async function marketView(careerId: string, accountId: string, f: MarketF
   return {
     career: careerSummary(career),
     club: userClub ? { ...clubSummary(userClub), balance: userClub.balance, transferBudget: userClub.transfer_budget } : null,
-    window: transferWindow(career.week, career.season_weeks),
+    window: windowFor(career),
     players: rows.slice(0, 50).map((r, i) => ({
       ...playerView(players[i], k.of(players[i])),
       clubName: r.club_name, leagueName: r.league_name, leagueCountry: r.country_code, shortlisted: k.shortlisted.has(players[i].id),

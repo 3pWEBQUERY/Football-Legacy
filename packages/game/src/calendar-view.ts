@@ -1,5 +1,5 @@
 /** Kalender der Saison aus Sicht des eigenen Vereins. */
-import { DAY_TYPE_LABEL, dateOf, dayType, transferWindow } from "@fl/sim";
+import { DAY_TYPE_LABEL, dateOf, dayType, marketWindow } from "@fl/sim";
 import { pool, query } from "./db";
 import { readCareer } from "./career";
 import { userMatchDays } from "./day";
@@ -9,18 +9,13 @@ export function isoDate(season: number, day: number) {
   return dateOf(season, day).toISOString().slice(0, 10);
 }
 
-/** Tage, an denen das Transferfenster offen ist (Fenster hängt an den Spielrunden). */
+/** Tage, an denen das Transferfenster offen ist. */
 function windowDays(career: CareerRow): Set<number> {
   const out = new Set<number>();
-  const slots = career.calendar?.slots ?? [];
-  if (!slots.length) return out;
-  const last = slots[slots.length - 1].day;
-  let s = 0;
-  for (let d = 0; d <= last; d++) {
-    while (s < slots.length && slots[s].day < d) s++;
-    // Vor Runde s+1 gilt der Stand nach Runde s
-    if (transferWindow(s, career.season_weeks).open) out.add(d);
-  }
+  const cal = career.calendar;
+  if (!cal?.slots.length) return out;
+  const last = cal.slots[cal.slots.length - 1].day;
+  for (let d = 0; d <= last; d++) if (marketWindow(cal, d).open) out.add(d);
   return out;
 }
 
@@ -34,8 +29,8 @@ export async function calendarView(careerId: string, accountId: string) {
     ? await query<{ id: number; name: string; short_name: string; colors: unknown }>(pool(), "select id, name, short_name, colors from clubs where career_id = $1 and id = any($2::int[])", [career.id, ids])
     : [];
   const byId = new Map(clubs.map((c) => [c.id, c]));
-  const cupNames = new Map((await query<{ id: number; name: string; rounds: { round: number; name: string }[] }>(pool(),
-    "select id, name, rounds from cups where career_id = $1 and season = $2", [career.id, career.season])).map((c) => [c.id, c]));
+  const cupNames = new Map((await query<{ id: number; name: string; kind: string; rounds: { round: number; name: string }[] }>(pool(),
+    "select id, name, kind, rounds from cups where career_id = $1 and season = $2", [career.id, career.season])).map((c) => [c.id, c]));
   const last = cal.slots.length ? cal.slots[cal.slots.length - 1].day : 0;
   const window = windowDays(career);
   const days = [];
@@ -51,6 +46,7 @@ export async function calendarView(careerId: string, accountId: string) {
         fixtureId: f.id, home, played: f.played, opponent: opp ? { id: opp.id, name: opp.name, short: opp.short_name, colors: opp.colors } : null,
         competition: cup ? `${cup.name} · ${cup.rounds.find((r) => r.round === f.cup_round)?.name ?? ""}` : `${f.round}. Spieltag`,
         cup: !!f.cup_id,
+        continental: cup?.kind === "continental",
         goalsFor: f.played ? (home ? f.home_goals : f.away_goals) : null,
         goalsAgainst: f.played ? (home ? f.away_goals : f.home_goals) : null,
       };

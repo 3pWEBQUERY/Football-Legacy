@@ -4,10 +4,11 @@
  */
 import {
   DEFAULT_TRAINING, Rng, afterMatch, penaltyShootout, shootersFrom, attendance, benchMorale, computeStandings, formatMoney, playMatch, quickResult,
-  seedFor, squadRanks, teamRating, transferWindow, validateTactic, wageBill, weeklyDevelopment, weeklyFinances, weeksSincePreviousLeague,
+  seedFor, squadRanks, teamRating, validateTactic, wageBill, weeklyDevelopment, weeklyFinances, weeksSincePreviousLeague,
   type MatchResult, type Player,
 } from "@fl/sim";
 import type pg from "pg";
+import { windowFor } from "./window";
 import { query } from "./db";
 import { aiBidsForUser, aiMarketRound } from "./market";
 import {
@@ -87,6 +88,7 @@ function applyMatchToPlayers(
     const ga = side === 0 ? result.awayGoals : result.homeGoals;
     const res = gf > ga ? "W" : gf === ga ? "D" : "L";
     afterMatch(p, line.rating, line.minutes, res, line.staminaEnd);
+    if (line.started && p.promise) p.promise.starts++;
     p.stats.goals += line.goals;
     p.stats.assists += line.assists;
     p.stats.yellow += line.yellow;
@@ -115,7 +117,7 @@ function applyMatchToPlayers(
 export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { userMatch?: UserMatchInput; quickUserMatch?: boolean } = {}): Promise<WeekSummary> {
   const week = career.week + 1;
   // Pokalrunden liegen unter der Woche: kein zusätzliches Training, keine zusätzlichen laufenden Kosten
-  const midweek = career.calendar?.slots[week - 1]?.kind === "cup";
+  const midweek = (career.calendar?.slots[week - 1]?.kind ?? "league") !== "league";
   const w = await loadWorld(db, career);
   const rng = new Rng(seedFor(career.seed, "week", career.season, week));
   const notes: RewardNote[] = [];
@@ -173,7 +175,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     }
     // Pokal: bei Unentschieden direkt Elfmeterschiessen
     let pens: [number, number] | null = null;
-    if (f.cup_id && hg === ag) {
+    if (f.cup_id && f.group_no === null && hg === ag) {
       const prng = new Rng(seedFor(career.seed, "penalties", f.id));
       if (home.players_generated && away.players_generated) {
         const hs = shootersFrom(squadOf(w, home.id));
@@ -261,7 +263,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
 
   // Transfermarkt
   career.week = week;
-  const window = transferWindow(week, career.season_weeks);
+  const window = windowFor(career);
   if (window.open) {
     const marketNews = await aiMarketRound(db, w, rng);
     news.push(...marketNews.map((n) => n.text));
@@ -287,7 +289,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   await persistWorld(db, w);
 
   // Posteingang: eigenes Ergebnis, Verletzungen, Hinweise
-  if (userClubId) await weeklyInbox(db, career, w, week, userFixture, results, news, injuredNow);
+  if (userClubId) await weeklyInbox(db, career, w, week, userFixture, results, news, injuredNow, cupInfo?.name ?? null);
   await announceNotes(db, career, notes);
 
   let seasonEnd: SeasonSummary | null = null;
@@ -332,6 +334,7 @@ function applyUserRewards(w: WorldState, career: CareerRow, f: FixtureRow, r: Ma
 async function weeklyInbox(
   db: pg.PoolClient, career: CareerRow, w: WorldState, week: number, userFixture: FixtureRow | null,
   results: { id: number; home: number; away: number; penHome?: number; penAway?: number }[], news: string[], injuredNow: Set<number>,
+  cupName: string | null,
 ) {
   const club = w.clubs.get(career.club_id!)!;
   const squad = squadOf(w, club.id);
@@ -349,7 +352,7 @@ async function weeklyInbox(
     const pos = table.findIndex((t) => t.clubId === club.id) + 1;
     await addInbox(
       db, career.id, career.season, week, "match",
-      `${userFixture.cup_id ? "Pokal" : `${userFixture.round}. Spieltag`}: ${home.short_name} ${r.home}:${r.away}${r.penHome !== undefined ? ` (${r.penHome}:${r.penAway} i.E.)` : ""} ${away.short_name}`,
+      `${userFixture.cup_id ? cupName ?? "Pokal" : `${userFixture.round}. Spieltag`}: ${home.short_name} ${r.home}:${r.away}${r.penHome !== undefined ? ` (${r.penHome}:${r.penAway} i.E.)` : ""} ${away.short_name}`,
       userFixture.cup_id
         ? `${home.name} – ${away.name} ${r.home}:${r.away}${r.penHome !== undefined ? `, ${r.penHome}:${r.penAway} im Elfmeterschiessen` : ""}.`
         : `${home.name} – ${away.name} ${r.home}:${r.away}. ${club.name} steht jetzt auf Platz ${pos}.`,
@@ -361,21 +364,12 @@ async function weeklyInbox(
     const list = fresh.map((p) => `• ${p.firstName} ${p.lastName} fällt ${p.injuryWeeks === 1 ? "eine Woche" : `${p.injuryWeeks} Wochen`} aus`);
     await addInbox(db, career.id, career.season, week, "medical", "Bericht der medizinischen Abteilung", `Neue Verletzungen:\n${list.join("\n")}`);
   }
-  const mid = Math.floor(career.season_weeks / 2);
-  if (week === mid - 2) {
-    await addInbox(db, career.id, career.season, week, "transfer", "Das Winter-Transferfenster öffnet bald",
-      "In der nächsten Woche öffnet das Winter-Transferfenster für drei Wochen. Prüfe deine Kaderlücken.");
-  }
   if (week === career.season_weeks - 6) {
     const expiring = squad.filter((p) => p.contract && p.contract.untilSeason <= career.season);
     if (expiring.length) {
       await addInbox(db, career.id, career.season, week, "contract", "Auslaufende Verträge",
         `Diese Verträge laufen am Saisonende aus:\n${expiring.map((p) => `• ${p.firstName} ${p.lastName} (${p.age}, ${p.rating})`).join("\n")}\n\nVerlängere rechtzeitig im Bereich Markt → Verträge.`);
     }
-  }
-  if (week === 3) {
-    await addInbox(db, career.id, career.season, week, "transfer", "Das Sommer-Transferfenster schliesst",
-      "Dies ist die letzte Woche des Sommer-Transferfensters.");
   }
   const important = news.slice(0, 6);
   if (important.length) {

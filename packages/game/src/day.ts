@@ -3,13 +3,16 @@
  * Spielvorbereitung und Monatsberichte zwischen den Spieltagen.
  */
 import {
-  DAY_TYPE_LABEL, Rng, dailyRecovery, dateOf, dayType, formatMoney, playMatch, seedFor, squadRanks, transferWindow, validateTactic,
+  DAY_TYPE_LABEL, Rng, dailyRecovery, dateOf, dayType, formatMoney, playMatch, seedFor, squadRanks, validateTactic,
   type DayType, type Player, type SeasonCalendar,
 } from "@fl/sim";
 import type pg from "pg";
+import { windowFor } from "./window";
 import { type Db, query } from "./db";
 import { type CareerRow, type FixtureRow, addInbox, getClub, getClubs, getPlayers, saveCareer, savePlayers } from "./repo";
 import { aiTactic, teamSetup } from "./setup";
+import { competitionOf } from "./cup";
+import { checkPromises } from "./talk";
 
 export interface DayResult {
   day: number;
@@ -19,6 +22,11 @@ export interface DayResult {
 }
 
 const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+
+function fmt(season: number, day: number) {
+  const d = dateOf(season, day);
+  return `${d.getUTCDate()}. ${MONTHS[d.getUTCMonth()]}`;
+}
 
 /** Tage mit eigenen Pflichtspielen dieser Saison → Spiel. */
 export async function userMatchDays(db: Db, career: CareerRow): Promise<Map<number, FixtureRow>> {
@@ -62,6 +70,7 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
     if (e) events.push(e);
   }
   events.push(...(await completeScouting(db, career)));
+  events.push(...(await checkPromises(db, career, squad)));
   const upcoming = fixtures.get(day + 2);
   if (upcoming && !upcoming.played) events.push(await opponentReport(db, career, upcoming, day + 2));
 
@@ -81,12 +90,18 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
       "Die Spieler sind aus dem Urlaub zurück. Ab heute wird wieder trainiert.");
     events.push("Trainingsauftakt");
   }
-  // Transfer-Deadline: letzter Tag vor dem Spieltag, mit dem das Fenster schliesst
-  const slotDay = nextSlotDay(career);
-  if (slotDay !== null && day === slotDay - 1
-    && transferWindow(career.week, career.season_weeks).open && !transferWindow(career.week + 1, career.season_weeks).open) {
+  // Transferfenster: Öffnung, Woche vor Schluss, Deadline Day
+  const win = windowFor(career, day);
+  if (win.open && !windowFor(career, day - 1).open) {
+    await addInbox(db, career.id, career.season, career.week, "transfer", `${win.label} geöffnet`,
+      `Ab heute sind wieder Transfers und Leihen möglich. Das Fenster schliesst am ${fmt(career.season, win.closes!)}.`);
+    events.push(`${win.label} geöffnet`);
+  } else if (win.open && win.closes === day + 7) {
+    await addInbox(db, career.id, career.season, career.week, "transfer", "Transferfenster: noch eine Woche",
+      `Das ${win.label} schliesst am ${fmt(career.season, win.closes)}. Prüfe deinen Kader und offene Verhandlungen.`);
+  } else if (win.open && win.closes === day) {
     await addInbox(db, career.id, career.season, career.week, "transfer", "Deadline Day",
-      "Heute ist der letzte Tag des Transferfensters. Morgen sind keine Transfers mehr möglich.");
+      "Heute ist der letzte Tag des Transferfensters. Ab morgen sind keine Transfers mehr möglich.");
     events.push("Deadline Day");
   }
 
@@ -160,7 +175,7 @@ async function trainingEvent(db: pg.PoolClient, career: CareerRow, squad: Player
     const p = unhappy[rng.int(0, unhappy.length - 1)];
     await addInbox(db, career.id, career.season, career.week, "contract", `${p.firstName} ${p.lastName} ist unzufrieden`,
       `${p.firstName} ${p.lastName} hat um ein Gespräch gebeten. Er ist mit seiner Situation unzufrieden und erwartet mehr Einsatzzeit. ` +
-        "Bleibt die Lage so, leidet die Stimmung in der Kabine.");
+        "Bleibt die Lage so, leidet die Stimmung in der Kabine. Ein Gespräch unter vier Augen kann helfen.", { type: "player", playerId: p.id });
     return `Unzufrieden: ${p.lastName}`;
   }
   return null;
@@ -186,7 +201,7 @@ async function opponentReport(db: pg.PoolClient, career: CareerRow, f: FixtureRo
   const when = `${["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][d.getUTCDay()]}, ${d.getUTCDate()}. ${MONTHS[d.getUTCMonth()]}`;
   const title = `Spielvorbereitung: ${opp.name}`;
   await addInbox(db, career.id, career.season, career.week, "match", title,
-    `${f.cup_id ? "Pokalspiel" : `${f.round}. Spieltag`} am ${when}, ${f.home_id === career.club_id ? "zu Hause" : "auswärts"}.\n\n` +
+    `${(await competitionOf(db, f)).label} am ${when}, ${f.home_id === career.club_id ? "zu Hause" : "auswärts"}.\n\n` +
       `Formation: ${opp.tactic?.formation ?? "unbekannt"}\nStärke: ${opp.rating}\n` +
       `Form (letzte Spiele): ${form.length ? form.join(" ") : "noch keine Pflichtspiele"}\n` +
       `Ausfälle: ${injured === 0 ? "keine" : injured}\n\n` +

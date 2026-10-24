@@ -7,6 +7,7 @@ import {
 import type pg from "pg";
 import { type Db, lockCareer, one, pool, query, tx } from "./db";
 import { GameError } from "./errors";
+import { insertContinental, planContinental } from "./continental";
 import {
   type Board, type CareerRow, type ClubRow, type LeagueRow, addInbox, getCareer, getClubs, getLeagues, getPlayers,
   insertFixtures, insertPlayers, saveCareer, saveClubs,
@@ -117,17 +118,28 @@ export async function scheduleSeason(db: Db, career: CareerRow) {
     .map((c) => ({ id: c.id, tier: leagueById.get(c.league_id)!.tier, rating: c.rating }));
   const plan = entrants.length >= 4 ? planCup(entrants) : null;
   const positions = plan ? cupWeekPositions(plan.rounds, leagueWeeks) : [];
+  // Kontinentalpokal: dienstags, möglichst nicht in derselben Woche wie der Landespokal
+  const intl = await planContinental(db, career, cupCountry, leagues, leagueWeeks, positions);
+  const intlPositions = intl?.positions ?? [];
 
-  // Kalender: Liga-Woche → Kalenderwoche, Pokalwochen dazwischen
+  // Kalender: Liga-Woche → Spielrunde, Pokalrunden dazwischen
   const leagueToCal = new Map<number, number>();
   const cupWeeks: number[] = [];
+  const intlWeeks: number[] = [];
   const kinds: SlotKind[] = [];
   let cal = 0;
   let r = 0;
+  let ri = 0;
   for (let w = 1; w <= leagueWeeks; w++) {
     cal++;
     leagueToCal.set(w, cal);
     kinds.push("league");
+    while (ri < intlPositions.length && intlPositions[ri] === w) {
+      cal++;
+      intlWeeks.push(cal);
+      kinds.push("intl");
+      ri++;
+    }
     while (r < positions.length && positions[r] === w) {
       cal++;
       cupWeeks.push(cal);
@@ -158,6 +170,7 @@ export async function scheduleSeason(db: Db, career: CareerRow) {
     const pairs = drawCupRound(new Rng(seedFor(career.seed, "cup", career.season, 1)), plan.prelim);
     await insertCupFixtures(db, career.id, career.season, cup!.id, 1, rounds[0].week, pairs);
   }
+  if (intl && intlWeeks.length === intl.totalRounds) await insertContinental(db, career, intl, intlWeeks);
 }
 
 export async function insertCupFixtures(db: Db, careerId: string, season: number, cupId: number, round: number, week: number, pairs: [number, number][]) {
@@ -331,7 +344,7 @@ export async function readCareer(careerId: string, accountId: string): Promise<C
 /** Karrieren aus der Zeit vor dem Tageskalender bekommen nachträglich einen Kalender. */
 async function ensureCalendar(db: Db, career: CareerRow) {
   if (career.calendar?.slots?.length) return;
-  const cup = await one<{ rounds: { week: number }[] }>(db, "select rounds from cups where career_id = $1 and season = $2 order by id desc limit 1", [career.id, career.season]);
+  const cup = await one<{ rounds: { week: number }[] }>(db, "select rounds from cups where career_id = $1 and season = $2 and kind = 'national' order by id desc limit 1", [career.id, career.season]);
   const cupWeeks = new Set((cup?.rounds ?? []).map((r) => r.week));
   const kinds: SlotKind[] = Array.from({ length: career.season_weeks }, (_, i) => (cupWeeks.has(i + 1) ? "cup" : "league"));
   career.calendar = buildCalendar(kinds);

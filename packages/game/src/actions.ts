@@ -1,10 +1,11 @@
 /** Aktionen des Nutzers: Taktik, Training, Transfers, Verträge, Scouting, Shop, Jobwechsel. */
 import {
   CARD_PACK, COUNTRY_BY_CODE, FORMATIONS, ROLE_BY_ID, Rng, SKINS, askingPrice, evaluateFee, evaluateTerms, formatMoney,
-  isUnlocked, renewalDemand, roundsFor, seedFor, squadRanks, transferWindow, validateTactic,
+  isUnlocked, renewalDemand, roundsFor, seedFor, squadRanks, validateTactic,
   type Formation, type Player, type Tactic, type TrainingPlan,
 } from "@fl/sim";
 import type pg from "pg";
+import { windowFor } from "./window";
 import { one, query } from "./db";
 import { activateClubs, activateLeague, boardObjectives, scheduleSeason, withCareer } from "./career";
 import { GameError } from "./errors";
@@ -125,7 +126,7 @@ export async function makeOffer(careerId: string, accountId: string, input: Offe
     if (!p) throw new GameError("Spieler nicht gefunden", 404);
     if (p.clubId === clubId) throw new GameError("Der Spieler gehört bereits zu deinem Verein.");
     if (p.loan) throw new GameError("Der Spieler ist ausgeliehen und steht erst nach der Saison zur Verfügung.");
-    const window = transferWindow(career.week, career.season_weeks);
+    const window = windowFor(career);
     if (p.clubId !== null && !window.open) throw new GameError("Das Transferfenster ist geschlossen. Vereinslose Spieler kannst du jederzeit verpflichten.");
     const buyer = (await getClub(db, career.id, clubId))!;
     const fee = Math.max(0, Math.round(input.fee || 0));
@@ -523,7 +524,7 @@ function removeFromTactic(club: ClubRow, playerId: number) {
 export async function loanIn(careerId: string, accountId: string, playerId: number, wageShare: number) {
   return withCareer(careerId, accountId, async (db, career) => {
     const clubId = requireClub(career);
-    if (!transferWindow(career.week, career.season_weeks).open) throw new GameError("Leihen sind nur im Transferfenster möglich.");
+    if (!windowFor(career).open) throw new GameError("Leihen sind nur im Transferfenster möglich.");
     const p = await getPlayer(db, career.id, playerId);
     if (!p || p.clubId === null || p.clubId === clubId) throw new GameError("Dieser Spieler kann nicht ausgeliehen werden.");
     if (p.loan) throw new GameError("Der Spieler ist bereits ausgeliehen.");
@@ -565,7 +566,7 @@ export async function loanIn(careerId: string, accountId: string, playerId: numb
 export async function loanOut(careerId: string, accountId: string, playerId: number) {
   return withCareer(careerId, accountId, async (db, career) => {
     const clubId = requireClub(career);
-    if (!transferWindow(career.week, career.season_weeks).open) throw new GameError("Leihen sind nur im Transferfenster möglich.");
+    if (!windowFor(career).open) throw new GameError("Leihen sind nur im Transferfenster möglich.");
     const p = await getPlayer(db, career.id, playerId);
     if (!p || p.clubId !== clubId) throw new GameError("Spieler nicht in deinem Kader.");
     if (p.loan) throw new GameError("Leihspieler kannst du nicht weiterverleihen.");

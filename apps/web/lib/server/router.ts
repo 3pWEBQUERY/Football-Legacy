@@ -131,6 +131,7 @@ route("POST", career("players/:pid"), async (c) => {
     case "renew": return game.renewContract(c.params.id, acc(c), pid, num(c.body.wage), num(c.body.years));
     case "loan_in": return game.loanIn(c.params.id, acc(c), pid, Number(c.body.wageShare ?? 1));
     case "loan_out": return game.loanOut(c.params.id, acc(c), pid);
+    case "talk": return game.talkToPlayer(c.params.id, acc(c), pid, String(c.body.topic) as never);
     default: throw new game.GameError("Unbekannte Aktion");
   }
 });
@@ -139,6 +140,7 @@ route("GET", career("clubs/:cid"), async (c) => {
   return game.clubView(c.params.id, acc(c), num(c.params.cid));
 });
 route("GET", career("competition"), async (c) => game.competitionView(c.params.id, acc(c), c.query.get("league") ? num(c.query.get("league")) : undefined));
+route("GET", career("continental"), async (c) => game.continentalView(c.params.id, acc(c), c.query.get("season") ? num(c.query.get("season")) : undefined));
 route("GET", career("calendar"), async (c) => game.calendarView(c.params.id, acc(c)));
 route("GET", career("review"), async (c) => game.reviewView(c.params.id, acc(c), c.query.get("season") ? num(c.query.get("season")) : undefined));
 route("GET", career("cup"), async (c) => game.cupView(c.params.id, acc(c), c.query.get("season") ? num(c.query.get("season")) : undefined));

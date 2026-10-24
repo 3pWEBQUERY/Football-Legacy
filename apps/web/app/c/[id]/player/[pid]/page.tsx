@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, refreshAll, useApi } from "@/lib/client/api";
-import { ATTR_GROUPS, POS_LABEL, attrColor, fmtDate, money } from "@/lib/client/format";
+import { ATTR_GROUPS, POS_LABEL, attrColor, dayIso, fmtDate, money } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { Radar } from "@/components/Radar";
 import { Condition, Crest, ErrorBox, Icon, Loading, Modal, Nat, Panel, Pos, moraleLabel, useNotes, useToast } from "@/components/ui";
@@ -22,6 +22,7 @@ export default function PlayerPage() {
   const [renew, setRenew] = useState<{ wage: number; years: number; demand: number } | null>(null);
   const [msg, setMsg] = useState<any | null>(null);
   const [loan, setLoan] = useState<{ share: number; msg: any | null } | null>(null);
+  const [talk, setTalk] = useState<{ result: any | null } | null>(null);
   const [busy, setBusy] = useState(false);
   if (error) return <ErrorBox message={error} />;
   if (!data) return <Loading />;
@@ -97,6 +98,14 @@ export default function PlayerPage() {
     }
   }
 
+  async function sendTalk(topic: string) {
+    const r = await action("talk", { topic });
+    if (r) {
+      setTalk({ result: r });
+      reload();
+    }
+  }
+
   async function lendOut() {
     if (!confirm(`${p.name} bis Saisonende verleihen?`)) return;
     const r = await action("loan_out");
@@ -129,6 +138,7 @@ export default function PlayerPage() {
               <span>Fuss {p.foot === "L" ? "links" : p.foot === "R" ? "rechts" : "beidfüssig"}</span>
               {p.wonderkid && <span className="badge badge-gold">Ausnahmetalent</span>}
               {p.injuryWeeks > 0 && <span className="badge badge-danger">Verletzt · {p.injuryWeeks} W</span>}
+              {p.promise && <span className="badge badge-warn" title="Versprochene Einsatzzeit">Versprechen · {p.promise.starts}/{p.promise.needed} Startelf bis {fmtDate(dayIso(data.career.season, p.promise.until), { year: false })}</span>}
               {p.loan && <span className="badge badge-accent">{data.loanedOutByUser ? "Von dir verliehen" : `Leihe von ${data.loanParent ?? "Stammverein"}`} · bis Saisonende</span>}
             </div>
             <div style={{ marginTop: 8 }}>
@@ -156,6 +166,7 @@ export default function PlayerPage() {
             <span className="dim small">An <b>{data.club?.name}</b> verliehen – kehrt zum Saisonende zurück. {data.club?.name} zahlt {Math.round(p.loan.wageShare * 100)} % des Gehalts.</span>
           ) : data.own ? (
             <>
+              <button className="btn" disabled={busy} onClick={() => setTalk({ result: null })}><Icon name="mail" size={15} /> Gespräch</button>
               <button className="btn" disabled={busy} onClick={openRenew}><Icon name="contract" size={15} /> Vertrag verlängern</button>
               <button className="btn" disabled={busy} onClick={async () => { const r = await action("list"); if (r) { toast(r.listed ? "Auf die Transferliste gesetzt" : "Von der Transferliste genommen"); reload(); } }}>
                 <Icon name="transfer" size={15} /> {p.listed ? "Von Transferliste nehmen" : "Auf Transferliste"}
@@ -266,6 +277,41 @@ export default function PlayerPage() {
             <div className="row" style={{ justifyContent: "flex-end" }}>
               <button className="btn btn-ghost" onClick={() => setOffer(null)}>Abbrechen</button>
               <button className="btn btn-primary" disabled={busy} onClick={sendOffer}>{msg?.status === "countered" ? "Gegenangebot annehmen" : "Angebot senden"}</button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!talk} onClose={() => setTalk(null)}>
+        {talk && (
+          <div className="stack">
+            <h2>Gespräch mit {p.name}</h2>
+            <div className="row-wrap small dim">
+              <span>Moral: <b style={{ color: moraleLabel(p.morale).color }}>{moraleLabel(p.morale).text}</b></span>
+              <span>Form: <b>{p.form.toFixed(1)}</b></span>
+            </div>
+            {talk.result ? (
+              <div className="card-soft stack-sm" style={{ borderLeft: `3px solid ${talk.result.tone === "positive" ? "var(--pos)" : talk.result.tone === "negative" ? "var(--neg)" : "var(--line-2)"}` }}>
+                <span>„{talk.result.reaction}“</span>
+                <span className="faint small">Moral {talk.result.moraleChange >= 0 ? "+" : ""}{talk.result.moraleChange}</span>
+              </div>
+            ) : (
+              <div className="stack-sm">
+                {[
+                  ["praise", "Loben", "Für gute Leistungen – wirkt nur, wenn die Form stimmt."],
+                  ["criticize", "Kritisieren", "Fordert eine Reaktion. Riskant bei Spielern mit wenig Nervenstärke."],
+                  ["encourage", "Zuspruch geben", "Hilft vor allem Spielern mit schlechter Moral."],
+                  ["promise", "Einsatzzeit versprechen", "Zwei Startelfeinsätze in den nächsten vier Wochen. Gebrochene Versprechen schaden stark."],
+                ].map(([topic, label, desc]) => (
+                  <button key={topic} className="card-soft row" style={{ textAlign: "left", cursor: "pointer", gap: 12, border: "1px solid var(--line-2)" }} disabled={busy} onClick={() => sendTalk(topic)}>
+                    <span style={{ flex: 1 }}><b>{label}</b><span className="faint small" style={{ display: "block" }}>{desc}</span></span>
+                    <Icon name="next" size={14} />
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="row" style={{ justifyContent: "flex-end" }}>
+              <button className="btn btn-ghost" onClick={() => setTalk(null)}>Schliessen</button>
             </div>
           </div>
         )}
