@@ -400,6 +400,26 @@ describe("Karriere", () => {
     expect(d.headlines.length).toBe(4);
   });
 
+  it("Trainerstab: Personalmarkt, Einstellen, Verlängern, Entlassen", async () => {
+    const v = await game.staffView(careerId, accountId);
+    expect(v.roles.length).toBe(4);
+    expect(v.roles.every((r) => r.member && r.member.name.length > 3)).toBe(true);
+    expect(v.candidates.length).toBe(16);
+    await pool().query("update clubs set balance = balance + 50000000, reputation = 90 where career_id = $1 and id = (select club_id from careers where id = $1)", [careerId]);
+    const best = [...(await game.staffView(careerId, accountId)).candidates].filter((c) => c.role === "coach").sort((a, b) => b.quality - a.quality)[0];
+    await game.hireStaff(careerId, accountId, best.id);
+    const after = await game.staffView(careerId, accountId);
+    expect(after.roles.find((r) => r.role === "coach")?.member?.id).toBe(best.id);
+    const career = await pool().query("select staff from careers where id = $1", [careerId]);
+    expect(career.rows[0].staff.coach).toBe(best.quality);
+    const physio = after.roles.find((r) => r.role === "physio")!.member!;
+    await game.fireStaff(careerId, accountId, physio.id);
+    const fired = await game.staffView(careerId, accountId);
+    expect(fired.roles.find((r) => r.role === "physio")?.member).toBeNull();
+    expect((await pool().query("select staff from careers where id = $1", [careerId])).rows[0].staff.physio).toBe(3);
+    await expect(game.hireStaff(careerId, accountId, 999999)).rejects.toThrow();
+  });
+
   it("Einstellungen: Spieloptionen, Passwort und Account löschen", async () => {
     const r = await game.updateCareerSettings(careerId, accountId, { autoSubs: false, stopOn: { finance: true, medical: false, hacked: true } });
     expect(r.autoSubs).toBe(false);

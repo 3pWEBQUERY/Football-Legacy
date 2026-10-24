@@ -330,4 +330,10 @@ create table if not exists national_matches (
 create index if not exists national_matches_day on national_matches(career_id, season, day);
 `,
   },
+  {
+    name: "011_staff_team.sql",
+    sql: `
+alter table careers add column if not exists staff_team jsonb;
+`,
+  },
 ];

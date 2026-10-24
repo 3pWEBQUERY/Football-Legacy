@@ -497,6 +497,8 @@ export async function acceptJob(careerId: string, accountId: string, clubId: num
     await scheduleSeason(db, career);
     career.board = await boardObjectives(db, career, fresh, league);
     career.board.confidence = 60;
+    // Der Trainerstab gehört zum alten Verein: beim neuen Verein neu zusammenstellen
+    await query(db, "update careers set staff_team = null where id = $1", [career.id]);
     await saveCareer(db, career);
     await addInbox(db, career.id, career.season, 0, "board", `Neuer Job: ${fresh.name}`,
       `Willkommen bei ${fresh.name}! Saisonziel: ${career.board.objective}`);

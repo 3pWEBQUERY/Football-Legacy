@@ -20,6 +20,7 @@ import { aiTactic, teamSetup } from "./setup";
 import { trackPlayingTime, weeklyDynamics } from "./dynamics";
 import { leagueRoundup, matchArticle, transferArticles } from "./media";
 import { nationalNewSeason, nationalTournament } from "./national";
+import { staffSeasonEnd } from "./staff";
 import { advanceCup, type CupWeekInfo } from "./cup";
 import { academyWeek } from "./academy";
 import { facilitiesOf } from "./facilities";
@@ -335,6 +336,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     await nationalTournament(db, career);
     seasonEnd = await endSeason(db, career);
     await nationalNewSeason(db, career);
+    await staffSeasonEnd(db, career);
   }
   await saveCareer(db, career);
   return { week, season: career.season, userFixtureId: userFixture?.id ?? null, results: lines, cupResults: cupLines, cup: cupInfo, notes, news, seasonEnd };

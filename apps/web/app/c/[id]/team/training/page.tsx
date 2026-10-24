@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { api, refreshAll, useApi } from "@/lib/client/api";
 import { money } from "@/lib/client/format";
@@ -30,7 +31,6 @@ export default function Training() {
   if (error) return <ErrorBox message={error} />;
   if (!data) return <Loading />;
   const plan = data.training;
-  const unlockedStaff = shell?.career?.unlocked?.includes("staff_upgrade");
 
   async function setPlan(patch: any) {
     setBusy(true);
@@ -41,17 +41,6 @@ export default function Training() {
       toast((e as Error).message, "error");
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function upgrade(role: string) {
-    try {
-      const r = await api<any>(`careers/${id}/staff`, { body: { role } });
-      toast(`${STAFF[role].label} verbessert (${money(r.cost)})`, "success");
-      reload();
-      refreshAll();
-    } catch (e) {
-      toast((e as Error).message, "error");
     }
   }
 
@@ -100,18 +89,15 @@ export default function Training() {
           </div>
         </div>
         <div className="card stack">
-          <div className="card-head"><h3>Trainerstab</h3></div>
-          {!unlockedStaff && <p className="badge badge-blue" style={{ whiteSpace: "normal" }}>Ausbau ab Manager-Level 7</p>}
+          <div className="card-head"><h3>Trainerstab</h3><Link href={`/c/${id}/team/staff`} className="btn btn-ghost btn-sm">Zum Stab</Link></div>
           {Object.entries(STAFF).map(([k, s]) => (
             <div key={k} className="stack-sm">
               <div className="between"><b>{s.label}</b><span className="num">{data.staff[k]}/20</span></div>
               <Progress value={data.staff[k]} max={20} />
-              <div className="between">
-                <span className="faint small">{s.text}</span>
-                {unlockedStaff && data.staffCosts[k] && <button className="btn btn-sm" onClick={() => upgrade(k)}>+1 ({money(data.staffCosts[k])})</button>}
-              </div>
+              <span className="faint small">{s.text}</span>
             </div>
           ))}
+          <p className="dim small" style={{ margin: 0 }}>Bessere Leute findest du auf dem Personalmarkt unter Team → Stab.</p>
         </div>
       </div>
     </>

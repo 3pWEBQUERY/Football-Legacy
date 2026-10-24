@@ -22,13 +22,15 @@ interface ShellCtx {
 /** Standard: diese Kategorien halten die Verarbeitung nicht an (in den Einstellungen änderbar). */
 const QUIET = new Set(["news", "finance", "training"]);
 const MAX_DAYS = 120;
+/** Kurze Beschriftungen für die Tab-Leiste auf dem Smartphone */
+const TAB_LABEL: Record<string, string> = { competition: "Liga", national: "Nation", market: "Transfers" };
 
 const Ctx = createContext<ShellCtx>({ id: "", shell: null, advance: async () => {}, busy: false, reloadShell: () => {}, pendingMessage: null, clearPendingMessage: () => {} });
 export const useGame = () => useContext(Ctx);
 
 const NAV = [
   { key: "office", label: "Büro", icon: "office", href: "", subs: [{ href: "", label: "Übersicht & Posteingang" }, { href: "/calendar", label: "Kalender" }, { href: "/media", label: "Medien" }, { href: "/board", label: "Vorstand" }] },
-  { key: "team", label: "Team", icon: "team", href: "/team", subs: [{ href: "/team", label: "Kader" }, { href: "/team/tactic", label: "Taktik" }, { href: "/team/dynamics", label: "Dynamik" }, { href: "/team/training", label: "Training & Stab" }, { href: "/team/youth", label: "Jugend" }, { href: "/team/medical", label: "Medizin" }] },
+  { key: "team", label: "Team", icon: "team", href: "/team", subs: [{ href: "/team", label: "Kader" }, { href: "/team/tactic", label: "Taktik" }, { href: "/team/dynamics", label: "Dynamik" }, { href: "/team/training", label: "Training" }, { href: "/team/staff", label: "Stab" }, { href: "/team/youth", label: "Jugend" }, { href: "/team/medical", label: "Medizin" }] },
   { key: "market", label: "Transfers", icon: "transfer", href: "/market", subs: [{ href: "/market", label: "Spielersuche" }, { href: "/market/scouting", label: "Scouting" }, { href: "/market/contracts", label: "Verträge" }, { href: "/market/finances", label: "Finanzen" }] },
   { key: "competition", label: "Wettbewerb", icon: "trophy", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/cup", label: "Pokal" }, { href: "/competition/continental", label: "Kontinentalpokal" }, { href: "/competition/stats", label: "Statistiken" }, { href: "/competition/awards", label: "Auszeichnungen" }] },
   { key: "national", label: "Nationalteam", icon: "flag", href: "/national", subs: [{ href: "/national", label: "Übersicht" }, { href: "/national/squad", label: "Kader & Taktik" }, { href: "/national/matches", label: "Spiele" }] },
@@ -239,6 +241,18 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
         </nav>
 
         <main className="main"><div className="content">{children}</div></main>
+
+        <nav className="tabbar" aria-label="Hauptmenü (mobil)">
+          {NAV.map((n) => (
+            <Link key={n.key} href={base + n.href} className={section === n.key ? "active" : ""} aria-current={section === n.key ? "page" : undefined}>
+              <span className="tabbar-icon">
+                <Icon name={n.icon} size={20} />
+                {n.key === "office" && d?.unread > 0 && <span className="tabbar-badge">{d.unread > 99 ? "99+" : d.unread}</span>}
+              </span>
+              <span className="tabbar-label">{TAB_LABEL[n.key] ?? n.label}</span>
+            </Link>
+          ))}
+        </nav>
       </div>
       <Modal open={!!summary} onClose={() => setSummary(null)} wide>
         {summary && <WeekSummaryView summary={summary} base={base} onClose={() => setSummary(null)} />}

@@ -189,6 +189,10 @@ route("GET", career("settings"), async (c) => {
   return { autoSubs: cr.manager.autoSubs ?? true, stopOn: { ...game.DEFAULT_STOP_ON, ...(cr.manager.stopOn ?? {}) }, labels: game.STOP_ON_LABEL };
 });
 route("POST", career("settings"), async (c) => game.updateCareerSettings(c.params.id, acc(c), c.body));
+route("GET", career("staff"), async (c) => game.staffView(c.params.id, acc(c)));
+route("POST", career("staff/hire"), async (c) => game.hireStaff(c.params.id, acc(c), num(c.body.candidateId)));
+route("POST", career("staff/fire"), async (c) => game.fireStaff(c.params.id, acc(c), num(c.body.memberId)));
+route("POST", career("staff/renew"), async (c) => game.renewStaff(c.params.id, acc(c), num(c.body.memberId)));
 route("GET", career("national"), async (c) => game.nationalView(c.params.id, acc(c)));
 route("POST", career("national/job"), async (c) => game.takeNationalJob(c.params.id, acc(c), str(c.body.code)));
 route("POST", career("national/resign"), async (c) => game.resignNationalJob(c.params.id, acc(c)));
@@ -200,7 +204,6 @@ route("GET", career("dynamics"), async (c) => game.dynamicsView(c.params.id, acc
 route("GET", career("awards"), async (c) => game.awardsView(c.params.id, acc(c)));
 route("GET", career("contracts"), async (c) => game.contractsView(c.params.id, acc(c)));
 route("GET", career("finances"), async (c) => game.financeView(c.params.id, acc(c)));
-route("POST", career("staff"), async (c) => game.upgradeStaff(c.params.id, acc(c), str(c.body.role) as never));
 route("GET", career("career"), async (c) => game.careerView(c.params.id, acc(c)));
 route("POST", career("shop"), async (c) => (c.body.item === "pack" ? game.buyCardPack(c.params.id, acc(c)) : game.buySkin(c.params.id, acc(c), str(c.body.item))));
 route("POST", career("job"), async (c) => game.acceptJob(c.params.id, acc(c), num(c.body.clubId)));
