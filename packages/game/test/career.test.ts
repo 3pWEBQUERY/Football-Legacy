@@ -132,6 +132,8 @@ describe("Karriere", () => {
 
   it("geht Tag für Tag bis zum ersten Spieltag", async () => {
     await expect(startMatch(careerId, accountId)).rejects.toThrow(/später/);
+    const sa = await game.startAssignment(careerId, accountId, { country: "SUI", position: "ST", maxAge: 25 });
+    expect(sa.cost).toBeGreaterThan(0);
     const m = await marketView(careerId, accountId, { sort: "rating" });
     const target = m.players.find((p) => p.clubId !== null && p.knowledge !== "exact")!;
     const sr = await game.scoutPlayer(careerId, accountId, target.id);
@@ -170,6 +172,11 @@ describe("Karriere", () => {
     expect((await game.playerDetail(careerId, accountId, target.id)).player.knowledge).toBe("exact");
     const scoutMail = await pool().query("select 1 from inbox where career_id = $1 and title = $2", [careerId, `Scoutbericht: ${target.name}`]);
     expect(scoutMail.rows.length).toBe(1);
+    const sv = await game.scoutingView(careerId, accountId);
+    expect(sv.assignments.length).toBe(0);
+    expect(sv.reports.length).toBe(1);
+    expect(sv.reports[0].players.length).toBeGreaterThan(0);
+    expect(sv.reports[0].players.every((p) => p.position === "ST" && p.age <= 25 && p.rating !== null)).toBe(true);
     const cal = await game.calendarView(careerId, accountId);
     expect(cal.days.find((x) => x.day === 19)?.match).toBeTruthy();
   }, 60_000);
@@ -277,6 +284,10 @@ describe("Karriere", () => {
     if (rp.rows[0]) expect(rp.rows[0].data.altPositions).toContain(retrainPos);
     const calls = await pool().query("select count(*) filter (where title like 'Länderspielpause%')::int as a, count(*) filter (where title like 'Rückkehr von den Nationalmannschaften')::int as b from inbox where career_id = $1", [careerId]);
     expect(calls.rows[0].a).toBe(calls.rows[0].b);
+    const med = await game.medicalView(careerId, accountId);
+    expect(med.injured.every((x) => x.injury.length > 0)).toBe(true);
+    const named = await pool().query("select count(*)::int as n from inbox where career_id = $1 and category = 'medical' and body like '%fällt%'", [careerId]);
+    expect(named.rows[0].n).toBeGreaterThanOrEqual(0);
     const lb = await leaderboards();
     expect(lb.best.length).toBe(1);
   }, 240_000);

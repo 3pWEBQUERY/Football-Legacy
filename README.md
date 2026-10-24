@@ -37,6 +37,8 @@ Ein tiefgehender Fussball-Manager im Browser: Kader, Taktik, Transfers und Saiso
 | Individuelles Training | Eigener Schwerpunkt pro Spieler und Umschulung auf eine neue Position (Fortschritt pro Woche, jüngere Spieler lernen schneller) |
 | Länderspielpausen | Im September, Oktober, November und März werden starke Spieler je nach Land nominiert: sie fehlen im Training, sammeln Länderspiele und Tore und kehren mit Moral, Müdigkeit oder einer Verletzung zurück. Im Kalender markiert |
 | Co-Trainer | Hinweise im Vorbericht: verletzte, gesperrte oder müde Spieler in der Startelf, Spieler auf fremder Position, stärkere Alternativen, zu kleine Bank |
+| Scouting-Zentrale | Aufträge nach Land, Position und Höchstalter (Anzahl, Dauer und Genauigkeit je nach Chefscout, Ausland teurer). Nach Ablauf liefert der Scout fünf Empfehlungen mit Bericht, die Kader fremder Ligen werden dafür bei Bedarf erzeugt |
+| Medizin | Verletzungsarten passend zur Dauer (Prellung bis Kreuzbandriss), Meldungen bei Genesung, Seite mit Verletzten, voraussichtlicher Rückkehr, Sperren und Verletzungsrisiko |
 | Navigation | Horizontales Hauptmenü mit Untermenüs, Datum und Weiter-Button in der Kopfleiste |
 
 ## Architektur

@@ -151,6 +151,12 @@ route("POST", career("academy/:pid"), async (c) => {
 });
 route("GET", career("boardroom"), async (c) => game.boardView(c.params.id, acc(c)));
 route("POST", career("boardroom"), async (c) => game.boardRequest(c.params.id, acc(c), String(c.body.kind) as never));
+route("GET", career("scouting"), async (c) => game.scoutingView(c.params.id, acc(c)));
+route("POST", career("scouting"), async (c) => game.startAssignment(c.params.id, acc(c), {
+  country: String(c.body.country), position: (c.body.position as string) || null, maxAge: c.body.maxAge ? num(c.body.maxAge) : null,
+}));
+route("POST", career("scouting/:aid/cancel"), async (c) => game.cancelAssignment(c.params.id, acc(c), num(c.params.aid)));
+route("GET", career("medical"), async (c) => game.medicalView(c.params.id, acc(c)));
 route("GET", career("calendar"), async (c) => game.calendarView(c.params.id, acc(c)));
 route("GET", career("review"), async (c) => game.reviewView(c.params.id, acc(c), c.query.get("season") ? num(c.query.get("season")) : undefined));
 route("GET", career("cup"), async (c) => game.cupView(c.params.id, acc(c), c.query.get("season") ? num(c.query.get("season")) : undefined));

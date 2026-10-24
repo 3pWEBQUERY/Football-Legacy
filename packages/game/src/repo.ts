@@ -19,6 +19,8 @@ export interface CareerRow {
   qualifiers: { season: number; tables: Record<string, number[]> } | null;
   /** Trainingszentrum, Akademie, Bauprojekte, Vorstandsanfragen */
   facilities: import("./facilities").Facilities | null;
+  /** Scouting-Aufträge und Berichte */
+  scouting: import("./scouting").Scouting | null;
   status: "active" | "unemployed";
   manager: ManagerProfile;
   board: Board;
@@ -128,13 +130,14 @@ export async function saveCareer(db: Db, c: CareerRow) {
   await query(
     db,
     `update careers set club_id = $2, season = $3, week = $4, season_weeks = $5, status = $6, manager = $7, board = $8,
-       training = $9, staff = $10, next_player_id = $11, pending_match = $12, job_offers = $13, day = $14, calendar = $15, qualifiers = $16, facilities = $17, updated_at = now()
+       training = $9, staff = $10, next_player_id = $11, pending_match = $12, job_offers = $13, day = $14, calendar = $15, qualifiers = $16, facilities = $17, scouting = $18, updated_at = now()
      where id = $1`,
     [
       c.id, c.club_id, c.season, c.week, c.season_weeks, c.status, JSON.stringify(c.manager), JSON.stringify(c.board),
       JSON.stringify(c.training), JSON.stringify(c.staff), c.next_player_id,
       c.pending_match ? JSON.stringify(c.pending_match) : null, JSON.stringify(c.job_offers), c.day, c.calendar ? JSON.stringify(c.calendar) : null,
       c.qualifiers ? JSON.stringify(c.qualifiers) : null, c.facilities ? JSON.stringify(c.facilities) : null,
+      c.scouting ? JSON.stringify(c.scouting) : null,
     ],
   );
 }

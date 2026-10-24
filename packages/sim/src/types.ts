@@ -113,6 +113,8 @@ export interface Player {
   /** Länderspiele und Tore für die Nationalmannschaft */
   caps?: number;
   intlGoals?: number;
+  /** Aktuelle Verletzung (Art, seit Saison/Tag, Dauer in Wochen) */
+  injury?: { name: string; season: number; day: number; weeks: number } | null;
   /** Abgestellt zur Nationalmannschaft bis zu diesem Tag */
   away?: { season: number; until: number } | null;
 }

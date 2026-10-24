@@ -183,6 +183,7 @@ export default function Office() {
                     <h2>{open.title}</h2>
                     <p className="inbox-body">{open.body}</p>
                     {open.action?.type === "fixture" && <div><Link className="btn" href={`${base}/report/${open.action.fixtureId}`}>Spielbericht öffnen</Link></div>}
+                    {open.action?.type === "scouting" && <div><Link className="btn" href={`${base}/market/scouting`}>Zur Scouting-Zentrale</Link></div>}
                     {open.action?.type === "academy" && <div><Link className="btn" href={`${base}/team/youth`}>Zur Jugendakademie</Link></div>}
                     {open.action?.type === "player" && <div><Link className="btn" href={`${base}/player/${open.action.playerId}`}>Spielerprofil öffnen</Link></div>}
                     {openOffer && (

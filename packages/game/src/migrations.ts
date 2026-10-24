@@ -264,4 +264,10 @@ create table if not exists academy (
 alter table careers add column if not exists facilities jsonb;
 `,
   },
+  {
+    name: "007_scouting.sql",
+    sql: `
+alter table careers add column if not exists scouting jsonb;
+`,
+  },
 ];

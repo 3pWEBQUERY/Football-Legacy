@@ -3,7 +3,7 @@
  * Spielvorbereitung und Monatsberichte zwischen den Spieltagen.
  */
 import {
-  DAY_TYPE_LABEL, Rng, applyTrainingRating, dailyRecovery, sessionName, trainingRating, dateOf, dayType, formatMoney, playMatch, seedFor, squadRanks, validateTactic,
+  DAY_TYPE_LABEL, Rng, applyTrainingRating, injure, dailyRecovery, sessionName, trainingRating, dateOf, dayType, formatMoney, playMatch, seedFor, squadRanks, validateTactic,
   type DayType, type Player, type SeasonCalendar,
 } from "@fl/sim";
 import type pg from "pg";
@@ -13,6 +13,7 @@ import { type CareerRow, type FixtureRow, addInbox, getClub, getClubs, getPlayer
 import { aiTactic, teamSetup } from "./setup";
 import { competitionOf } from "./cup";
 import { checkPromises } from "./talk";
+import { completeAssignments } from "./scouting";
 import { internationalDuty, isAway } from "./international";
 import { checkProjects } from "./facilities";
 import { runYouthIntake, youthIntakeDay } from "./academy";
@@ -118,6 +119,7 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
     if (e) events.push(e);
   }
   events.push(...(await completeScouting(db, career)));
+  events.push(...(await completeAssignments(db, career)));
   events.push(...(await checkPromises(db, career, squad)));
   events.push(...(await internationalDuty(db, career, squad)));
   events.push(...(await checkProjects(db, career)));
@@ -228,9 +230,9 @@ async function trainingEvent(db: pg.PoolClient, career: CareerRow, squad: Player
   const injuryChance = (intensity === "high" ? 0.05 : intensity === "low" ? 0.015 : 0.03) * (1.2 - career.staff.physio / 40);
   if (rng.chance(injuryChance)) {
     const p = fit[rng.int(0, fit.length - 1)];
-    p.injuryWeeks = rng.chance(0.65) ? 1 : 2;
+    injure(rng, p, rng.chance(0.65) ? 1 : 2, career.season, career.day);
     await addInbox(db, career.id, career.season, career.week, "medical", `Verletzung im Training: ${p.firstName} ${p.lastName}`,
-      `${p.firstName} ${p.lastName} hat sich im Training verletzt und fällt voraussichtlich ${p.injuryWeeks === 1 ? "eine Woche" : "zwei Wochen"} aus.` +
+      `${p.firstName} ${p.lastName} hat sich im Training verletzt (${p.injury?.name}) und fällt voraussichtlich ${p.injuryWeeks === 1 ? "eine Woche" : "zwei Wochen"} aus.` +
         (intensity === "high" ? "\n\nDie medizinische Abteilung weist auf die hohe Trainingsintensität hin." : ""));
     return `Verletzung: ${p.lastName}`;
   }

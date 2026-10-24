@@ -137,7 +137,7 @@ export default function PlayerPage() {
               <span className="faint">·</span>
               <span>Fuss {p.foot === "L" ? "links" : p.foot === "R" ? "rechts" : "beidfüssig"}</span>
               {p.wonderkid && <span className="badge badge-gold">Ausnahmetalent</span>}
-              {p.injuryWeeks > 0 && <span className="badge badge-danger">Verletzt · {p.injuryWeeks} W</span>}
+              {p.injuryWeeks > 0 && <span className="badge badge-danger">{p.injury?.name ?? "Verletzt"} · {p.injuryWeeks} W</span>}
               {p.away && data.career.day <= p.away.until && <span className="badge badge-blue">Bei der Nationalmannschaft</span>}
               {p.caps > 0 && <span className="faint">{p.caps} Länderspiele{p.intlGoals ? ` · ${p.intlGoals} Tore` : ""}</span>}
               {p.promise && <span className="badge badge-warn" title="Versprochene Einsatzzeit">Versprechen · {p.promise.starts}/{p.promise.needed} Startelf bis {fmtDate(dayIso(data.career.season, p.promise.until), { year: false })}</span>}

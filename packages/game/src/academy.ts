@@ -125,7 +125,7 @@ function estimate(career: CareerRow, p: Player) {
   const mid = pot;
   return {
     ratingRange: [Math.max(1, r - spread), r + spread],
-    potentialRange: [Math.max(r, pot - spread * 2), pot + spread * 2],
+    potentialRange: [Math.min(95, Math.max(r, pot - spread * 2)), Math.min(99, pot + spread * 2)],
     stars: mid >= 80 ? 5 : mid >= 72 ? 4 : mid >= 64 ? 3 : mid >= 56 ? 2 : 1,
   };
 }

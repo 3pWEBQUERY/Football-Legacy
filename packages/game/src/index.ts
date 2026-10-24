@@ -18,3 +18,5 @@ export { talkToPlayer } from "./talk";
 export { academyView, promoteYouth, releaseYouth } from "./academy";
 export { boardRequest, boardView } from "./facilities";
 export { giveTeamTalk, teamTalkState } from "./teamtalk";
+export { medicalView } from "./medical";
+export { cancelAssignment, scoutingView, startAssignment } from "./scouting";

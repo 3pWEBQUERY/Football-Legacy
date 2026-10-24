@@ -4,7 +4,7 @@
  */
 import {
   DEFAULT_TRAINING, Rng, afterMatch, penaltyShootout, shootersFrom, attendance, benchMorale, computeStandings, formatMoney, playMatch, quickResult,
-  retrainStep, seedFor, squadRanks, teamRating, validateTactic, wageBill, weeklyDevelopment, weeklyFinances, weeksSincePreviousLeague,
+  injure, injuryName, matchInjuryLength, retrainStep, seedFor, squadRanks, teamRating, validateTactic, wageBill, weeklyDevelopment, weeklyFinances, weeksSincePreviousLeague,
   type MatchResult, type Player,
 } from "@fl/sim";
 import type pg from "pg";
@@ -71,10 +71,6 @@ function suspensionFor(rng: Rng, red: boolean, yellowTotal: number): number {
   return 0;
 }
 
-function injuryLength(rng: Rng, physio: number): number {
-  const base = [1, 1, 2, 2, 3, 4, 6, 8, 12][rng.weighted([20, 18, 15, 12, 10, 8, 6, 4, 2])];
-  return Math.max(1, Math.round(base * (1.15 - physio / 40)));
-}
 
 /** Wendet ein Spielergebnis auf die beteiligten Spieler an. */
 function applyMatchToPlayers(
@@ -99,7 +95,7 @@ function applyMatchToPlayers(
     const susp = suspensionFor(rng, line.red, line.yellow > 0 ? p.stats.yellow : 0);
     if (susp) p.suspendedWeeks = Math.max(p.suspendedWeeks, susp + 1);
     if (line.injured) {
-      p.injuryWeeks = injuryLength(rng, physio(side === 0 ? homeId : awayId)) + 1;
+      injure(rng, p, matchInjuryLength(rng, physio(side === 0 ? homeId : awayId)) + 1, w.career.season, w.career.day);
       injuredNow.add(p.id);
     }
     w.dirtyPlayers.add(p.id);
@@ -201,6 +197,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
 
   // Training & Entwicklung aller Spieler aktiver Vereine (eigene Kondition erholt sich täglich)
   const boost = !midweek && career.manager.trainingBoostWeeks > 0;
+  const injuredBefore = new Set(userClubId ? squadOf(w, userClubId).filter((p) => p.injuryWeeks > 0).map((p) => p.id) : []);
   const retrained: Player[] = [];
   if (midweek) {
     for (const [clubId, squad] of w.squads) {
@@ -226,11 +223,24 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
         p.devProgress += 0.03;
         p.morale = Math.min(100, p.morale + 1);
       }
+      if (injured) p.injury = { name: injuryName(rng, p.injuryWeeks), season: career.season, day: career.day, weeks: p.injuryWeeks };
       if (isUser && injured) injuredNow.add(p.id);
       w.dirtyPlayers.add(p.id);
     }
   }
   if (boost) career.manager.trainingBoostWeeks--;
+  // Genesene Spieler: Verletzung austragen, eigene melden
+  for (const p of w.players.values()) {
+    if (p.injuryWeeks === 0 && p.injury) {
+      p.injury = null;
+      w.dirtyPlayers.add(p.id);
+    }
+  }
+  const recovered = userClubId ? squadOf(w, userClubId).filter((p) => injuredBefore.has(p.id) && p.injuryWeeks === 0) : [];
+  if (recovered.length) {
+    await addInbox(db, career.id, career.season, week, "medical", recovered.length === 1 ? `Wieder fit: ${recovered[0].firstName} ${recovered[0].lastName}` : `Wieder fit: ${recovered.length} Spieler`,
+      `Die medizinische Abteilung gibt grünes Licht:\n${recovered.map((p) => `• ${p.firstName} ${p.lastName} (${p.position})`).join("\n")}\n\nNach der Pause fehlt noch etwas Spielpraxis.`);
+  }
   if (!midweek && userClubId) await academyWeek(db, career, rng);
   for (const p of retrained) {
     await addInbox(db, career.id, career.season, week, "training", `Umschulung abgeschlossen: ${p.firstName} ${p.lastName}`,
@@ -372,7 +382,7 @@ async function weeklyInbox(
   }
   const fresh = squad.filter((p) => injuredNow.has(p.id) && p.injuryWeeks > 0);
   if (fresh.length) {
-    const list = fresh.map((p) => `• ${p.firstName} ${p.lastName} fällt ${p.injuryWeeks === 1 ? "eine Woche" : `${p.injuryWeeks} Wochen`} aus`);
+    const list = fresh.map((p) => `• ${p.firstName} ${p.lastName}: ${p.injury?.name ?? "Verletzung"} – fällt ${p.injuryWeeks === 1 ? "eine Woche" : `${p.injuryWeeks} Wochen`} aus`);
     await addInbox(db, career.id, career.season, week, "medical", "Bericht der medizinischen Abteilung", `Neue Verletzungen:\n${list.join("\n")}`);
   }
   if (week === career.season_weeks - 6) {

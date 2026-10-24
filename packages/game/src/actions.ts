@@ -354,18 +354,11 @@ export async function scoutPlayer(careerId: string, accountId: string, playerId:
     if ((used?.n ?? 0) >= scoutLimit(career)) throw new GameError(`Dein Scout schafft diese Woche nur ${scoutLimit(career)} Berichte.`);
     const existing = await one<{ report: { pending?: boolean } | null }>(db, "select report from shortlist where career_id = $1 and player_id = $2", [career.id, p.id]);
     if (existing?.report?.pending) throw new GameError("Dein Scout beobachtet diesen Spieler bereits.");
-    const rng = new Rng(seedFor(career.seed, "scout", p.id));
-    const accuracy = career.staff.scout;
-    const potentialGuess = Math.round(p.potential + rng.normal(0, Math.max(1, 8 - accuracy / 3)));
     // Beobachtung dauert je nach Qualität des Scouts und Entfernung einige Tage
     const club = p.clubId !== null ? await getClub(db, career.id, p.clubId) : null;
     const abroad = !!club && club.country_code !== career.country_code;
     const days = Math.max(1, 4 - Math.floor(career.staff.scout / 7)) + (abroad ? 2 : 0);
-    const report = {
-      season: career.season, week: career.week, rating: p.rating, pending: true, due: career.day + days,
-      potentialMin: Math.max(p.rating, potentialGuess - 4), potentialMax: Math.max(p.rating, potentialGuess + 4),
-      verdict: p.potential - p.rating >= 12 ? "Grosses Talent – unbedingt beobachten." : p.rating >= 75 ? "Sofortige Verstärkung für fast jeden Verein." : p.rating >= 65 ? "Solider Spieler mit klaren Stärken." : "Eher ein Ergänzungsspieler.",
-    };
+    const report = { ...buildScoutReport(career, p), pending: true, due: career.day + days };
     await query(
       db, "insert into shortlist(career_id, player_id, report) values ($1,$2,$3) on conflict (career_id, player_id) do update set report = excluded.report",
       [career.id, p.id, JSON.stringify(report)],
@@ -616,4 +609,16 @@ export async function setIndividualTraining(careerId: string, accountId: string,
     await savePlayers(db, career.id, [p]);
     return { individual: p.individual };
   });
+}
+
+/** Scoutbericht: Stärke exakt, Potenzial als Spanne je nach Qualität des Scouts. */
+export function buildScoutReport(career: CareerRow, p: Player) {
+  const rng = new Rng(seedFor(career.seed, "scout", p.id));
+  const accuracy = career.staff.scout;
+  const potentialGuess = Math.round(p.potential + rng.normal(0, Math.max(1, 8 - accuracy / 3)));
+  return {
+    season: career.season, week: career.week, rating: p.rating, pending: false,
+    potentialMin: Math.min(95, Math.max(p.rating, potentialGuess - 4)), potentialMax: Math.min(99, Math.max(p.rating, potentialGuess + 4)),
+    verdict: p.potential - p.rating >= 12 ? "Grosses Talent – unbedingt beobachten." : p.rating >= 75 ? "Sofortige Verstärkung für fast jeden Verein." : p.rating >= 65 ? "Solider Spieler mit klaren Stärken." : "Eher ein Ergänzungsspieler.",
+  };
 }

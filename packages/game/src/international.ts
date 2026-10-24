@@ -3,7 +3,7 @@
  * abgestellt, verpassen das Training und kehren mit Länderspielen, Moral,
  * Müdigkeit oder auch einer Verletzung zurück.
  */
-import { COUNTRIES, COUNTRY_BY_CODE, Rng, internationalWindows, quickResult, seedFor, type Player } from "@fl/sim";
+import { COUNTRIES, COUNTRY_BY_CODE, Rng, injure, internationalWindows, quickResult, seedFor, type Player } from "@fl/sim";
 import type pg from "pg";
 import { type CareerRow, addInbox } from "./repo";
 
@@ -69,8 +69,8 @@ export async function internationalDuty(db: pg.PoolClient, career: CareerRow, sq
         p.morale = Math.min(100, p.morale + 4);
         let line = `• ${p.firstName} ${p.lastName} (${COUNTRY_BY_CODE[p.nationality]?.name}): ${apps} ${apps === 1 ? "Einsatz" : "Einsätze"}${goals ? `, ${goals} ${goals === 1 ? "Tor" : "Tore"}` : ""}`;
         if (rng.chance(0.04)) {
-          p.injuryWeeks = rng.chance(0.6) ? 1 : 2;
-          line += ` – kehrt verletzt zurück (${p.injuryWeeks} ${p.injuryWeeks === 1 ? "Woche" : "Wochen"})`;
+          injure(rng, p, rng.chance(0.6) ? 1 : 2, career.season, career.day);
+          line += ` – kehrt verletzt zurück: ${p.injury?.name} (${p.injuryWeeks} ${p.injuryWeeks === 1 ? "Woche" : "Wochen"})`;
         }
         notes.push(line);
       }
