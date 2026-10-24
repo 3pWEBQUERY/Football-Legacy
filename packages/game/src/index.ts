@@ -26,3 +26,5 @@ export { latestHeadlines, mediaView } from "./media";
 export { DEFAULT_STOP_ON, STOP_ON_LABEL, updateCareerSettings } from "./settings";
 export { nationalJobs, nationalMatchReport, nationalSquadView, nationalView, resignNationalJob, saveNationalSquad, takeNationalJob } from "./national";
 export { fireStaff, hireStaff, renewStaff, staffView } from "./staff";
+export { clubManagementView, fanAction, setTicketLevel, updateIdentity } from "./clubmgmt";
+export { addOnlineBots, createOnlineLeague, joinOnlineLeague, kickOnlineMember, leaveOnlineLeague, onlineLeagueView, onlineMatchReport, onlineOverview, playOnlineRound, postOnlineMessage, roundRobin, setOnlineReady, startOnlineLeague, switchOnlineTeam } from "./online";

@@ -219,6 +219,23 @@ export interface CreateCareerInput {
   countryCode: string;
   clubIndex: number;
   seed?: number;
+  /** Eigener Verein: ersetzt den gewählten Verein in dessen Liga */
+  custom?: { name: string; shortName: string; city: string; primary: string; secondary: string; founded: number; stadiumName: string } | null;
+}
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+function validateCustom(c: NonNullable<CreateCareerInput["custom"]>) {
+  const name = c.name.trim().slice(0, 40);
+  const shortName = c.shortName.trim().toUpperCase().slice(0, 4);
+  const city = c.city.trim().slice(0, 40);
+  const stadiumName = c.stadiumName.trim().slice(0, 40) || `${city}-Arena`;
+  if (name.length < 3) throw new GameError("Der Vereinsname muss mindestens 3 Zeichen haben.");
+  if (shortName.length < 2) throw new GameError("Das Kürzel muss 2 bis 4 Zeichen haben.");
+  if (city.length < 2) throw new GameError("Bitte gib eine Stadt an.");
+  if (!HEX_COLOR.test(c.primary) || !HEX_COLOR.test(c.secondary)) throw new GameError("Ungültige Vereinsfarben.");
+  const founded = Math.max(1850, Math.min(START_SEASON, Math.round(Number(c.founded) || START_SEASON)));
+  return { name, shortName, city, primary: c.primary, secondary: c.secondary, founded, stadiumName };
 }
 
 export async function createCareer(accountId: string, input: CreateCareerInput): Promise<string> {
@@ -229,6 +246,18 @@ export async function createCareer(accountId: string, input: CreateCareerInput):
   const ownWorld = generateWorld(seed, START_SEASON, [country]);
   const chosen = ownWorld.clubs[input.clubIndex];
   if (!chosen) throw new GameError("Unbekannter Verein");
+  const custom = input.custom ? validateCustom(input.custom) : null;
+  const replaced = chosen.name;
+  if (custom) {
+    if (world.clubs.some((c) => c.countryCode === country.code && c.name.toLowerCase() === custom.name.toLowerCase() && c.name !== chosen.name)) {
+      throw new GameError("Diesen Vereinsnamen gibt es in diesem Land schon.");
+    }
+    // Der eigene Verein übernimmt Platz, Kader und Stadion des gewählten Vereins
+    const target = world.clubs.find((c) => c.leagueKey === chosen.leagueKey && c.name === chosen.name);
+    if (!target) throw new GameError("Unbekannter Verein");
+    Object.assign(target, { name: custom.name, shortName: custom.shortName, city: custom.city, colors: { primary: custom.primary, secondary: custom.secondary }, founded: custom.founded });
+    chosen.name = custom.name;
+  }
   const count = await one<{ n: number }>(pool(), "select count(*)::int as n from careers where account_id = $1", [accountId]);
   if ((count?.n ?? 0) >= 5) throw new GameError("Du kannst höchstens fünf Karrieren parallel führen.");
 
@@ -289,7 +318,16 @@ export async function createCareer(accountId: string, input: CreateCareerInput):
     await saveCareer(db, career);
     await scheduleSeason(db, career);
 
-    await addInbox(
+    if (custom) {
+      await query(db, "update careers set club_mgmt = $2 where id = $1", [career.id, JSON.stringify({
+        clubId: userClub.id, satisfaction: 70, members: Math.round(userClub.capacity * 0.3), ticketLevel: "normal", stadiumName: custom.stadiumName,
+        actions: {}, voices: [{ season: career.season, day: 0, text: `Ein neuer Verein, eine neue Geschichte – wir sind von Anfang an dabei!`, tone: "pos" }], history: [], renamed: 0, lastProtest: null,
+      })]);
+      await addInbox(db, career.id, career.season, 0, "board", `${userClub.name} ist gegründet!`,
+        `Du hast ${userClub.name} (${custom.city}, gegründet ${custom.founded}) ins Leben gerufen. Der Verein übernimmt den Platz von ${replaced} in der ${userLeague.name} – samt Kader und Stadion, das jetzt ${custom.stadiumName} heisst.\n\n` +
+          `Saisonziel: ${career.board.objective}\nVerein und Fans verwaltest du unter Büro → Verein & Fans.`);
+    }
+    if (!custom) await addInbox(
       db, career.id, career.season, 0, "board", `Willkommen bei ${userClub.name}!`,
       `Der bisherige Trainer ist überraschend zurückgetreten – und der Vorstand vertraut dir, dem bisherigen Co-Trainer, die Mannschaft an.\n\n` +
         `Saisonziel: ${career.board.objective}\nFinanzen: Der Kontostand soll nicht unter ${Math.round(career.board.financeTarget / 1000).toLocaleString("de-CH")}k € fallen.\n\n` +

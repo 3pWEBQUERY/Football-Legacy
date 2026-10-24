@@ -29,7 +29,7 @@ const Ctx = createContext<ShellCtx>({ id: "", shell: null, advance: async () => 
 export const useGame = () => useContext(Ctx);
 
 const NAV = [
-  { key: "office", label: "Büro", icon: "office", href: "", subs: [{ href: "", label: "Übersicht & Posteingang" }, { href: "/calendar", label: "Kalender" }, { href: "/media", label: "Medien" }, { href: "/board", label: "Vorstand" }] },
+  { key: "office", label: "Büro", icon: "office", href: "", subs: [{ href: "", label: "Übersicht & Posteingang" }, { href: "/calendar", label: "Kalender" }, { href: "/media", label: "Medien" }, { href: "/verein", label: "Verein & Fans" }, { href: "/board", label: "Vorstand" }] },
   { key: "team", label: "Team", icon: "team", href: "/team", subs: [{ href: "/team", label: "Kader" }, { href: "/team/tactic", label: "Taktik" }, { href: "/team/dynamics", label: "Dynamik" }, { href: "/team/training", label: "Training" }, { href: "/team/staff", label: "Stab" }, { href: "/team/youth", label: "Jugend" }, { href: "/team/medical", label: "Medizin" }] },
   { key: "market", label: "Transfers", icon: "transfer", href: "/market", subs: [{ href: "/market", label: "Spielersuche" }, { href: "/market/scouting", label: "Scouting" }, { href: "/market/contracts", label: "Verträge" }, { href: "/market/finances", label: "Finanzen" }] },
   { key: "competition", label: "Wettbewerb", icon: "trophy", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/cup", label: "Pokal" }, { href: "/competition/continental", label: "Kontinentalpokal" }, { href: "/competition/stats", label: "Statistiken" }, { href: "/competition/awards", label: "Auszeichnungen" }] },

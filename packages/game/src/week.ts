@@ -21,6 +21,7 @@ import { trackPlayingTime, weeklyDynamics } from "./dynamics";
 import { leagueRoundup, matchArticle, transferArticles } from "./media";
 import { nationalNewSeason, nationalTournament } from "./national";
 import { staffSeasonEnd } from "./staff";
+import { fanAdjusted, loadMgmtForWeek, weeklyFans } from "./clubmgmt";
 import { advanceCup, type CupWeekInfo } from "./cup";
 import { academyWeek } from "./academy";
 import { facilitiesOf } from "./facilities";
@@ -283,11 +284,19 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   for (const p of w.players.values()) if (p.loan) loanedOut.set(p.loan.parentClubId, [...(loanedOut.get(p.loan.parentClubId) ?? []), p]);
   // Laufende Posten nach vergangener Zeit seit dem letzten Ligaspieltag (Winterpause zählt mit)
   const span = career.calendar ? weeksSincePreviousLeague(career.calendar, week) : midweek ? 0 : 1;
+  const mgmt = userClubId ? await loadMgmtForWeek(db, career) : null;
   for (const club of w.clubs.values()) {
     if (!club.players_generated || !club.finance) continue;
     const squad = squadOf(w, club.id);
-    const att = attendances.get(club.id);
-    const entries = weeklyFinances(club.finance, wageBill(squad, loanedOut.get(club.id) ?? []), att ? { attendance: att } : null)
+    let att = attendances.get(club.id);
+    let profile = club.finance;
+    if (mgmt && club.id === userClubId) {
+      // Fans und Ticketpreise des eigenen Vereins
+      const adj = fanAdjusted(mgmt, club.finance, att ?? 0, club.capacity);
+      profile = adj.profile;
+      if (att !== undefined) att = adj.attendance;
+    }
+    const entries = weeklyFinances(profile, wageBill(squad, loanedOut.get(club.id) ?? []), att ? { attendance: att } : null)
       .map((e) => (e.kind === "tickets" ? e : { ...e, amount: Math.round(e.amount * span) }))
       .filter((e) => e.amount !== 0);
     if (!entries.length) continue;
@@ -327,7 +336,18 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   await persistWorld(db, w);
 
   // Posteingang: eigenes Ergebnis, Verletzungen, Hinweise
-  if (userClubId) await weeklyInbox(db, career, w, week, userFixture, results, news, injuredNow, cupInfo?.name ?? null);
+  const position = userClubId ? await weeklyInbox(db, career, w, week, userFixture, results, news, injuredNow, cupInfo?.name ?? null) : null;
+  if (userClubId && mgmt) {
+    const own = w.clubs.get(userClubId)!;
+    const r = userFixture ? results.find((x) => x.id === userFixture.id) : undefined;
+    const homeSide = userFixture?.home_id === userClubId;
+    const sold = await query<{ player_name: string }>(db,
+      "select player_name from transfers where career_id = $1 and kind = 'offer_in' and status = 'completed' and from_club = $2 and season = $3 and week = $4 and fee >= 8000000",
+      [career.id, userClubId, career.season, week - 1]);
+    await weeklyFans(db, career, mgmt, own,
+      r && userFixture ? { gf: homeSide ? r.home : r.away, ga: homeSide ? r.away : r.home, opponent: w.clubs.get(homeSide ? userFixture.away_id : userFixture.home_id)?.name ?? "", home: homeSide } : null,
+      position, sold.map((x) => x.player_name));
+  }
   if (userClubId && !midweek) await leagueRoundup(db, career, w.clubs.get(userClubId)!.league_id, week);
   await announceNotes(db, career, notes);
 
@@ -377,8 +397,9 @@ async function weeklyInbox(
   db: pg.PoolClient, career: CareerRow, w: WorldState, week: number, userFixture: FixtureRow | null,
   results: { id: number; home: number; away: number; penHome?: number; penAway?: number }[], news: string[], injuredNow: Set<number>,
   cupName: string | null,
-) {
+): Promise<number | null> {
   const club = w.clubs.get(career.club_id!)!;
+  let position: number | null = null;
   const squad = squadOf(w, club.id);
   if (userFixture) {
     const r = results.find((x) => x.id === userFixture.id)!;
@@ -392,6 +413,7 @@ async function weeklyInbox(
       leagueFixtures.map((f) => ({ homeId: f.home_id, awayId: f.away_id, homeGoals: f.home_goals, awayGoals: f.away_goals, round: f.round })),
     );
     const pos = table.findIndex((t) => t.clubId === club.id) + 1;
+    position = pos;
     await addInbox(
       db, career.id, career.season, week, "match",
       `${userFixture.cup_id ? cupName ?? "Pokal" : `${userFixture.round}. Spieltag`}: ${home.short_name} ${r.home}:${r.away}${r.penHome !== undefined ? ` (${r.penHome}:${r.penAway} i.E.)` : ""} ${away.short_name}`,
@@ -423,4 +445,5 @@ async function weeklyInbox(
     await addInbox(db, career.id, career.season, week, "board", "Der Vorstand ist besorgt",
       `Der Kontostand (${formatMoney(club.balance)}) liegt unter der Vorgabe von ${formatMoney(career.board.financeTarget)}. Bitte reduziere die Kosten.`);
   }
+  return position;
 }

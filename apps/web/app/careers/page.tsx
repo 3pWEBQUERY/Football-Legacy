@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { api, useApi } from "@/lib/client/api";
 import { seasonLabel } from "@/lib/client/format";
 import { Crest, Empty, ErrorBox, Icon, Loading, useToast } from "@/components/ui";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { AccountTop } from "@/components/AccountTop";
 
 export default function CareersPage() {
   const { data, error, loading, reload } = useApi<{ careers: any[] }>("careers");
@@ -26,20 +26,11 @@ export default function CareersPage() {
   }
 
   const streak = me.data?.account?.login_streak ?? 0;
+  const online = useApi<any>("online");
 
   return (
     <div className="landing">
-      <header className="landing-top">
-        <div className="row" style={{ gap: 10 }}>
-          <div className="brand-mark">FL</div>
-          <div className="brand-name">Football Legacy<small>{me.data?.account?.displayName ?? "Manager"}</small></div>
-        </div>
-        <div className="row">
-          <ThemeToggle compact />
-          <Link className="btn btn-ghost btn-sm" href="/leaderboards"><Icon name="trophy" size={15} /> Ranglisten</Link>
-          <button className="btn btn-ghost btn-sm" onClick={logout}><Icon name="logout" size={15} /> Abmelden</button>
-        </div>
-      </header>
+      <AccountTop onLogout={logout} />
       <div className="content" style={{ maxWidth: 1000 }}>
         <div className="page-head">
           <div>
@@ -50,6 +41,20 @@ export default function CareersPage() {
         </div>
         {loading && <Loading />}
         {error && <ErrorBox message={error} />}
+        {online.data && (
+          <Link href="/online" className="card online-teaser">
+            <span className="online-teaser-icon"><Icon name="users" size={22} /></span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <b>Online-Ligen</b>
+              <span className="dim small" style={{ display: "block" }}>
+                {online.data.leagues.length
+                  ? `Du spielst in ${online.data.leagues.length} ${online.data.leagues.length === 1 ? "Liga" : "Ligen"} gegen andere Manager.`
+                  : "Tritt mit deinem Verein gegen Freunde und andere Manager an – eigene Liga gründen oder per Code beitreten."}
+              </span>
+            </span>
+            <Icon name="next" size={16} />
+          </Link>
+        )}
         {data && (
           <section className="card card-flush">
             <div className="card-head"><h3>Gespeicherte Karrieren</h3><span className="faint small">{data.careers.length} / 5</span></div>

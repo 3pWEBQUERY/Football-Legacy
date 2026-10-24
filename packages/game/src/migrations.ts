@@ -336,4 +336,67 @@ create index if not exists national_matches_day on national_matches(career_id, s
 alter table careers add column if not exists staff_team jsonb;
 `,
   },
+  {
+    name: "012_club_mgmt.sql",
+    sql: `
+alter table careers add column if not exists club_mgmt jsonb;
+`,
+  },
+  {
+    name: "013_online_leagues.sql",
+    sql: `
+create table if not exists online_leagues (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  code text not null unique,
+  owner_id uuid not null references accounts(id) on delete cascade,
+  status text not null default 'open',
+  max_members int not null default 8,
+  public boolean not null default true,
+  rhythm text not null default 'manual',
+  season int not null default 1,
+  round int not null default 0,
+  rounds int not null default 0,
+  next_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create table if not exists online_members (
+  id serial primary key,
+  league_id uuid not null references online_leagues(id) on delete cascade,
+  account_id uuid references accounts(id) on delete set null,
+  career_id uuid references careers(id) on delete set null,
+  club_id int,
+  bot boolean not null default false,
+  manager text not null,
+  team jsonb not null,
+  snapshot jsonb,
+  ready boolean not null default false,
+  joined_at timestamptz not null default now()
+);
+create unique index if not exists online_members_human on online_members(league_id, account_id) where not bot;
+create table if not exists online_fixtures (
+  id serial primary key,
+  league_id uuid not null references online_leagues(id) on delete cascade,
+  season int not null,
+  round int not null,
+  home_id int not null references online_members(id) on delete cascade,
+  away_id int not null references online_members(id) on delete cascade,
+  home_goals int,
+  away_goals int,
+  played boolean not null default false,
+  report jsonb
+);
+create index if not exists online_fixtures_league on online_fixtures(league_id, season, round);
+create table if not exists online_posts (
+  id serial primary key,
+  league_id uuid not null references online_leagues(id) on delete cascade,
+  account_id uuid references accounts(id) on delete set null,
+  author text not null,
+  system boolean not null default false,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists online_posts_league on online_posts(league_id, id desc);
+`,
+  },
 ];

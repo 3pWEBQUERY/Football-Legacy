@@ -185,6 +185,7 @@ export default function Office() {
                     {open.action?.type === "fixture" && <div><Link className="btn" href={`${base}/report/${open.action.fixtureId}`}>Spielbericht öffnen</Link></div>}
                     {open.action?.type === "scouting" && <div><Link className="btn" href={`${base}/market/scouting`}>Zur Scouting-Zentrale</Link></div>}
                     {open.action?.type === "academy" && <div><Link className="btn" href={`${base}/team/youth`}>Zur Jugendakademie</Link></div>}
+                    {open.action?.type === "club" && <div><Link className="btn" href={`${base}/verein`}>Zu Verein & Fans</Link></div>}
                     {open.action?.type === "awards" && <div><Link className="btn" href={`${base}/competition/awards`}>Zu den Auszeichnungen</Link></div>}
                     {open.action?.type === "national" && <div className="row"><Link className="btn" href={`${base}/national`}>Zum Nationalteam</Link><Link className="btn btn-ghost" href={`${base}/national/squad`}>Kader nominieren</Link></div>}
                     {open.action?.type === "player" && <div><Link className="btn" href={`${base}/player/${open.action.playerId}`}>Spielerprofil öffnen</Link></div>}

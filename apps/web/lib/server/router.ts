@@ -106,12 +106,31 @@ route("POST", "careers", async (c) => ({
     countryCode: str(c.body.countryCode),
     clubIndex: num(c.body.clubIndex),
     seed: c.body.seed !== undefined ? num(c.body.seed) : undefined,
+    custom: c.body.custom && typeof c.body.custom === "object" ? (c.body.custom as never) : null,
   }),
 }));
 route("DELETE", "careers/:id", async (c) => {
   await game.deleteCareer(acc(c), c.params.id);
   return { ok: true };
 });
+
+// ---------------------------------------------------------------- Online-Ligen
+
+route("GET", "online", async (c) => game.onlineOverview(acc(c)));
+route("POST", "online", async (c) => game.createOnlineLeague(acc(c), {
+  name: str(c.body.name), careerId: str(c.body.careerId), maxMembers: num(c.body.maxMembers ?? 8), rhythm: str(c.body.rhythm), public: c.body.public !== false,
+}));
+route("POST", "online/join", async (c) => game.joinOnlineLeague(acc(c), { code: str(c.body.code), leagueId: str(c.body.leagueId), careerId: str(c.body.careerId) }));
+route("GET", "online/:lid", async (c) => game.onlineLeagueView(acc(c), c.params.lid));
+route("POST", "online/:lid/leave", async (c) => game.leaveOnlineLeague(acc(c), c.params.lid));
+route("POST", "online/:lid/kick", async (c) => game.kickOnlineMember(acc(c), c.params.lid, num(c.body.memberId)));
+route("POST", "online/:lid/bots", async (c) => game.addOnlineBots(acc(c), c.params.lid, num(c.body.count ?? 1)));
+route("POST", "online/:lid/start", async (c) => game.startOnlineLeague(acc(c), c.params.lid));
+route("POST", "online/:lid/play", async (c) => game.playOnlineRound(acc(c), c.params.lid));
+route("POST", "online/:lid/ready", async (c) => game.setOnlineReady(acc(c), c.params.lid, c.body.ready !== false));
+route("POST", "online/:lid/team", async (c) => game.switchOnlineTeam(acc(c), c.params.lid, str(c.body.careerId)));
+route("POST", "online/:lid/posts", async (c) => game.postOnlineMessage(acc(c), c.params.lid, str(c.body.body)));
+route("GET", "online/:lid/matches/:fid", async (c) => game.onlineMatchReport(acc(c), c.params.lid, num(c.params.fid)));
 
 const career = (pattern: string) => `careers/:id/${pattern}`.replace(/\/$/, "");
 
@@ -189,6 +208,10 @@ route("GET", career("settings"), async (c) => {
   return { autoSubs: cr.manager.autoSubs ?? true, stopOn: { ...game.DEFAULT_STOP_ON, ...(cr.manager.stopOn ?? {}) }, labels: game.STOP_ON_LABEL };
 });
 route("POST", career("settings"), async (c) => game.updateCareerSettings(c.params.id, acc(c), c.body));
+route("GET", career("verein"), async (c) => game.clubManagementView(c.params.id, acc(c)));
+route("POST", career("verein/tickets"), async (c) => game.setTicketLevel(c.params.id, acc(c), str(c.body.level) as never));
+route("POST", career("verein/fans"), async (c) => game.fanAction(c.params.id, acc(c), str(c.body.action) as never));
+route("POST", career("verein/identity"), async (c) => game.updateIdentity(c.params.id, acc(c), c.body));
 route("GET", career("staff"), async (c) => game.staffView(c.params.id, acc(c)));
 route("POST", career("staff/hire"), async (c) => game.hireStaff(c.params.id, acc(c), num(c.body.candidateId)));
 route("POST", career("staff/fire"), async (c) => game.fireStaff(c.params.id, acc(c), num(c.body.memberId)));

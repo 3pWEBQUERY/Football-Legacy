@@ -19,6 +19,8 @@ export default function NewCareer() {
   const [club, setClub] = useState<any | null>(null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [own, setOwn] = useState(false);
+  const [custom, setCustom] = useState({ name: "", shortName: "", city: "", primary: "#1f4e9c", secondary: "#ffffff", founded: 2026, stadiumName: "" });
 
   useEffect(() => {
     if (!country) return;
@@ -35,7 +37,7 @@ export default function NewCareer() {
     if (!country || !club) return;
     setBusy(true);
     try {
-      const res = await api<{ id: string }>("careers", { body: { managerName: name || "Manager", countryCode: country, clubIndex: club.index, seed } });
+      const res = await api<{ id: string }>("careers", { body: { managerName: name || "Manager", countryCode: country, clubIndex: club.index, seed, custom: own ? custom : null } });
       router.push(`/c/${res.id}`);
     } catch (e) {
       toast((e as Error).message, "error");
@@ -125,8 +127,31 @@ export default function NewCareer() {
                     <div className="cond up" style={{ fontSize: 24, fontWeight: 700 }}>{club.name}</div>
                     <div className="dim small">{club.city} · {club.capacity.toLocaleString("de-CH")} Plätze · erwarteter Platz {club.expected}</div>
                   </div>
-                  <button className="btn btn-primary btn-lg" disabled={busy} onClick={create}>{busy ? "Welt wird erstellt …" : "Übernehmen"}</button>
+                  <button className="btn btn-primary btn-lg" disabled={busy || (own && (custom.name.trim().length < 3 || custom.shortName.trim().length < 2 || custom.city.trim().length < 2))} onClick={create}>{busy ? "Welt wird erstellt …" : own ? "Verein gründen" : "Übernehmen"}</button>
                 </div>
+                <label className="row" style={{ gap: 8, marginTop: 14, paddingLeft: 6, cursor: "pointer" }}>
+                  <input type="checkbox" checked={own} onChange={(e) => setOwn(e.target.checked)} />
+                  <span><b>Eigenen Verein gründen</b> <span className="dim small">– dein Verein übernimmt Ligaplatz, Kader und Stadion von {club.name}</span></span>
+                </label>
+                {own && (
+                  <div className="custom-club">
+                    <div className="row" style={{ gap: 12 }}>
+                      <Crest colors={{ primary: custom.primary, secondary: custom.secondary }} name={custom.name || "Neu"} size={56} />
+                      <div className="dim small">So sieht dein Wappen aus.</div>
+                    </div>
+                    <div className="custom-grid">
+                      <div className="field"><label htmlFor="ccn">Vereinsname</label><input id="ccn" className="input" maxLength={40} placeholder="z. B. FC Seeblick" value={custom.name} onChange={(e) => setCustom({ ...custom, name: e.target.value })} /></div>
+                      <div className="field"><label htmlFor="ccs">Kürzel</label><input id="ccs" className="input" maxLength={4} placeholder="FCS" value={custom.shortName} onChange={(e) => setCustom({ ...custom, shortName: e.target.value.toUpperCase() })} /></div>
+                      <div className="field"><label htmlFor="ccc">Stadt</label><input id="ccc" className="input" maxLength={40} placeholder={club.city} value={custom.city} onChange={(e) => setCustom({ ...custom, city: e.target.value })} /></div>
+                      <div className="field"><label htmlFor="ccst">Stadion</label><input id="ccst" className="input" maxLength={40} placeholder={`${custom.city || club.city}-Arena`} value={custom.stadiumName} onChange={(e) => setCustom({ ...custom, stadiumName: e.target.value })} /></div>
+                      <div className="field"><label htmlFor="ccf">Gründungsjahr</label><input id="ccf" className="input" type="number" min={1850} max={2026} value={custom.founded} onChange={(e) => setCustom({ ...custom, founded: Number(e.target.value) })} /></div>
+                      <div className="row" style={{ gap: 12 }}>
+                        <div className="field"><label htmlFor="ccp">Hauptfarbe</label><input id="ccp" type="color" className="color-input" value={custom.primary} onChange={(e) => setCustom({ ...custom, primary: e.target.value })} /></div>
+                        <div className="field"><label htmlFor="ccz">Zweitfarbe</label><input id="ccz" type="color" className="color-input" value={custom.secondary} onChange={(e) => setCustom({ ...custom, secondary: e.target.value })} /></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {busy && <p className="faint small" style={{ marginTop: 10 }}>155 Länder, über 3000 Vereine und tausende Spieler werden erzeugt.</p>}
               </section>
             )}
