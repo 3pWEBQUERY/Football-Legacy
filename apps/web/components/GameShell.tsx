@@ -28,9 +28,9 @@ export const useGame = () => useContext(Ctx);
 
 const NAV = [
   { key: "office", label: "Büro", icon: "office", href: "", subs: [{ href: "", label: "Übersicht & Posteingang" }, { href: "/calendar", label: "Kalender" }, { href: "/board", label: "Vorstand" }] },
-  { key: "team", label: "Team", icon: "team", href: "/team", subs: [{ href: "/team", label: "Kader" }, { href: "/team/tactic", label: "Taktik" }, { href: "/team/training", label: "Training & Stab" }, { href: "/team/youth", label: "Jugend" }, { href: "/team/medical", label: "Medizin" }] },
+  { key: "team", label: "Team", icon: "team", href: "/team", subs: [{ href: "/team", label: "Kader" }, { href: "/team/tactic", label: "Taktik" }, { href: "/team/dynamics", label: "Dynamik" }, { href: "/team/training", label: "Training & Stab" }, { href: "/team/youth", label: "Jugend" }, { href: "/team/medical", label: "Medizin" }] },
   { key: "market", label: "Transfers", icon: "transfer", href: "/market", subs: [{ href: "/market", label: "Spielersuche" }, { href: "/market/scouting", label: "Scouting" }, { href: "/market/contracts", label: "Verträge" }, { href: "/market/finances", label: "Finanzen" }] },
-  { key: "competition", label: "Wettbewerb", icon: "trophy", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/cup", label: "Pokal" }, { href: "/competition/continental", label: "Kontinentalpokal" }, { href: "/competition/stats", label: "Statistiken" }] },
+  { key: "competition", label: "Wettbewerb", icon: "trophy", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/cup", label: "Pokal" }, { href: "/competition/continental", label: "Kontinentalpokal" }, { href: "/competition/stats", label: "Statistiken" }, { href: "/competition/awards", label: "Auszeichnungen" }] },
   { key: "career", label: "Karriere", icon: "star", href: "/career", subs: [{ href: "/career", label: "Manager" }, { href: "/career/review", label: "Saisonrückblick" }, { href: "/career/collection", label: "Sammlung & Shop" }, { href: "/career/leaderboards", label: "Ranglisten" }] },
 ];
 

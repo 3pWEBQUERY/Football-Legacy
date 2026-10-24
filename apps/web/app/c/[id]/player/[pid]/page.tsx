@@ -9,6 +9,7 @@ import { useGame } from "@/components/GameShell";
 import { Radar } from "@/components/Radar";
 import { Condition, Crest, ErrorBox, Icon, Loading, Modal, Nat, Panel, Pos, moraleLabel, useNotes, useToast } from "@/components/ui";
 import { PositionMap } from "@/components/PositionMap";
+import { EXPECTED_SHARE, SQUAD_STATUS, SQUAD_STATUS_LABEL, type SquadStatus } from "@fl/sim";
 
 const POS_LONG: Record<string, string> = { GK: "Torwart", DR: "Rechter Verteidiger", DC: "Innenverteidiger", DL: "Linker Verteidiger", DM: "Defensives Mittelfeld", MR: "Rechtes Mittelfeld", MC: "Zentrales Mittelfeld", ML: "Linkes Mittelfeld", AMR: "Rechtsaussen", AMC: "Offensives Mittelfeld", AML: "Linksaussen", ST: "Stürmer" };
 
@@ -140,6 +141,7 @@ export default function PlayerPage() {
               <span>Fuss {p.foot === "L" ? "links" : p.foot === "R" ? "rechts" : "beidfüssig"}</span>
               {p.wonderkid && <span className="badge badge-gold">Ausnahmetalent</span>}
               {p.injuryWeeks > 0 && <span className="badge badge-danger">{p.injury?.name ?? "Verletzt"} · {p.injuryWeeks} W</span>}
+              {p.transferRequest && <span className="badge badge-danger">Wechselwunsch</span>}
               {p.away && data.career.day <= p.away.until && <span className="badge badge-blue">Bei der Nationalmannschaft</span>}
               {p.caps > 0 && <span className="faint">{p.caps} Länderspiele{p.intlGoals ? ` · ${p.intlGoals} Tore` : ""}</span>}
               {p.promise && <span className="badge badge-warn" title="Versprochene Einsatzzeit">Versprechen · {p.promise.starts}/{p.promise.needed} Startelf bis {fmtDate(dayIso(data.career.season, p.promise.until), { year: false })}</span>}
@@ -228,7 +230,17 @@ export default function PlayerPage() {
               <Radar value={val} gk={isGk} size={260} />
             </div>
           </Panel>
+          {data.own && !p.loan && data.squadStatus && <SquadStatusPanel player={p} status={data.squadStatus} season={season} careerId={id} onSaved={reload} />}
           {data.own && !p.loan && <IndividualTraining player={p} careerId={id} onSaved={reload} />}
+          {p.awards?.length > 0 && (
+            <Panel title="Auszeichnungen" icon="trophy" flush>
+              <table className="table"><tbody>
+                {[...p.awards].reverse().slice(0, 12).map((a: any, i: number) => (
+                  <tr key={i}><td><b>{AWARD_LABEL[a.kind] ?? a.kind}</b></td><td className="faint small">{MONTH_NAMES[a.month]} {a.month < 6 ? a.season + 1 : a.season}</td><td className="faint small truncate">{a.league}</td></tr>
+                ))}
+              </tbody></table>
+            </Panel>
+          )}
           <Panel title="Vertrag" icon="contract">
             <div className="kv"><span className="k">Gehalt</span><span className="v">{p.contract ? `${money(p.contract.wage)} / Woche` : "–"}</span></div>
             <div className="kv"><span className="k">Vertrag bis</span><span className="v">{p.contract?.untilSeason ?? "–"}</span></div>
@@ -368,6 +380,40 @@ const FOCUS_OPTIONS: [string, string][] = [["", "Mannschaftsplan"], ["attack", "
 const ALL_POS = ["GK", "DR", "DC", "DL", "DM", "MR", "MC", "ML", "AMR", "AMC", "AML", "ST"];
 
 /** Individueller Trainingsschwerpunkt und Umschulung auf eine neue Position. */
+const AWARD_LABEL: Record<string, string> = { player: "Spieler des Monats", young: "Talent des Monats", team: "Elf des Monats" };
+const MONTH_NAMES = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+
+function SquadStatusPanel({ player: p, status, season, careerId, onSaved }: { player: any; status: { value: string; suggested: string; expected: number }; season: number; careerId: string; onSaved: () => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const pl = p.playing?.season === season ? p.playing : null;
+  async function change(value: string) {
+    setBusy(true);
+    try {
+      const r = await api<any>(`careers/${careerId}/players/${p.id}`, { body: { action: "status", status: value } });
+      toast(r.message, "info");
+      onSaved();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Panel title="Kaderstatus" icon="users">
+      <div className="stack-sm">
+        <select className="select" value={status.value} disabled={busy} onChange={(e) => change(e.target.value)} aria-label="Kaderstatus">
+          {SQUAD_STATUS.map((s) => <option key={s} value={s}>{SQUAD_STATUS_LABEL[s]} · {Math.round(EXPECTED_SHARE[s] * 100)} % Startelf</option>)}
+        </select>
+        {status.suggested !== status.value && <small className="dim">{p.lastName} sieht sich selbst als {SQUAD_STATUS_LABEL[status.suggested as SquadStatus]}.</small>}
+        <div className="kv"><span className="k">Startelfeinsätze</span><span className="v">{pl ? `${pl.starts} von ${pl.matches} Pflichtspielen` : "Noch keine Pflichtspiele"}</span></div>
+        <div className="kv"><span className="k">Erwartet</span><span className="v">{status.expected} %</span></div>
+        {p.transferRequest && <div className="neg-txt small">{p.lastName} hat um seine Freigabe gebeten.</div>}
+      </div>
+    </Panel>
+  );
+}
+
 function IndividualTraining({ player: p, careerId, onSaved }: { player: any; careerId: string; onSaved: () => void }) {
   const toast = useToast();
   const [focus, setFocus] = useState<string>(p.individual?.focus ?? "");

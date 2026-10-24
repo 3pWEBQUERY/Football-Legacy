@@ -3,6 +3,7 @@ import { windowFor } from "./window";
 import {
   ACHIEVEMENTS, ALL_ATTRS, CARD_PACK, COUNTRIES, COUNTRY_BY_CODE, FINANCE_LABEL, FORMATIONS, LEVEL_TITLES, MISSIONS, ROLES,
   Rng, SKINS, STYLE_LABEL, STYLE_PRESETS, UNLOCKS, askingPrice, computeStandings, defaultTactic, flagEmoji, formatMoney, isUnlocked,
+  EXPECTED_SHARE, defaultStatuses, statusOf, type SquadStatus,
   ratingAt, seedFor, squadRanks, streakReward, titleForLevel, trainingAverage, validateTactic, wageBill, xpForLevel,
   type Player, type Position,
 } from "@fl/sim";
@@ -34,7 +35,7 @@ export function playerView(p: Player, knowledge: Knowledge, extra: Record<string
     nationality: p.nationality, flag: flagEmoji(p.nationality), position: p.position, altPositions: p.altPositions,
     foot: p.foot, archetype: p.archetype, form: p.form, fitness: p.fitness, morale: p.morale, value: p.value,
     contract: p.contract, injuryWeeks: p.injuryWeeks, suspendedWeeks: p.suspendedWeeks, stats: p.stats, listed: p.listed,
-    youth: p.youth, clubId: p.clubId, history: p.history ?? [], loan: p.loan ?? null, promise: p.promise ?? null, talk: p.talk ?? null, trainingAvg: trainingAverage(p), individual: p.individual ?? null, injury: p.injury ?? null, caps: p.caps ?? 0, intlGoals: p.intlGoals ?? 0, away: p.away ?? null, knowledge, ...extra,
+    youth: p.youth, clubId: p.clubId, history: p.history ?? [], loan: p.loan ?? null, promise: p.promise ?? null, talk: p.talk ?? null, trainingAvg: trainingAverage(p), individual: p.individual ?? null, injury: p.injury ?? null, caps: p.caps ?? 0, intlGoals: p.intlGoals ?? 0, away: p.away ?? null, squadStatus: p.squadStatus ?? null, playing: p.playing ?? null, transferRequest: !!p.transferRequest, awards: p.awards ?? [], knowledge, ...extra,
   };
   if (knowledge === "exact") {
     return { ...base, rating: p.rating, potential: p.potential, wonderkid: p.wonderkid, attrs: p.attrs, ratingRange: [p.rating, p.rating], attrRanges: null };
@@ -280,7 +281,15 @@ export async function playerDetail(careerId: string, accountId: string, playerId
     ask = askingPrice(p, { season: career.season, squadRank: squadRanks(squad).get(p.id) ?? 20, squadSize: squad.length, sellerReputation: club.reputation, isUserClub: false });
   }
   const history = await query(pool(), "select fee, from_club, to_club, season, kind from transfers where career_id = $1 and player_id = $2 and status = 'completed' order by id desc limit 10", [career.id, p.id]);
+  let squadStatus: { value: SquadStatus; suggested: SquadStatus; expected: number } | null = null;
+  if (p.clubId === career.club_id) {
+    const own = await getPlayers(pool(), career.id, [career.club_id!]);
+    const defaults = defaultStatuses(own, userClub?.tactic?.formation);
+    const value = statusOf(p, defaults);
+    squadStatus = { value, suggested: defaults.get(p.id) ?? "backup", expected: Math.round(EXPECTED_SHARE[value] * 100) };
+  }
   return {
+    squadStatus,
     career: careerSummary(career),
     player: playerView(p, k.of(p)),
     club: club ? clubSummary(club) : null,

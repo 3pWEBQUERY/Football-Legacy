@@ -20,3 +20,5 @@ export { boardRequest, boardView } from "./facilities";
 export { giveTeamTalk, teamTalkState } from "./teamtalk";
 export { medicalView } from "./medical";
 export { cancelAssignment, scoutingView, startAssignment } from "./scouting";
+export { dynamicsView, setSquadStatus } from "./dynamics";
+export { awardsView } from "./awards";

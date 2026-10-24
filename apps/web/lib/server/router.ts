@@ -133,6 +133,7 @@ route("POST", career("players/:pid"), async (c) => {
     case "loan_out": return game.loanOut(c.params.id, acc(c), pid);
     case "talk": return game.talkToPlayer(c.params.id, acc(c), pid, String(c.body.topic) as never);
     case "individual": return game.setIndividualTraining(c.params.id, acc(c), pid, (c.body.focus as string) || null, (c.body.position as string) || null);
+    case "status": return game.setSquadStatus(c.params.id, acc(c), pid, String(c.body.status) as never);
     default: throw new game.GameError("Unbekannte Aktion");
   }
 });
@@ -179,6 +180,8 @@ route("POST", career("offers/:tid"), async (c) => game.respondToOffer(
   c.params.id, acc(c), num(c.params.tid), str(c.body.decision) as never, c.body.counterFee ? num(c.body.counterFee) : undefined,
 ));
 route("POST", career("scouting"), async (c) => game.scoutCountry(c.params.id, acc(c), str(c.body.countryCode)));
+route("GET", career("dynamics"), async (c) => game.dynamicsView(c.params.id, acc(c)));
+route("GET", career("awards"), async (c) => game.awardsView(c.params.id, acc(c)));
 route("GET", career("contracts"), async (c) => game.contractsView(c.params.id, acc(c)));
 route("GET", career("finances"), async (c) => game.financeView(c.params.id, acc(c)));
 route("POST", career("staff"), async (c) => game.upgradeStaff(c.params.id, acc(c), str(c.body.role) as never));

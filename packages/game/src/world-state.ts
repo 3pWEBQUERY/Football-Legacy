@@ -58,6 +58,10 @@ export function movePlayer(w: WorldState, p: Player, toClub: number | null) {
   }
   p.clubId = toClub;
   p.listed = false;
+  p.joined = toClub !== null ? { season: w.career.season } : null;
+  p.squadStatus = null;
+  p.transferRequest = false;
+  p.playing = null;
   if (toClub !== null) w.squads.set(toClub, [...squadOf(w, toClub), p]);
   else w.freeAgents.push(p);
   w.dirtyPlayers.add(p.id);

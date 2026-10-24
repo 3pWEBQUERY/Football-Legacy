@@ -164,6 +164,7 @@ export async function promoteYouth(careerId: string, accountId: string, playerId
     if (squad.length >= 32) throw new GameError("Der Kader ist voll (max. 32 Spieler).");
     p.clubId = career.club_id;
     p.youth = true;
+    p.joined = { season: career.season };
     p.contract = { wage: Math.max(300, Math.round(((p.rating - 25) * 45) / 100) * 100), untilSeason: career.season + 3, releaseClause: null, goalBonus: 0 };
     await insertPlayers(db, career.id, [p]);
     await query(db, "delete from academy where career_id = $1 and id = $2", [career.id, playerId]);

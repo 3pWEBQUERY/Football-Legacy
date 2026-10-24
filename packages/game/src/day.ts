@@ -2,6 +2,7 @@
  * Tageweiser Spielablauf: Erholung, Testspiele, Trainingseindrücke,
  * Spielvorbereitung und Monatsberichte zwischen den Spieltagen.
  */
+import { monthlyAwards } from "./awards";
 import {
   DAY_TYPE_LABEL, Rng, applyTrainingRating, injure, dailyRecovery, sessionName, trainingRating, dateOf, dayType, formatMoney, playMatch, seedFor, squadRanks, validateTactic,
   type DayType, type Player, type SeasonCalendar,
@@ -134,6 +135,8 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
   if (date.getUTCDate() === 1) {
     const e = await monthlyReport(db, career, date);
     if (e) events.push(e);
+    const a = await monthlyAwards(db, career, date);
+    if (a) events.push(a);
   }
   if (cal.winterBreak && day === cal.winterBreak[0]) {
     await addInbox(db, career.id, career.season, career.week, "board", "Winterpause",

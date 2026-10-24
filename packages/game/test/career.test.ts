@@ -218,15 +218,26 @@ describe("Karriere", () => {
     const t0 = Date.now();
     let seasonEnd = null;
     let days = 0;
+    let matches = 0;
+    let midDynamics: Awaited<ReturnType<typeof game.dynamicsView>> | null = null;
     for (let i = 0; i < 1000 && !seasonEnd; i++) {
       const a = await advance(careerId, accountId);
       if (a.kind === "day") {
         days++;
         continue;
       }
+      if (a.kind === "match") matches++;
       const summary = a.kind === "match" ? await quickMatch(careerId, accountId) : a.summary;
       seasonEnd = summary.seasonEnd;
+      if (matches === 12 && !midDynamics) midDynamics = await game.dynamicsView(careerId, accountId);
     }
+    // Einsatzzeit wird pro Pflichtspiel gezählt, Status erwartet Startelfanteile
+    expect(midDynamics).not.toBeNull();
+    const regulars = midDynamics!.players.filter((p) => p.matches >= 8);
+    expect(regulars.length).toBeGreaterThan(15);
+    expect(regulars.some((p) => p.starts >= 8)).toBe(true);
+    expect(midDynamics!.hierarchy[0].players.length).toBe(3);
+    expect(midDynamics!.cohesion.value).toBeGreaterThan(0);
     console.log(`${days} Tage`);
     console.log(`Saison in ${Date.now() - t0} ms`, seasonEnd);
     expect(seasonEnd).not.toBeNull();
@@ -290,5 +301,25 @@ describe("Karriere", () => {
     expect(named.rows[0].n).toBeGreaterThanOrEqual(0);
     const lb = await leaderboards();
     expect(lb.best.length).toBe(1);
+    // Monatsauszeichnungen: jeden Monat mit mindestens zwei Spieltagen
+    const aw = await pool().query("select month, data from monthly_awards where career_id = $1 and season = 2026 order by id", [careerId]);
+    expect(aw.rows.length).toBeGreaterThanOrEqual(6);
+    for (const r of aw.rows) {
+      expect(r.data.player?.name).toBeTruthy();
+      expect(r.data.manager?.club).toBeTruthy();
+      expect(r.data.team.length).toBe(11);
+    }
+    const potm = aw.rows[0].data.player.id;
+    const pp = await pool().query("select data->'awards' as awards from players where career_id = $1 and id = $2", [careerId, potm]);
+    expect(pp.rows[0].awards.some((x: { kind: string }) => x.kind === "player")).toBe(true);
+    const av = await game.awardsView(careerId, accountId);
+    expect(av.months.length).toBeGreaterThan(0);
+    // Kaderstatus ändern: Herabstufung kostet Moral
+    const dyn = await game.dynamicsView(careerId, accountId);
+    const star = dyn.players.find((p) => p.status === "star" && !p.loan)!;
+    const before = star.morale;
+    const res = await game.setSquadStatus(careerId, accountId, star.id, "backup");
+    expect(res.morale).toBeLessThan(before);
+    expect((await game.dynamicsView(careerId, accountId)).players.find((p) => p.id === star.id)?.status).toBe("backup");
   }, 240_000);
 });

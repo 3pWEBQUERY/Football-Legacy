@@ -17,6 +17,7 @@ import {
 } from "./repo";
 import { type RewardNote, announceNotes, ensureMissions, rewardMatch } from "./rewards";
 import { aiTactic, teamSetup } from "./setup";
+import { trackPlayingTime, weeklyDynamics } from "./dynamics";
 import { advanceCup, type CupWeekInfo } from "./cup";
 import { academyWeek } from "./academy";
 import { facilitiesOf } from "./facilities";
@@ -102,6 +103,13 @@ function applyMatchToPlayers(
   }
   for (const clubId of [homeId, awayId]) {
     const squad = squadOf(w, clubId);
+    if (clubId === w.career.club_id) {
+      // Eigener Verein: Einsatzzeit zählen, Moral nach Kaderstatus
+      const started = new Set(result.players.filter((l) => l.started).map((l) => l.playerId));
+      trackPlayingTime(squad, played, started, w.career.season, w.clubs.get(clubId)?.tactic?.formation);
+      for (const p of squad) w.dirtyPlayers.add(p.id);
+      continue;
+    }
     const ranks = squadRanks(squad);
     for (const p of squad) {
       if (played.has(p.id) || p.injuryWeeks > 0) continue;
@@ -229,6 +237,11 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     }
   }
   if (boost) career.manager.trainingBoostWeeks--;
+  if (userClubId && !midweek) {
+    const own = squadOf(w, userClubId);
+    await weeklyDynamics(db, career, own);
+    for (const p of own) w.dirtyPlayers.add(p.id);
+  }
   // Genesene Spieler: Verletzung austragen, eigene melden
   for (const p of w.players.values()) {
     if (p.injuryWeeks === 0 && p.injury) {

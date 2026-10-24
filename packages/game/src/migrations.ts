@@ -270,4 +270,18 @@ alter table careers add column if not exists facilities jsonb;
 alter table careers add column if not exists scouting jsonb;
 `,
   },
+  {
+    name: "008_monthly_awards.sql",
+    sql: `
+create table if not exists monthly_awards (
+  id serial primary key,
+  career_id uuid not null references careers(id) on delete cascade,
+  season int not null,
+  month int not null,
+  league_id int not null,
+  data jsonb not null
+);
+create index if not exists monthly_awards_career on monthly_awards(career_id, season, month);
+`,
+  },
 ];

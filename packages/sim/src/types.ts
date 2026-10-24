@@ -117,6 +117,16 @@ export interface Player {
   injury?: { name: string; season: number; day: number; weeks: number } | null;
   /** Abgestellt zur Nationalmannschaft bis zu diesem Tag */
   away?: { season: number; until: number } | null;
+  /** Kaderstatus (bestimmt die erwartete Einsatzzeit) */
+  squadStatus?: import("./dynamics").SquadStatus | null;
+  /** Einsatzzeit in der laufenden Saison: Pflichtspiele des Vereins und eigene Startelfeinsätze */
+  playing?: { season: number; matches: number; starts: number } | null;
+  /** Spieler hat um seine Freigabe gebeten */
+  transferRequest?: boolean;
+  /** Saison des Wechsels zum aktuellen Verein */
+  joined?: { season: number } | null;
+  /** Auszeichnungen (z. B. Spieler des Monats) */
+  awards?: { season: number; month: number; kind: string; league: string }[];
 }
 
 export interface PlayerSeason {

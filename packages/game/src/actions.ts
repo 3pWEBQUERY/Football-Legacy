@@ -192,6 +192,9 @@ export async function makeOffer(careerId: string, accountId: string, input: Offe
     }
     p.clubId = clubId;
     p.listed = false;
+    p.joined = { season: career.season };
+    p.squadStatus = null;
+    p.transferRequest = false;
     p.contract = { wage, untilSeason: career.season + years - 1, releaseClause: input.releaseClause ?? null, goalBonus: 0 };
     p.morale = 80;
     await savePlayers(db, career.id, [p]);
@@ -537,6 +540,8 @@ export async function loanIn(careerId: string, accountId: string, playerId: numb
     await saveClubs(db, career.id, [parent]);
     p.clubId = clubId;
     p.listed = false;
+    p.joined = { season: career.season };
+    p.squadStatus = null;
     p.loan = { parentClubId: parent.id, untilSeason: career.season, wageShare: share };
     p.morale = Math.min(100, p.morale + 5);
     await savePlayers(db, career.id, [p]);
