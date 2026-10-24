@@ -416,6 +416,23 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .scoreboard .team strong { font-family: var(--font-cond); font-size: 20px; text-transform: uppercase; letter-spacing: 0.03em; }
 .scoreboard .team.home { box-shadow: inset 6px 0 0 var(--home, #888); }
 .scoreboard .team.away { justify-content: flex-end; text-align: right; box-shadow: inset -6px 0 0 var(--away, #888); }
+.scoreboard .team.mine { background: color-mix(in srgb, var(--accent) 16%, var(--bg-2)); }
+.scoreboard .team.home.mine { box-shadow: inset 10px 0 0 var(--mine, var(--accent)); }
+.scoreboard .team.away.mine { box-shadow: inset -10px 0 0 var(--mine, var(--accent)); }
+.scoreboard .team.opp strong { color: var(--text-2); font-weight: 600; }
+.mine-tag { display: inline-block; margin: 0 6px; padding: 2px 7px; background: var(--accent); color: #fff; font-family: var(--font-cond); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.4; vertical-align: middle; white-space: nowrap; }
+.scoreboard .team .mine-tag { flex: none; }
+.pitch-legend { display: flex; gap: 18px; flex-wrap: wrap; padding: 6px 10px; background: var(--panel); border: 1px solid var(--line); border-bottom: 0; font-size: 12px; font-family: var(--font-cond); text-transform: uppercase; letter-spacing: 0.05em; }
+.pitch-legend span { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+.pitch-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+.pitch-legend .mine { color: var(--text); font-weight: 700; }
+.pitch-legend .mine i { width: 14px; height: 14px; box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px #fff; }
+.pitch-legend .opp { color: var(--text-3); }
+.stat-names { padding-bottom: 4px; border-bottom: 1px solid var(--line); font-family: var(--font-cond); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-names .mine { color: var(--text); }
+.stat-names .opp { color: var(--text-3); font-weight: 600; }
+.panel-mine { box-shadow: inset 4px 0 0 var(--mine, var(--accent)); }
+.ratings-mine thead th { color: var(--text); background: color-mix(in srgb, var(--mine, var(--accent)) 18%, transparent); }
 .scoreboard .center { display: flex; align-items: center; gap: 0; }
 .scoreboard .score { font-family: var(--font-cond); font-size: 36px; font-weight: 700; padding: 0 18px; background: var(--panel); height: 100%; display: flex; align-items: center; border-left: 1px solid var(--line); border-right: 1px solid var(--line); letter-spacing: 0.04em; }
 .scoreboard .clock { font-family: var(--font-cond); font-size: 18px; font-weight: 700; padding: 0 14px; color: var(--pos); min-width: 76px; text-align: center; }
@@ -425,7 +442,11 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .events { max-height: 560px; overflow-y: auto; display: flex; flex-direction: column; }
 .event { display: grid; grid-template-columns: 34px 18px 1fr; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); font-size: 13px; align-items: start; }
 .event .min { color: var(--text-3); font-family: var(--font-cond); font-weight: 700; font-size: 14px; }
+.event.mine { box-shadow: inset 3px 0 0 var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); padding-left: 8px; }
+.event.opp .txt { color: var(--text-2); }
 .event.goal { background: var(--pos-soft); }
+.event.goal-against { background: var(--neg-soft, rgba(220, 60, 60, 0.12)); }
+.event.goal-against .txt { font-weight: 700; color: var(--text); }
 .event.goal .txt { font-weight: 700; }
 .event .ico { display: grid; place-items: center; padding-top: 2px; }
 .ev-dot { width: 10px; height: 10px; border-radius: 1px; display: inline-block; }

@@ -231,6 +231,8 @@ export default function MatchDay() {
   }, [m]);
 
   // ------------------------------------------------------------ Vorschau
+  const myClubId = shell?.career?.clubId;
+  const previewMine = preview ? (preview.home.id === myClubId ? 0 : preview.away.id === myClubId ? 1 : null) : null;
   if (phase === "preview" || phase === "loading") {
     return (
       <div className="match-shell">
@@ -240,9 +242,9 @@ export default function MatchDay() {
             <section className="card card-flush" style={{ ["--home" as string]: preview.home.colors.primary, ["--away" as string]: preview.away.colors.primary }}>
               <div className="card-head"><h3><Icon name={preview.competition?.kind === "cup" ? "trophy" : "calendar"} size={15} /> {preview.competition?.label} · Vorbericht</h3></div>
               <div className="scoreboard" style={{ borderBottom: "1px solid var(--line)", minHeight: 110 }}>
-                <div className="team home"><Crest colors={preview.home.colors} name={preview.home.name} size={64} /><div><strong>{preview.home.name}</strong><div className="faint small">Heim · Stärke {preview.home.rating}</div></div></div>
+                <div className={`team home ${previewMine === 0 ? "mine" : "opp"}`} style={previewMine === 0 ? { ["--mine" as string]: preview.home.colors.primary } : undefined}><Crest colors={preview.home.colors} name={preview.home.name} size={64} /><div><strong>{preview.home.name}</strong><div className="faint small">Heim · Stärke {preview.home.rating}</div>{previewMine === 0 && <span className="mine-tag">Dein Team</span>}</div></div>
                 <div className="center"><div className="score" style={{ fontSize: 28 }}>VS</div></div>
-                <div className="team away"><div><strong>{preview.away.name}</strong><div className="faint small">Gast · Stärke {preview.away.rating}</div></div><Crest colors={preview.away.colors} name={preview.away.name} size={64} /></div>
+                <div className={`team away ${previewMine === 1 ? "mine" : "opp"}`} style={previewMine === 1 ? { ["--mine" as string]: preview.away.colors.primary } : undefined}><div><strong>{preview.away.name}</strong><div className="faint small">Gast · Stärke {preview.away.rating}</div>{previewMine === 1 && <span className="mine-tag">Dein Team</span>}</div><Crest colors={preview.away.colors} name={preview.away.name} size={64} /></div>
               </div>
               {preview.analysis && (
                 <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)" }} className="small">
@@ -278,26 +280,27 @@ export default function MatchDay() {
   const [home, away] = m.teams;
   // Nur bereits gesehene Szenen – sonst würden die Highlights das Ergebnis verraten
   const highlights = events.filter((e) => HIGHLIGHT.has(e.type) && e.tick + 0.5 <= playhead);
-  const teamVars = { ["--home" as string]: colors[0].fill, ["--away" as string]: colors[1].fill };
+  const teamVars = { ["--home" as string]: colors[0].fill, ["--away" as string]: colors[1].fill, ["--mine" as string]: colors[side].fill };
+  const sideClass = (s: 0 | 1) => (s === side ? "mine" : "opp");
 
   return (
     <div className="match-shell" style={teamVars}>
       <div className="scoreboard">
-        <div className="team home"><Crest colors={home.colors} name={home.name} size={34} /><strong className="truncate">{home.name}</strong></div>
+        <div className={`team home ${sideClass(0)}`}><Crest colors={home.colors} name={home.name} size={34} /><strong className="truncate">{home.name}</strong>{side === 0 && <span className="mine-tag">Du</span>}</div>
         <div className="center">
           <div className="score">{score[0]} – {score[1]}</div>
           <div className="clock">{phase === "halftime" ? "HZ" : phase === "fulltime" ? "Ende" : `${minute}'`}</div>
         </div>
-        <div className="team away"><strong className="truncate">{away.name}</strong><Crest colors={away.colors} name={away.name} size={34} /></div>
+        <div className={`team away ${sideClass(1)}`}>{side === 1 && <span className="mine-tag">Du</span>}<strong className="truncate">{away.name}</strong><Crest colors={away.colors} name={away.name} size={34} /></div>
       </div>
       <div className="progress blue" style={{ height: 3, borderRadius: 0 }}><span style={{ width: `${(playhead / 540) * 100}%` }} /></div>
 
       <div className="match-body">
         <div className="stack match-left">
           <Panel title="Statistik" icon="chart">
-            {phase === "live" ? <p className="faint small">Die Statistik gibt es in der Halbzeitpause und nach dem Abpfiff.</p> : <StatRows stats={phase === "fulltime" && final ? final.result.stats : statsAt(m, phase)} />}
+            {phase === "live" ? <p className="faint small">Die Statistik gibt es in der Halbzeitpause und nach dem Abpfiff.</p> : <StatRows stats={phase === "fulltime" && final ? final.result.stats : statsAt(m, phase)} names={[home.short, away.short]} mine={side} />}
           </Panel>
-          <Panel title={mine.short + " · Aufstellung"} icon="users" flush>
+          <Panel title={`Dein Team · ${mine.short}`} icon="users" flush className="panel-mine">
             <table className="table">
               <tbody>
                 {mine.players.filter((p: any) => p.slot >= 0).sort((a: any, b: any) => a.slot - b.slot).map((p: any) => (
@@ -314,7 +317,11 @@ export default function MatchDay() {
 
         <div className="stack">
           <div className="match-canvas-wrap">
-            <MatchCanvas frames={frames} playhead={Math.min(playhead, frames.length - 1)} colors={colors} numbers={numbers} skin={skinDef} flash={flash} />
+            <div className="pitch-legend">
+              <span className="mine"><i style={{ background: colors[side].fill }} /> Dein Team · {mine.name}</span>
+              <span className="opp"><i style={{ background: colors[1 - side].fill }} /> Gegner · {m.teams[1 - side].name}</span>
+            </div>
+            <MatchCanvas frames={frames} playhead={Math.min(playhead, frames.length - 1)} colors={colors} numbers={numbers} skin={skinDef} flash={flash} mySide={side} />
           </div>
           {phase === "live" && !talk && (
             <div className="card row-wrap" style={{ padding: 8 }}>
@@ -405,8 +412,8 @@ export default function MatchDay() {
                 <div className="row-wrap" style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{final.summary.notes.map((n: any, i: number) => <span key={i} className={`badge ${n.kind === "xp" ? "" : "badge-blue"}`}>{n.text}</span>)}</div>
               )}
               <div className="grid grid-2" style={{ gap: 0, alignItems: "start" }}>
-                <RatingList players={final.result.players} side={0} title={home.name} motm={final.result.motm} />
-                <RatingList players={final.result.players} side={1} title={away.name} motm={final.result.motm} />
+                <RatingList players={final.result.players} side={0} title={home.name} motm={final.result.motm} mine={side === 0} />
+                <RatingList players={final.result.players} side={1} title={away.name} motm={final.result.motm} mine={side === 1} />
               </div>
               <div style={{ padding: 14, borderTop: "1px solid var(--line)" }}>
                 <WeekSummaryView summary={{ ...final.summary, notes: [] }} base={base} onClose={() => {}} />
@@ -418,7 +425,7 @@ export default function MatchDay() {
         <Panel title="Live-Ticker" icon="news">
           <div className="events" style={{ margin: "-4px 0" }}>
             {[...visible].reverse().filter((e) => !["foul", "kickoff", "corner", "freekick"].includes(e.type)).map((e, i) => (
-              <div key={i} className={`event ${e.type.includes("goal") ? "goal" : ""}`}>
+              <div key={i} className={`event ${eventClass(e, side)}`}>
                 <span className="min">{e.minute}'</span><span className="ico"><EventIcon type={e.type} /></span><span className="txt">{e.text}</span>
               </div>
             ))}
@@ -428,6 +435,15 @@ export default function MatchDay() {
       </div>
     </div>
   );
+}
+
+/** Ticker: eigene Ereignisse markieren, Gegentore rot statt grün. */
+function eventClass(e: { side: "home" | "away" | null; type: string }, side: 0 | 1) {
+  const s = e.side === "home" ? 0 : e.side === "away" ? 1 : null;
+  if (s === null) return "";
+  const own = s === side;
+  const goal = e.type.includes("goal") ? (own ? " goal" : " goal-against") : "";
+  return (own ? "mine" : "opp") + goal;
 }
 
 function statsAt(m: any, phase: Phase) {

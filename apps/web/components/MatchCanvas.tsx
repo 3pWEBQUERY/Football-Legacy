@@ -13,13 +13,15 @@ const H = 680;
  * 2D-Taktikansicht: zeichnet 22 Spieler und den Ball. Die Positionen kommen pro
  * Tick vom Server, dazwischen wird weich interpoliert.
  */
-export function MatchCanvas({ frames, playhead, colors, numbers, skin, flash }: {
+export function MatchCanvas({ frames, playhead, colors, numbers, skin, flash, mySide }: {
   frames: number[][];
   playhead: number; // Tick (Kommazahl)
   colors: [{ fill: string; ink: string }, { fill: string; ink: string }];
   numbers: [number[], number[]];
   skin: Skin;
   flash: string | null;
+  /** Eigene Mannschaft: grösser, mit hellem Ring – der Gegner tritt zurück */
+  mySide?: 0 | 1;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
@@ -45,8 +47,11 @@ export function MatchCanvas({ frames, playhead, colors, numbers, skin, flash }: 
     const sx = W / 105;
     const sy = H / 68;
 
-    // Spieler
-    for (let side = 0; side < 2; side++) {
+    // Spieler – Gegner zuerst, damit die eigene Mannschaft obenauf liegt
+    const order = mySide === 0 ? [1, 0] : [0, 1];
+    for (const side of order) {
+      const own = mySide === undefined || side === mySide;
+      const r = own ? 14 : 12;
       for (let s = 0; s < 11; s++) {
         const j = 3 + side * 22 + s * 2;
         if (a[j] < 0 || b[j] < 0) {
@@ -59,18 +64,30 @@ export function MatchCanvas({ frames, playhead, colors, numbers, skin, flash }: 
         const px = x * sx;
         const py = y * sy;
         ctx.beginPath();
-        ctx.arc(px + 1.5, py + 2.5, 13, 0, Math.PI * 2);
+        ctx.arc(px + 1.5, py + 2.5, r, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(0,0,0,0.25)";
         ctx.fill();
+        if (own && mySide !== undefined) {
+          // Markierung der eigenen Spieler: heller Hof und Aussenring
+          ctx.beginPath();
+          ctx.arc(px, py, r + 6, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255,255,255,0.22)";
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#fff";
+          ctx.stroke();
+        }
         ctx.beginPath();
-        ctx.arc(px, py, 13, 0, Math.PI * 2);
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.globalAlpha = own ? 1 : 0.85;
         ctx.fillStyle = s === 0 ? shade(colors[side].fill) : colors[side].fill;
         ctx.fill();
-        ctx.lineWidth = 2.5;
-        ctx.strokeStyle = "rgba(255,255,255,0.9)";
+        ctx.lineWidth = own ? 2.5 : 1.5;
+        ctx.strokeStyle = own ? "rgba(255,255,255,0.95)" : "rgba(0,0,0,0.55)";
         ctx.stroke();
+        ctx.globalAlpha = 1;
         ctx.fillStyle = s === 0 ? "#fff" : colors[side].ink;
-        ctx.font = "700 13px 'Barlow Condensed', system-ui, sans-serif";
+        ctx.font = `700 ${own ? 14 : 12}px 'Barlow Condensed', system-ui, sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(String(numbers[side][s] ?? s + 1), px, py + 0.5);

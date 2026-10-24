@@ -2,7 +2,7 @@
 import { matchRatingColor } from "@/lib/client/format";
 import { EventIcon, Icon } from "./ui";
 
-export function StatRows({ stats }: { stats: [any, any] }) {
+export function StatRows({ stats, names, mine }: { stats: [any, any]; names?: [string, string]; mine?: number }) {
   const [h, a] = stats;
   const total = Math.max(1, h.possession + a.possession);
   const rows: [string, number | string, number | string, number, number][] = [
@@ -17,11 +17,17 @@ export function StatRows({ stats }: { stats: [any, any] }) {
   ];
   return (
     <div className="stack-sm">
+      {names && (
+        <div className="between small stat-names">
+          <b className={mine === 0 ? "mine" : "opp"}>{names[0]}{mine === 0 && " · Du"}</b>
+          <b className={mine === 1 ? "mine" : "opp"}>{mine === 1 && "Du · "}{names[1]}</b>
+        </div>
+      )}
       {rows.map(([label, hv, av, hn, an]) => {
         const sum = Math.max(0.0001, hn + an);
         return (
           <div key={label}>
-            <div className="between small"><b className="num">{hv}</b><span className="dim">{label}</span><b className="num">{av}</b></div>
+            <div className="between small"><b className="num" style={mine === 0 ? { color: "var(--text)" } : mine === 1 ? { color: "var(--text-3)" } : undefined}>{hv}</b><span className="dim">{label}</span><b className="num" style={mine === 1 ? { color: "var(--text)" } : mine === 0 ? { color: "var(--text-3)" } : undefined}>{av}</b></div>
             <div className="row" style={{ gap: 3, marginTop: 3 }}>
               <div style={{ flex: hn / sum || 0.001, height: 5, background: "var(--home, var(--accent))" }} />
               <div style={{ flex: an / sum || 0.001, height: 5, background: "var(--away, var(--text-3))" }} />
@@ -33,11 +39,11 @@ export function StatRows({ stats }: { stats: [any, any] }) {
   );
 }
 
-export function RatingList({ players, side, title, motm }: { players: any[]; side: number; title: string; motm?: number | null }) {
+export function RatingList({ players, side, title, motm, mine }: { players: any[]; side: number; title: string; motm?: number | null; mine?: boolean }) {
   const list = players.filter((p) => p.side === side).sort((a, b) => Number(b.started) - Number(a.started) || b.rating - a.rating);
   return (
-    <table className="table">
-      <thead><tr><th>{title}</th><th className="c">Min</th><th className="r">Note</th></tr></thead>
+    <table className={`table ${mine ? "ratings-mine" : ""}`}>
+      <thead><tr><th>{title}{mine && <span className="mine-tag">Dein Team</span>}</th><th className="c">Min</th><th className="r">Note</th></tr></thead>
       <tbody>
         {list.map((p) => (
           <tr key={p.playerId}>
