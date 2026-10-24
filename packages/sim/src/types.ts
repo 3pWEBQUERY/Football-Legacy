@@ -100,6 +100,8 @@ export interface Player {
   devProgress: number;
   /** Abgeschlossene Saisons. */
   history?: PlayerSeason[];
+  /** Leihe: clubId ist der aufnehmende Verein, parentClubId der Stammverein. */
+  loan?: { parentClubId: number; untilSeason: number; wageShare: number } | null;
 }
 
 export interface PlayerSeason {

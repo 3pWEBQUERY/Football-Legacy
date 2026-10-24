@@ -82,7 +82,7 @@ export default function Office() {
       <div className="grid grid-main" style={{ alignItems: "start" }}>
         <div className="stack">
         {next ? (
-          <Panel title={`Nächstes Spiel · ${next.week}. Spieltag`} icon="calendar" actions={next.window?.open && <span className="badge badge-accent">{next.window.label}</span>}>
+          <Panel title={`Nächstes Spiel · ${next.competition?.label ?? ""}`} icon={next.competition?.kind === "cup" ? "trophy" : "calendar"} actions={next.window?.open && <span className="badge badge-accent">{next.window.label}</span>}>
             <div className="fixture-row">
               <Link href={`${base}/club/${next.home.id}`} className="row" style={{ gap: 12, minWidth: 0 }}>
                 <Crest colors={next.home.colors} name={next.home.name} size={48} />
@@ -226,13 +226,13 @@ export default function Office() {
               <table className="table">
                 <tbody>
                   {d.recent.map((r: any) => {
-                    const res = r.goalsFor > r.goalsAgainst ? "W" : r.goalsFor === r.goalsAgainst ? "D" : "L";
+                    const res = r.goalsFor > r.goalsAgainst ? "W" : r.goalsFor < r.goalsAgainst ? "L" : r.won === null ? "D" : r.won ? "W" : "L";
                     return (
                       <tr key={r.fixtureId} className="clickable" onClick={() => (window.location.href = `${base}/report/${r.fixtureId}`)}>
                         <td style={{ width: 28 }}><FormChips form={[res]} /></td>
-                        <td className="faint small" style={{ width: 30 }}>{r.home ? "H" : "A"}</td>
+                        <td className="faint small" style={{ width: 44 }}>{r.home ? "H" : "A"}{r.cup && <span className="badge" style={{ marginLeft: 4 }}>P</span>}</td>
                         <td className="truncate name">{r.opponent}</td>
-                        <td className="r cond" style={{ fontWeight: 700, fontSize: 15 }}>{r.goalsFor}–{r.goalsAgainst}</td>
+                        <td className="r cond" style={{ fontWeight: 700, fontSize: 15 }}>{r.goalsFor}–{r.goalsAgainst}{r.pens && <span className="faint small"> ({r.pens} i.E.)</span>}</td>
                       </tr>
                     );
                   })}

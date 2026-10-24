@@ -40,7 +40,33 @@ export function WeekSummaryView({ summary, base, onClose }: { summary: any; base
           </table>
         </div>
       )}
-      {summary.results?.length === 0 && !end && <p className="dim">Spielfreie Woche. Die Mannschaft hat trainiert.</p>}
+      {summary.cupResults?.length > 0 && (
+        <div className="card card-flush">
+          <div className="card-head"><h3>{summary.cup?.name ?? "Pokal"} · {summary.cup?.roundName}</h3>
+            {summary.cup && <span className={`badge ${summary.cup.userStatus === "eliminated" || summary.cup.userStatus === "runner_up" ? "badge-danger" : summary.cup.userStatus === "winner" ? "badge-gold" : summary.cup.userStatus === "advanced" ? "badge-accent" : ""}`}>
+              {({ advanced: "Weiter", eliminated: "Ausgeschieden", winner: "Pokalsieger", runner_up: "Finale verloren", out: "Nicht mehr dabei", not_involved: "" } as Record<string, string>)[summary.cup.userStatus]}
+            </span>}
+          </div>
+          <div style={{ maxHeight: 260, overflowY: "auto" }}>
+            <table className="table">
+              <tbody>
+                {summary.cupResults.map((r: any) => (
+                  <tr key={r.fixtureId}>
+                    <td className="r name">{r.homeName}</td>
+                    <td className="c nowrap" style={{ width: 110 }}>
+                      <Link href={`${base}/report/${r.fixtureId}`} onClick={onClose} className="cond" style={{ fontWeight: 700, fontSize: 15 }}>{r.homeGoals} – {r.awayGoals}</Link>
+                      {r.penHome !== undefined && r.penHome !== null && <span className="faint small"> ({r.penHome}:{r.penAway} i.E.)</span>}
+                    </td>
+                    <td className="name">{r.awayName}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {summary.cup?.nextRoundName && <div className="faint small" style={{ padding: "6px 12px" }}>Nächste Runde: {summary.cup.nextRoundName} – die Auslosung steht im Posteingang.</div>}
+        </div>
+      )}
+      {summary.results?.length === 0 && !summary.cupResults?.length && !end && <p className="dim">Spielfreie Woche. Die Mannschaft hat trainiert.</p>}
       {summary.notes?.length > 0 && (
         <div className="stack-sm">
           <span className="faint small up">Belohnungen</span>

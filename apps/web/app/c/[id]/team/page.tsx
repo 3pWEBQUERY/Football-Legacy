@@ -26,6 +26,7 @@ export default function Squad() {
         <span className="name">{p.name}</span>
         {p.wonderkid && <span className="badge badge-gold">Talent</span>}
         {p.listed && <span className="badge badge-blue">Transferliste</span>}
+        {p.loan && <span className="badge badge-accent" title={p.loanFrom ? `Ausgeliehen von ${p.loanFrom}` : undefined}>Leihe</span>}
       </span>
     ), sort: (p) => p.lastName },
     { key: "status", label: "", render: (p) => (
@@ -52,7 +53,8 @@ export default function Squad() {
   ];
 
   const ps = data.players;
-  const wages = ps.reduce((s: number, p: any) => s + (p.contract?.wage ?? 0), 0);
+  const wages = ps.reduce((s: number, p: any) => s + (p.contract?.wage ?? 0) * (p.loan ? p.loan.wageShare : 1), 0)
+    + (data.loanedOut ?? []).reduce((s: number, p: any) => s + (p.contract?.wage ?? 0) * (1 - p.loan.wageShare), 0);
   const avgAge = ps.reduce((s: number, p: any) => s + p.age, 0) / ps.length;
   const injured = ps.filter((p: any) => p.injuryWeeks > 0).length;
   const value = ps.reduce((s: number, p: any) => s + p.value, 0);
@@ -73,6 +75,29 @@ export default function Squad() {
       <div className="card card-flush">
         <SortTable rows={rows} columns={cols} rowKey={(p) => p.id} initialSort={{ key: "pos", dir: 1 }} onRowClick={(p) => router.push(`/c/${id}/player/${p.id}`)} />
       </div>
+      {data.loanedOut?.length > 0 && (
+        <div className="card card-flush">
+          <div className="card-head"><h3>Verliehene Spieler</h3><span className="faint small">Rückkehr zum Saisonende</span></div>
+          <table className="table">
+            <thead><tr><th>Pos</th><th>Name</th><th>Verein</th><th className="c">Alter</th><th className="c">Stärke</th><th className="c">Sp</th><th className="c">Tore</th><th className="c">Ø Note</th><th className="r">Dein Gehaltsanteil</th></tr></thead>
+            <tbody>
+              {data.loanedOut.map((p: any) => (
+                <tr key={p.id} className="clickable" onClick={() => router.push(`/c/${id}/player/${p.id}`)}>
+                  <td><Pos p={p.position} /></td>
+                  <td className="name">{p.name}</td>
+                  <td className="truncate">{p.loanTo}</td>
+                  <td className="c">{p.age}</td>
+                  <td className="c"><Rating value={p.rating} /></td>
+                  <td className="c">{p.stats.apps}</td>
+                  <td className="c">{p.stats.goals}</td>
+                  <td className="c">{p.stats.apps ? (p.stats.ratingSum / p.stats.apps).toFixed(2) : "–"}</td>
+                  <td className="r">{money((p.contract?.wage ?? 0) * (1 - p.loan.wageShare))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </>
   );
 }

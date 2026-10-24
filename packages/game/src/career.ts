@@ -1,7 +1,7 @@
 /** Karriere anlegen, Ligen aktivieren, Saison planen, Vorstandsziele. */
 import {
   COUNTRY_BY_CODE, DEFAULT_TRAINING, Rng, STYLE_PRESETS, createSchedule, dailyMissions, defaultTactic, expectedPosition,
-  financeProfile, generateSquad, generateWorld, initialBudget, newManagerProfile, roundsFor, seedFor, teamRating, wageBill,
+  cupName, cupRoundName, cupWeekPositions, drawCupRound, financeProfile, generateSquad, generateWorld, initialBudget, newManagerProfile, planCup, roundsFor, seedFor, teamRating, wageBill,
   type Player,
 } from "@fl/sim";
 import type pg from "pg";
@@ -96,19 +96,74 @@ export async function activateLeague(db: Db, career: CareerRow, leagueId: number
   await query(db, "update leagues set active = true where career_id = $1 and id = $2", [career.id, leagueId]);
 }
 
+/**
+ * Plant die Saison: Ligaspielpläne aller Ligen und den Landespokal im Land des
+ * Nutzers. Pokalrunden bekommen eigene Kalenderwochen zwischen den Spieltagen.
+ */
 export async function scheduleSeason(db: Db, career: CareerRow) {
   const leagues = await getLeagues(db, career.id);
-  const clubs = await query<{ id: number; league_id: number }>(db, "select id, league_id from clubs where career_id = $1", [career.id]);
+  const leagueById = new Map(leagues.map((l) => [l.id, l]));
+  const clubs = await query<{ id: number; league_id: number; rating: number }>(db, "select id, league_id, rating from clubs where career_id = $1", [career.id]);
   const byLeague = new Map<number, number[]>();
   for (const c of clubs) byLeague.set(c.league_id, [...(byLeague.get(c.league_id) ?? []), c.id]);
+  const userClub = clubs.find((c) => c.id === career.club_id);
+  const userLeague = userClub ? leagueById.get(userClub.league_id) : undefined;
+  const leagueWeeks = userLeague ? roundsFor(userLeague.size) : career.season_weeks;
+
+  // Pokal: alle Vereine aus dem Land des Nutzers
+  const cupCountry = userLeague?.country_code ?? career.country_code;
+  const entrants = clubs
+    .filter((c) => leagueById.get(c.league_id)?.country_code === cupCountry)
+    .map((c) => ({ id: c.id, tier: leagueById.get(c.league_id)!.tier, rating: c.rating }));
+  const plan = entrants.length >= 4 ? planCup(entrants) : null;
+  const positions = plan ? cupWeekPositions(plan.rounds, leagueWeeks) : [];
+
+  // Kalender: Liga-Woche → Kalenderwoche, Pokalwochen dazwischen
+  const leagueToCal = new Map<number, number>();
+  const cupWeeks: number[] = [];
+  let cal = 0;
+  let r = 0;
+  for (let w = 1; w <= leagueWeeks; w++) {
+    cal++;
+    leagueToCal.set(w, cal);
+    while (r < positions.length && positions[r] === w) {
+      cal++;
+      cupWeeks.push(cal);
+      r++;
+    }
+  }
+  career.season_weeks = cal;
+  await query(db, "update careers set season_weeks = $2 where id = $1", [career.id, cal]);
+
   const fixtures: { leagueId: number; week: number; round: number; homeId: number; awayId: number }[] = [];
   for (const l of leagues) {
     const ids = (byLeague.get(l.id) ?? []).sort((a, b) => a - b);
     if (ids.length < 2) continue;
     const rng = new Rng(seedFor(career.seed, "schedule", career.season, l.key));
-    for (const m of createSchedule(ids, career.season_weeks, rng)) fixtures.push({ leagueId: l.id, ...m });
+    for (const m of createSchedule(ids, leagueWeeks, rng)) fixtures.push({ leagueId: l.id, ...m, week: leagueToCal.get(m.week) ?? m.week });
   }
   await insertFixtures(db, career.id, career.season, fixtures);
+
+  if (plan) {
+    const rounds = cupWeeks.map((week, i) => ({ round: i + 1, name: cupRoundName(i + 1, plan.rounds), week }));
+    const cup = await one<{ id: number }>(
+      db,
+      "insert into cups(career_id, season, country_code, name, rounds, byes) values ($1,$2,$3,$4,$5,$6) returning id",
+      [career.id, career.season, cupCountry, cupName(cupCountry), JSON.stringify(rounds), JSON.stringify(plan.byes)],
+    );
+    const pairs = drawCupRound(new Rng(seedFor(career.seed, "cup", career.season, 1)), plan.prelim);
+    await insertCupFixtures(db, career.id, career.season, cup!.id, 1, rounds[0].week, pairs);
+  }
+}
+
+export async function insertCupFixtures(db: Db, careerId: string, season: number, cupId: number, round: number, week: number, pairs: [number, number][]) {
+  if (!pairs.length) return;
+  await query(
+    db,
+    `insert into fixtures(career_id, season, league_id, week, round, home_id, away_id, cup_id, cup_round)
+     select $1, $2, 0, $3, $4, h, a, $5, $4 from unnest($6::int[], $7::int[]) as t(h, a)`,
+    [careerId, season, week, round, cupId, pairs.map((p) => p[0]), pairs.map((p) => p[1])],
+  );
 }
 
 export async function boardObjectives(db: Db, career: CareerRow, club: ClubRow, league: LeagueRow): Promise<Board> {
@@ -212,7 +267,6 @@ export async function createCareer(accountId: string, input: CreateCareerInput):
 
     const userLeague = leagues.get(userClubRow.league_id)!;
     career.club_id = userClubRow.id;
-    career.season_weeks = roundsFor(userLeague.size);
     const userClub = homeClubs.find((c) => c.id === userClubRow.id)!;
     career.board = await boardObjectives(db, career, userClub, userLeague);
     await saveCareer(db, career);

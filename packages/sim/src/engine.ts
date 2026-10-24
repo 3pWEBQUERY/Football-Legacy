@@ -1164,6 +1164,13 @@ function aiSubstitutions(state: MatchState, side: Side) {
 
 // ---------------------------------------------------------------- Ablauf
 
+/** Aktuelle Positionen als einzelner Frame (z. B. beim Fortsetzen nach Neuladen). */
+export function currentFrame(state: MatchState): Frame {
+  const out: Frame[] = [];
+  recordFrame(state, out);
+  return out[0];
+}
+
 function recordFrame(state: MatchState, frames: Frame[]) {
   const f: number[] = [Math.round(state.ball.x * 10), Math.round(state.ball.y * 10), state.possession];
   for (const team of state.teams) {
@@ -1243,14 +1250,16 @@ export interface TacticChange {
 export function applyChange(state: MatchState, side: Side, change: TacticChange) {
   const team = state.teams[side];
   let changed = false;
+  let newFormation = false;
   if (change.formation && change.formation !== team.formation) {
+    newFormation = true;
     // Spieler behalten ihre Slot-Nummer; neue Formation ordnet die Positionen neu zu
     team.formation = change.formation;
     team.roles = FORMATIONS[change.formation].map((s) => defaultRole(s.position));
     team.slotOffsets = [];
     changed = true;
   }
-  if (change.style) {
+  if (change.style && (Object.keys(change.style) as (keyof TacticStyle)[]).some((k) => change.style![k] !== undefined && change.style![k] !== team.style[k])) {
     team.style = { ...team.style, ...change.style };
     changed = true;
   }
@@ -1267,7 +1276,7 @@ export function applyChange(state: MatchState, side: Side, change: TacticChange)
     const benchIdx = team.players.findIndex((p) => p.id === sub.playerId && p.slot === -1);
     if (benchIdx >= 0) substitute(state, side, sub.slot, benchIdx);
   }
-  if (changed) pushEvent(state, "tactic", side, `${team.short} stellt um: ${team.formation}.`, {});
+  if (changed) pushEvent(state, "tactic", side, newFormation ? `${team.short} stellt um auf ${team.formation}.` : `${team.short} passt die taktische Ausrichtung an.`, {});
 }
 
 export interface PlayerMatchLine {

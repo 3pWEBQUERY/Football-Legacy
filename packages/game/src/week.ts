@@ -3,7 +3,7 @@
  * KI-Transfers, Posteingang und Gamification.
  */
 import {
-  DEFAULT_TRAINING, Rng, afterMatch, attendance, benchMorale, computeStandings, formatMoney, playMatch, quickResult,
+  DEFAULT_TRAINING, Rng, afterMatch, penaltyShootout, shootersFrom, attendance, benchMorale, computeStandings, formatMoney, playMatch, quickResult,
   seedFor, squadRanks, teamRating, transferWindow, validateTactic, wageBill, weeklyDevelopment, weeklyFinances,
   type MatchResult, type Player,
 } from "@fl/sim";
@@ -16,6 +16,7 @@ import {
 } from "./repo";
 import { type RewardNote, announceNotes, ensureMissions, rewardMatch } from "./rewards";
 import { aiTactic, teamSetup } from "./setup";
+import { advanceCup, type CupWeekInfo } from "./cup";
 import { endSeason, type SeasonSummary } from "./season-end";
 import { type WorldState, loadWorld, squadOf } from "./world-state";
 
@@ -28,6 +29,8 @@ export interface WeekResultLine {
   awayName: string;
   homeGoals: number;
   awayGoals: number;
+  penHome?: number;
+  penAway?: number;
 }
 
 export interface WeekSummary {
@@ -35,6 +38,8 @@ export interface WeekSummary {
   season: number;
   userFixtureId: number | null;
   results: WeekResultLine[];
+  cupResults: WeekResultLine[];
+  cup: CupWeekInfo | null;
   notes: RewardNote[];
   news: string[];
   seasonEnd: SeasonSummary | null;
@@ -125,8 +130,9 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   }
   const physio = (clubId: number) => (clubId === userClubId ? career.staff.physio : 8);
   const minutes = new Map<number, number>();
-  const results: { id: number; home: number; away: number }[] = [];
+  const results: { id: number; home: number; away: number; penHome?: number; penAway?: number }[] = [];
   const lines: WeekResultLine[] = [];
+  const cupLines: WeekResultLine[] = [];
   const injuredNow = new Set<number>();
   const attendances = new Map<number, number>();
   const userLeagueId = userClubId ? w.clubs.get(userClubId)?.league_id : undefined;
@@ -134,11 +140,11 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   for (const f of fixtures) {
     const home = w.clubs.get(f.home_id)!;
     const away = w.clubs.get(f.away_id)!;
-    const league = w.leagues.get(f.league_id)!;
+    const league = f.cup_id ? undefined : w.leagues.get(f.league_id);
     let hg: number;
     let ag: number;
     const isUser = userFixture?.id === f.id;
-    const detailed = home.players_generated && away.players_generated && (league.active || isUser);
+    const detailed = home.players_generated && away.players_generated && (league?.active || isUser || !!f.cup_id);
     if (isUser && opts.userMatch) {
       const r = opts.userMatch.result;
       hg = r.homeGoals;
@@ -163,14 +169,29 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     } else {
       [hg, ag] = quickResult(rng, home.rating, away.rating);
     }
-    results.push({ id: f.id, home: hg, away: ag });
-    if (f.league_id === userLeagueId) {
-      lines.push({ fixtureId: f.id, leagueId: f.league_id, homeId: home.id, awayId: away.id, homeName: home.name, awayName: away.name, homeGoals: hg, awayGoals: ag });
+    // Pokal: bei Unentschieden direkt Elfmeterschiessen
+    let pens: [number, number] | null = null;
+    if (f.cup_id && hg === ag) {
+      const prng = new Rng(seedFor(career.seed, "penalties", f.id));
+      if (home.players_generated && away.players_generated) {
+        const hs = shootersFrom(squadOf(w, home.id));
+        const as = shootersFrom(squadOf(w, away.id));
+        pens = penaltyShootout(prng, hs.shooters, as.shooters, hs.keeper, as.keeper);
+      } else {
+        pens = prng.chance(0.5 + (home.rating - away.rating) / 100) ? [5, 4] : [4, 5];
+      }
     }
+    results.push({ id: f.id, home: hg, away: ag, penHome: pens?.[0], penAway: pens?.[1] });
+    const line = { fixtureId: f.id, leagueId: f.league_id, homeId: home.id, awayId: away.id, homeName: home.name, awayName: away.name, homeGoals: hg, awayGoals: ag, penHome: pens?.[0], penAway: pens?.[1] };
+    if (f.cup_id) cupLines.push(line);
+    else if (f.league_id === userLeagueId) lines.push(line);
     // Zuschauer und Ticketerlöse für das Heimteam
     if (home.players_generated && home.finance) attendances.set(home.id, attendance(home.capacity, home.reputation, 7, away.reputation));
   }
   await saveFixtureResults(db, career.id, results);
+  const cupId = fixtures.find((f) => f.cup_id)?.cup_id ?? null;
+  let cupInfo: CupWeekInfo | null = null;
+  if (cupId) cupInfo = await advanceCup(db, career, w, cupId, notes);
 
   // Training & Entwicklung aller Spieler aktiver Vereine
   const boost = career.manager.trainingBoostWeeks > 0;
@@ -197,12 +218,14 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     w.dirtyPlayers.add(p.id);
   }
 
-  // Finanzen
+  // Finanzen (verliehene Spieler: Stammverein trägt den Restanteil des Gehalts)
+  const loanedOut = new Map<number, Player[]>();
+  for (const p of w.players.values()) if (p.loan) loanedOut.set(p.loan.parentClubId, [...(loanedOut.get(p.loan.parentClubId) ?? []), p]);
   for (const club of w.clubs.values()) {
     if (!club.players_generated || !club.finance) continue;
     const squad = squadOf(w, club.id);
     const att = attendances.get(club.id);
-    const entries = weeklyFinances(club.finance, wageBill(squad), att ? { attendance: att } : null);
+    const entries = weeklyFinances(club.finance, wageBill(squad, loanedOut.get(club.id) ?? []), att ? { attendance: att } : null);
     const sum = entries.reduce((s, e) => s + e.amount, 0);
     club.balance += sum;
     if (club.id !== userClubId) club.transfer_budget = Math.max(0, club.transfer_budget + Math.round(sum * 0.3));
@@ -246,7 +269,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     seasonEnd = await endSeason(db, career);
   }
   await saveCareer(db, career);
-  return { week, season: career.season, userFixtureId: userFixture?.id ?? null, results: lines, notes, news, seasonEnd };
+  return { week, season: career.season, userFixtureId: userFixture?.id ?? null, results: lines, cupResults: cupLines, cup: cupInfo, notes, news, seasonEnd };
 }
 
 export async function persistWorld(db: pg.PoolClient, w: WorldState) {
@@ -282,7 +305,7 @@ function applyUserRewards(w: WorldState, career: CareerRow, f: FixtureRow, r: Ma
 
 async function weeklyInbox(
   db: pg.PoolClient, career: CareerRow, w: WorldState, week: number, userFixture: FixtureRow | null,
-  results: { id: number; home: number; away: number }[], news: string[], injuredNow: Set<number>,
+  results: { id: number; home: number; away: number; penHome?: number; penAway?: number }[], news: string[], injuredNow: Set<number>,
 ) {
   const club = w.clubs.get(career.club_id!)!;
   const squad = squadOf(w, club.id);
@@ -299,8 +322,11 @@ async function weeklyInbox(
     );
     const pos = table.findIndex((t) => t.clubId === club.id) + 1;
     await addInbox(
-      db, career.id, career.season, week, "match", `${week}. Spieltag: ${home.short_name} ${r.home}:${r.away} ${away.short_name}`,
-      `${home.name} – ${away.name} ${r.home}:${r.away}. ${club.name} steht jetzt auf Platz ${pos}.`,
+      db, career.id, career.season, week, "match",
+      `${userFixture.cup_id ? "Pokal" : `${userFixture.round}. Spieltag`}: ${home.short_name} ${r.home}:${r.away}${r.penHome !== undefined ? ` (${r.penHome}:${r.penAway} i.E.)` : ""} ${away.short_name}`,
+      userFixture.cup_id
+        ? `${home.name} – ${away.name} ${r.home}:${r.away}${r.penHome !== undefined ? `, ${r.penHome}:${r.penAway} im Elfmeterschiessen` : ""}.`
+        : `${home.name} – ${away.name} ${r.home}:${r.away}. ${club.name} steht jetzt auf Platz ${pos}.`,
       { type: "fixture", fixtureId: userFixture.id },
     );
   }

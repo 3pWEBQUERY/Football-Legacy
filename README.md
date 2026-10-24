@@ -17,6 +17,16 @@ Ein tiefgehender Fussball-Manager im Browser: Kader, Taktik, Transfers und Saiso
 | Account | Registrierung per E-Mail und Passwort (scrypt), Sessions mit gehashten Tokens, bis zu fünf Karrieren parallel, Spielstände in PostgreSQL |
 | Oberfläche | Seitenleiste (Desktop) und Tab-Leiste (Smartphone) mit fünf Bereichen, Dark und Light Mode über Design-Tokens, sortierbare Tabellen, Diagramme für Finanzen und Spielerprofil |
 
+## Erweiterungen (Stufe 1.x)
+
+| Bereich | Umsetzung |
+| --- | --- |
+| Live-Eingriffe | Die Partie wird in Abschnitten von fünf Spielminuten simuliert. Über „Eingreifen“ lassen sich Formation, Regler und Wechsel jederzeit ändern; sie greifen ab dem nächsten Abschnitt |
+| Landespokal | K.-o.-Wettbewerb für alle Vereine des Heimatlands mit Vorrunde und Freilosen, klassentiefere Vereine mit Heimrecht, Elfmeterschiessen, Prämien pro Runde, eigene Pokalseite mit Turnierbaum |
+| Pressekonferenzen | Vor jedem Spiel bis zu drei Fragen je nach Lage (Favorit, Krise, Form, Leistungsträger, Verletzungen, Druck des Vorstands, Pokal). Die Antworten wirken auf Moral und Vorstandsvertrauen |
+| Saisonrückblick | Auszeichnungen der Liga (Spieler der Saison, Torschützenkönig, Vorbereiter, Talent, Torhüter), Elf der Saison, Abschlusstabelle und Bilanz des eigenen Vereins für jede gespielte Saison |
+| Leihgeschäfte | Spieler bis Saisonende ausleihen (Gehaltsanteil verhandelbar) oder eigene Spieler verleihen; Rückkehr zum Saisonende, Gehälter werden anteilig verrechnet |
+
 ## Architektur
 
 Drei klar getrennte Ebenen als TypeScript-Pakete in einem pnpm-Monorepo:
@@ -30,7 +40,7 @@ apps/web        @fl/web   Next.js: JSON-API unter /api/* und der Browser-Client
 ```
 
 - Die Simulation bekommt nur einfache Datenobjekte und ist deterministisch (gleicher Seed → gleiches Ergebnis).
-- Spiele werden auf dem Server simuliert, der Halbzeitstand wird in der Datenbank gespeichert. Der Browser spielt nur die Positionsdaten ab.
+- Spiele werden auf dem Server in Abschnitten simuliert, der Spielstand wird nach jedem Abschnitt in der Datenbank gespeichert. Der Browser puffert die Positionsdaten und spielt sie ab.
 - Die API (`apps/web/lib/server/router.ts`) akzeptiert Cookies oder `Authorization: Bearer <token>` – die spätere iOS-App kann sie unverändert nutzen (`returnToken: true` beim Login liefert das Token).
 
 ## Lokal starten
@@ -73,5 +83,5 @@ Beim ersten Start legt der Server das Schema selbst an. Redis, ein separater Sim
 ## Nächste Schritte
 
 - Offene Entscheidungen aus dem Konzept: Monetarisierung, Magic-Link statt Passwort, Logo/Design-System, Online-Umfang (nur Ranglisten oder gemeinsame Ligen).
-- Stufe 1.x: Pokalwettbewerb, Leihgeschäfte, Pressekonferenzen und Medien, Saisonrückblick, detailliertere Jugendakademie.
+- Stufe 1.x: detailliertere Jugendakademie, Medien und Spielerinteraktionen, internationale Wettbewerbe.
 - Technik: Simulations-Worker mit Warteschlange (Redis), E-Mail-Versand für Passwort-Reset, Datenschutzerklärung vor dem Launch.

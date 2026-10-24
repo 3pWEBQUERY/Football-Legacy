@@ -129,6 +129,8 @@ route("POST", career("players/:pid"), async (c) => {
     case "release": return game.releasePlayer(c.params.id, acc(c), pid);
     case "demand": return game.contractDemand(c.params.id, acc(c), pid);
     case "renew": return game.renewContract(c.params.id, acc(c), pid, num(c.body.wage), num(c.body.years));
+    case "loan_in": return game.loanIn(c.params.id, acc(c), pid, Number(c.body.wageShare ?? 1));
+    case "loan_out": return game.loanOut(c.params.id, acc(c), pid);
     default: throw new game.GameError("Unbekannte Aktion");
   }
 });
@@ -137,6 +139,8 @@ route("GET", career("clubs/:cid"), async (c) => {
   return game.clubView(c.params.id, acc(c), num(c.params.cid));
 });
 route("GET", career("competition"), async (c) => game.competitionView(c.params.id, acc(c), c.query.get("league") ? num(c.query.get("league")) : undefined));
+route("GET", career("review"), async (c) => game.reviewView(c.params.id, acc(c), c.query.get("season") ? num(c.query.get("season")) : undefined));
+route("GET", career("cup"), async (c) => game.cupView(c.params.id, acc(c), c.query.get("season") ? num(c.query.get("season")) : undefined));
 route("GET", career("reports/:fid"), async (c) => game.matchReport(c.params.id, acc(c), num(c.params.fid)));
 route("GET", career("market"), async (c) => {
   const q = c.query;
@@ -167,8 +171,14 @@ route("GET", career("match/preview"), async (c) => {
   const cr = await game.readCareer(c.params.id, acc(c));
   return { preview: await game.matchPreview(game.pool(), cr), career: game.careerSummary(cr) };
 });
+route("GET", career("match/press"), async (c) => game.pressConference(c.params.id, acc(c)));
+route("POST", career("match/press"), async (c) => game.answerPress(c.params.id, acc(c), (c.body.answers ?? {}) as Record<string, number>));
 route("POST", career("match/start"), async (c) => game.startMatch(c.params.id, acc(c)));
 route("POST", career("match/continue"), async (c) => game.continueMatch(c.params.id, acc(c), (c.body ?? {}) as never));
+route("POST", career("match/step"), async (c) => game.stepMatch(c.params.id, acc(c), {
+  change: (c.body.change ?? undefined) as never,
+  until: c.body.until !== undefined ? num(c.body.until) : undefined,
+}));
 route("POST", career("match/quick"), async (c) => game.quickMatch(c.params.id, acc(c)));
 
 // ---------------------------------------------------------------- Dispatcher

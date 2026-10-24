@@ -31,7 +31,7 @@ export async function aiMarketRound(db: Db, w: WorldState, rng: Rng): Promise<Ma
   const userClubId = w.career.club_id;
   const userLeague = userClubId ? w.clubs.get(userClubId)?.league_id : undefined;
   const activeClubs = [...w.clubs.values()].filter((c) => c.players_generated && c.id !== userClubId);
-  const market = [...w.players.values()].filter((p) => p.clubId !== userClubId);
+  const market = [...w.players.values()].filter((p) => p.clubId !== userClubId && !p.loan);
 
   for (const club of activeClubs) {
     const squad = squadOf(w, club.id);
@@ -113,7 +113,7 @@ export async function aiBidsForUser(db: Db, w: WorldState, rng: Rng) {
   if ((pending[0]?.n ?? 0) >= 2) return;
   const listedBoost = squad.some((p) => p.listed) ? 0.45 : 0;
   if (!rng.chance(0.18 + listedBoost)) return;
-  const pool = squad.filter((p) => p.listed || rng.chance(0.25));
+  const pool = squad.filter((p) => !p.loan && (p.listed || rng.chance(0.25)));
   if (!pool.length) return;
   const target = pool[rng.weighted(pool.map((p) => (p.listed ? 6 : 1) * Math.sqrt(p.value)))];
   const userClub = w.clubs.get(userClubId)!;

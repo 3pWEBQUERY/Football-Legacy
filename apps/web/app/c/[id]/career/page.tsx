@@ -75,7 +75,7 @@ export default function CareerPage() {
             {[...data.history].reverse().map((h: any) => (
               <div key={h.season} className="between small">
                 <span>{seasonLabel(h.season)} · {h.clubName} <span className="faint">({h.leagueName})</span></span>
-                <span>{h.champion ? <span className="badge badge-gold">Meister</span> : h.promoted ? <span className="badge badge-accent">Aufstieg</span> : h.relegated ? <span className="badge badge-danger">Abstieg</span> : null} <b>Platz {h.position}</b> · {h.points} P</span>
+                <span>{h.champion ? <span className="badge badge-gold">Meister</span> : h.promoted ? <span className="badge badge-accent">Aufstieg</span> : h.relegated ? <span className="badge badge-danger">Abstieg</span> : null} <b>Platz {h.position}</b> · {h.points} P{h.cup ? ` · Pokal: ${h.cup}` : ""}</span>
               </div>
             ))}
           </div>

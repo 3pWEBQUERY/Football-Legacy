@@ -33,8 +33,10 @@ export const FINANCE_LABEL: Record<FinanceEntry["kind"], string> = {
   other: "Sonstiges",
 };
 
-export function wageBill(players: Pick<Player, "contract">[]): number {
-  return players.reduce((sum, p) => sum + (p.contract?.wage ?? 0), 0);
+export function wageBill(players: Pick<Player, "contract" | "loan">[], loanedOut: Pick<Player, "contract" | "loan">[] = []): number {
+  const own = players.reduce((sum, p) => sum + (p.contract?.wage ?? 0) * (p.loan ? p.loan.wageShare : 1), 0);
+  const out = loanedOut.reduce((sum, p) => sum + (p.contract?.wage ?? 0) * (1 - (p.loan?.wageShare ?? 1)), 0);
+  return Math.round(own + out);
 }
 
 /**

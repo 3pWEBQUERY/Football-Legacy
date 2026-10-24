@@ -124,6 +124,7 @@ export async function makeOffer(careerId: string, accountId: string, input: Offe
     const p = await getPlayer(db, career.id, input.playerId);
     if (!p) throw new GameError("Spieler nicht gefunden", 404);
     if (p.clubId === clubId) throw new GameError("Der Spieler gehört bereits zu deinem Verein.");
+    if (p.loan) throw new GameError("Der Spieler ist ausgeliehen und steht erst nach der Saison zur Verfügung.");
     const window = transferWindow(career.week, career.season_weeks);
     if (p.clubId !== null && !window.open) throw new GameError("Das Transferfenster ist geschlossen. Vereinslose Spieler kannst du jederzeit verpflichten.");
     const buyer = (await getClub(db, career.id, clubId))!;
@@ -262,6 +263,7 @@ export async function toggleTransferList(careerId: string, accountId: string, pl
     const clubId = requireClub(career);
     const p = await getPlayer(db, career.id, playerId);
     if (!p || p.clubId !== clubId) throw new GameError("Spieler nicht in deinem Kader.");
+    if (p.loan) throw new GameError("Leihspieler kannst du nicht auf die Transferliste setzen.");
     p.listed = !p.listed;
     if (p.listed) p.morale = Math.max(5, p.morale - 10);
     await savePlayers(db, career.id, [p]);
@@ -275,6 +277,7 @@ export async function releasePlayer(careerId: string, accountId: string, playerI
     const clubId = requireClub(career);
     const p = await getPlayer(db, career.id, playerId);
     if (!p || p.clubId !== clubId) throw new GameError("Spieler nicht in deinem Kader.");
+    if (p.loan) throw new GameError("Leihspieler kannst du nicht entlassen.");
     const squad = await getPlayers(db, career.id, [clubId]);
     if (squad.length <= 16) throw new GameError("Du brauchst mindestens 16 Spieler im Kader.");
     const weeksLeft = ((p.contract?.untilSeason ?? career.season) - career.season) * career.season_weeks + (career.season_weeks - career.week);
@@ -311,6 +314,7 @@ export async function renewContract(careerId: string, accountId: string, playerI
     const clubId = requireClub(career);
     const p = await getPlayer(db, career.id, playerId);
     if (!p || p.clubId !== clubId) throw new GameError("Spieler nicht in deinem Kader.");
+    if (p.loan) throw new GameError("Den Vertrag eines Leihspielers verlängert sein Stammverein.");
     const club = (await getClub(db, career.id, clubId))!;
     const squad = await getPlayers(db, career.id, [clubId]);
     const demand = renewalDemand(p, club.reputation, squadRanks(squad).get(p.id) ?? 20);
@@ -475,15 +479,13 @@ export async function acceptJob(careerId: string, accountId: string, clubId: num
     const league = (await getLeague(db, career.id, club.league_id))!;
     if (!league.active) await activateLeague(db, career, league.id);
     const fresh = (await getClub(db, career.id, clubId))!;
-    const oldWeeks = career.season_weeks;
     career.club_id = clubId;
     career.status = "active";
     career.job_offers = [];
-    career.season_weeks = roundsFor(league.size);
-    if (career.season_weeks !== oldWeeks) {
-      await query(db, "delete from fixtures where career_id = $1 and season = $2", [career.id, career.season]);
-      await scheduleSeason(db, career);
-    }
+    // Neuer Verein: Kalender (Spieltage und Pokal) neu planen
+    await query(db, "delete from fixtures where career_id = $1 and season = $2", [career.id, career.season]);
+    await query(db, "delete from cups where career_id = $1 and season = $2", [career.id, career.season]);
+    await scheduleSeason(db, career);
     career.board = await boardObjectives(db, career, fresh, league);
     career.board.confidence = 60;
     await saveCareer(db, career);
@@ -502,3 +504,86 @@ export async function markInboxRead(careerId: string, accountId: string, ids: nu
 }
 
 export { askingPrice, getClubs };
+
+// ---------------------------------------------------------------- Leihgeschäfte
+
+function removeFromTactic(club: ClubRow, playerId: number) {
+  if (!club.tactic) return;
+  club.tactic.lineup = club.tactic.lineup.map((id) => (id === playerId ? null : id));
+  club.tactic.bench = club.tactic.bench.filter((id) => id !== playerId);
+}
+
+/** Spieler bis Saisonende ausleihen; wageShare = Anteil am Gehalt, den du übernimmst. */
+export async function loanIn(careerId: string, accountId: string, playerId: number, wageShare: number) {
+  return withCareer(careerId, accountId, async (db, career) => {
+    const clubId = requireClub(career);
+    if (!transferWindow(career.week, career.season_weeks).open) throw new GameError("Leihen sind nur im Transferfenster möglich.");
+    const p = await getPlayer(db, career.id, playerId);
+    if (!p || p.clubId === null || p.clubId === clubId) throw new GameError("Dieser Spieler kann nicht ausgeliehen werden.");
+    if (p.loan) throw new GameError("Der Spieler ist bereits ausgeliehen.");
+    const share = Math.max(0, Math.min(1, Math.round(wageShare * 100) / 100));
+    const parent = (await getClub(db, career.id, p.clubId))!;
+    const me = (await getClub(db, career.id, clubId))!;
+    const squad = await getPlayers(db, career.id, [parent.id]);
+    const own = await getPlayers(db, career.id, [clubId]);
+    if (own.length >= 32) throw new GameError("Dein Kader ist voll (max. 32 Spieler).");
+    const rank = squadRanks(squad).get(p.id) ?? 30;
+    // Stammverein gibt nur Ergänzungsspieler oder Talente ab
+    if (rank <= 11 && p.age > 21) return { status: "rejected", message: `${parent.name} gibt einen Stammspieler nicht ab.` };
+    const minShare = rank > 16 ? 0.5 : p.age <= 21 ? 0.6 : 0.8;
+    if (share < minShare) return { status: "countered", message: `${parent.name} verlangt, dass du mindestens ${Math.round(minShare * 100)} % des Gehalts übernimmst.`, minShare };
+    if (me.reputation < parent.reputation - 30) return { status: "rejected", message: `${p.lastName} möchte nicht zu einem deutlich kleineren Verein wechseln.` };
+    removeFromTactic(parent, p.id);
+    await saveClubs(db, career.id, [parent]);
+    p.clubId = clubId;
+    p.listed = false;
+    p.loan = { parentClubId: parent.id, untilSeason: career.season, wageShare: share };
+    p.morale = Math.min(100, p.morale + 5);
+    await savePlayers(db, career.id, [p]);
+    await query(
+      db,
+      `insert into transfers(career_id, player_id, player_name, from_club, to_club, fee, wage, years, kind, status, season, week, message)
+       values ($1,$2,$3,$4,$5,0,$6,0,'loan','completed',$7,$8,$9)`,
+      [career.id, p.id, `${p.firstName} ${p.lastName}`, parent.id, clubId, Math.round((p.contract?.wage ?? 0) * share), career.season, career.week, `Leihe bis Saisonende (${Math.round(share * 100)} % Gehalt)`],
+    );
+    const notes: RewardNote[] = [];
+    completeMission(career, "sign_player", notes);
+    await saveCareer(db, career);
+    await addInbox(db, career.id, career.season, career.week, "transfer", `Leihe: ${p.firstName} ${p.lastName}`,
+      `${p.firstName} ${p.lastName} wechselt bis Saisonende von ${parent.name} zu ${me.name}. Du übernimmst ${Math.round(share * 100)} % des Gehalts (${formatMoney(Math.round((p.contract?.wage ?? 0) * share))} pro Woche).`);
+    return { status: "completed", message: `${p.firstName} ${p.lastName} ist bis Saisonende ausgeliehen.`, notes };
+  });
+}
+
+/** Eigenen Spieler verleihen: ein passender Verein übernimmt ihn bis Saisonende. */
+export async function loanOut(careerId: string, accountId: string, playerId: number) {
+  return withCareer(careerId, accountId, async (db, career) => {
+    const clubId = requireClub(career);
+    if (!transferWindow(career.week, career.season_weeks).open) throw new GameError("Leihen sind nur im Transferfenster möglich.");
+    const p = await getPlayer(db, career.id, playerId);
+    if (!p || p.clubId !== clubId) throw new GameError("Spieler nicht in deinem Kader.");
+    if (p.loan) throw new GameError("Leihspieler kannst du nicht weiterverleihen.");
+    const own = await getPlayers(db, career.id, [clubId]);
+    if (own.length <= 18) throw new GameError("Du brauchst mindestens 18 Spieler im Kader.");
+    const me = (await getClub(db, career.id, clubId))!;
+    const candidates = await getClubs(db, career.id, "players_generated and id <> $2 and abs(rating - $3) <= 8 and reputation <= $4", [clubId, p.rating, me.reputation + 5]);
+    if (!candidates.length) return { status: "rejected", message: `Kein Verein hat Interesse an einer Leihe von ${p.lastName}.` };
+    const rng = new Rng(seedFor(career.seed, "loan-out", p.id, career.season, career.week));
+    // Bevorzugt Vereine, bei denen der Spieler Stammspieler wäre
+    const target = candidates.sort((a, b) => Math.abs(a.rating - (p.rating - 2)) - Math.abs(b.rating - (p.rating - 2)))[rng.int(0, Math.min(2, candidates.length - 1))];
+    const share = Math.round(rng.range(0.5, 1) * 20) / 20;
+    removeFromTactic(me, p.id);
+    await saveClubs(db, career.id, [me]);
+    p.clubId = target.id;
+    p.listed = false;
+    p.loan = { parentClubId: clubId, untilSeason: career.season, wageShare: share };
+    await savePlayers(db, career.id, [p]);
+    await query(
+      db,
+      `insert into transfers(career_id, player_id, player_name, from_club, to_club, fee, wage, years, kind, status, season, week, message)
+       values ($1,$2,$3,$4,$5,0,$6,0,'loan_out','completed',$7,$8,$9)`,
+      [career.id, p.id, `${p.firstName} ${p.lastName}`, clubId, target.id, Math.round((p.contract?.wage ?? 0) * share), career.season, career.week, `Verliehen an ${target.name}`],
+    );
+    return { status: "completed", message: `${p.firstName} ${p.lastName} wird bis Saisonende an ${target.name} verliehen. ${target.name} übernimmt ${Math.round(share * 100)} % des Gehalts.` };
+  });
+}

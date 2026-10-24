@@ -47,6 +47,7 @@ export interface PendingMatch {
   side: 0 | 1;
   state: unknown;
   half: 1 | 2;
+  aiHalftimeDone?: boolean;
 }
 
 export interface JobOffer {
@@ -104,6 +105,10 @@ export interface FixtureRow {
   home_goals: number | null;
   away_goals: number | null;
   played: boolean;
+  cup_id: number | null;
+  cup_round: number | null;
+  pen_home: number | null;
+  pen_away: number | null;
 }
 
 export async function getCareer(db: Db, careerId: string, accountId?: string): Promise<CareerRow | null> {
@@ -239,8 +244,16 @@ export async function insertFixtures(
   }
 }
 
-export async function saveFixtureResults(db: Db, careerId: string, results: { id: number; home: number; away: number }[]) {
+export async function saveFixtureResults(db: Db, careerId: string, results: { id: number; home: number; away: number; penHome?: number; penAway?: number }[]) {
   if (!results.length) return;
+  const pens = results.filter((r) => r.penHome !== undefined);
+  if (pens.length) {
+    await query(
+      db,
+      `update fixtures f set pen_home = t.h, pen_away = t.a from unnest($2::bigint[], $3::int[], $4::int[]) as t(id, h, a) where f.career_id = $1 and f.id = t.id`,
+      [careerId, pens.map((r) => r.id), pens.map((r) => r.penHome), pens.map((r) => r.penAway)],
+    );
+  }
   await query(
     db,
     `update fixtures f set home_goals = t.h, away_goals = t.a, played = true

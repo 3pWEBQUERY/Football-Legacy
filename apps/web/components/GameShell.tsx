@@ -23,8 +23,8 @@ const NAV = [
   { key: "office", label: "Büro", icon: "office", href: "", subs: [{ href: "", label: "Übersicht & Posteingang" }] },
   { key: "team", label: "Team", icon: "team", href: "/team", subs: [{ href: "/team", label: "Kader" }, { href: "/team/tactic", label: "Taktik" }, { href: "/team/training", label: "Training & Stab" }] },
   { key: "market", label: "Transfers", icon: "transfer", href: "/market", subs: [{ href: "/market", label: "Spielersuche" }, { href: "/market/contracts", label: "Verträge" }, { href: "/market/finances", label: "Finanzen" }] },
-  { key: "competition", label: "Wettbewerb", icon: "trophy", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/stats", label: "Statistiken" }] },
-  { key: "career", label: "Karriere", icon: "star", href: "/career", subs: [{ href: "/career", label: "Manager" }, { href: "/career/collection", label: "Sammlung & Shop" }, { href: "/career/leaderboards", label: "Ranglisten" }] },
+  { key: "competition", label: "Wettbewerb", icon: "trophy", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/cup", label: "Pokal" }, { href: "/competition/stats", label: "Statistiken" }] },
+  { key: "career", label: "Karriere", icon: "star", href: "/career", subs: [{ href: "/career", label: "Manager" }, { href: "/career/review", label: "Saisonrückblick" }, { href: "/career/collection", label: "Sammlung & Shop" }, { href: "/career/leaderboards", label: "Ranglisten" }] },
 ];
 
 function activeSection(path: string, base: string) {
@@ -168,7 +168,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
                 <Crest colors={(d.next.home.id === c?.clubId ? d.next.away : d.next.home).colors} name={(d.next.home.id === c?.clubId ? d.next.away : d.next.home).name} size={22} />
                 <div style={{ minWidth: 0 }}>
                   <div className="truncate" style={{ fontWeight: 600 }}>{(d.next.home.id === c?.clubId ? d.next.away : d.next.home).name}</div>
-                  <div className="faint small">{d.next.home.id === c?.clubId ? "Heim" : "Auswärts"} · {d.next.week}. Spieltag</div>
+                  <div className="faint small truncate">{d.next.home.id === c?.clubId ? "Heim" : "Auswärts"} · {d.next.competition?.kind === "cup" ? "Pokal" : `${d.next.round}. Spieltag`}</div>
                 </div>
               </Link>
             </>

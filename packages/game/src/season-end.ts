@@ -10,6 +10,7 @@ import { type CareerRow, type FixtureRow, type JobOffer, type LeagueRow, addFina
 import { type RewardNote, announceNotes, awardCard, grantXp, unlockAchievement } from "./rewards";
 import { type WorldState, loadWorld, movePlayer, removePlayer, squadOf } from "./world-state";
 import { persistWorld } from "./week";
+import { buildReview, saveReview, type SeasonReview } from "./review";
 
 export interface SeasonSummary {
   season: number;
@@ -50,6 +51,33 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   const champion = position === 1;
   const promoted = !!userLeague && userLeague.tier > 1 && position > 0 && position <= userLeague.promotion;
   const relegated = !!userLeague && userLeague.relegation > 0 && position > userLeague.size - userLeague.relegation;
+
+  // Saisonrückblick der eigenen Liga (vor Auf- und Abstieg, solange die Statistiken stehen)
+  let review: SeasonReview | null = null;
+  if (userClub && userLeague) {
+    const rows = computeStandings(
+      [...w.clubs.values()].filter((c) => c.league_id === userLeague.id).map((c) => c.id),
+      (byLeague.get(userLeague.id) ?? []).map((f) => ({ homeId: f.home_id, awayId: f.away_id, homeGoals: f.home_goals, awayGoals: f.away_goals, round: f.round })),
+    );
+    const cupInfo = await query<{ id: number; rounds: { round: number; name: string }[]; winner_club_id: number | null }>(db, "select id, rounds, winner_club_id from cups where career_id = $1 and season = $2", [career.id, career.season]);
+    let userCup: string | null = null;
+    if (cupInfo[0]) {
+      const cf = await query<FixtureRow>(db, "select * from fixtures where career_id = $1 and cup_id = $2 and $3 in (home_id, away_id) order by cup_round desc limit 1", [career.id, cupInfo[0].id, userClub.id]);
+      userCup = cupInfo[0].winner_club_id === userClub.id ? "Pokalsieger" : cf[0] ? cupInfo[0].rounds.find((r) => r.round === cf[0].cup_round)?.name ?? null : null;
+    }
+    const cupWinnerName = cupInfo[0]?.winner_club_id ? w.clubs.get(cupInfo[0].winner_club_id)?.name ?? null : null;
+    review = buildReview(w, career.season, userLeague.id, rows, userClub.id, cupWinnerName, userCup);
+    await saveReview(db, career.id, review);
+    // Auszeichnungen für eigene Spieler heben die Moral
+    for (const a of review.awards) {
+      if (!a.entry?.own) continue;
+      const p = w.players.get(a.entry.playerId);
+      if (p) {
+        p.morale = Math.min(100, p.morale + 10);
+        w.dirtyPlayers.add(p.id);
+      }
+    }
+  }
 
   // Meister der aktiven Ligen für die News
   const champions = [...w.leagues.values()]
@@ -105,10 +133,18 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   const pts = userClub ? pointsOf.get(userClub.id) : undefined;
   let objectiveMet = false;
   let dismissed = false;
+  // Abschneiden im Pokal
+  let cupResult: string | undefined;
+  const cupRow = await query<{ id: number; rounds: { round: number; name: string }[]; winner_club_id: number | null }>(db, "select id, rounds, winner_club_id from cups where career_id = $1 and season = $2", [career.id, career.season]);
+  if (cupRow[0] && career.club_id) {
+    const cf = await query<FixtureRow>(db, "select * from fixtures where career_id = $1 and cup_id = $2 and $3 in (home_id, away_id) order by cup_round desc limit 1", [career.id, cupRow[0].id, career.club_id]);
+    if (cupRow[0].winner_club_id === career.club_id) cupResult = "Pokalsieger";
+    else if (cf[0]) cupResult = cupRow[0].rounds.find((r) => r.round === cf[0].cup_round)?.name;
+  }
   if (userClub && userLeague && pts) {
     m.history.push({
       season: career.season, clubName: userClub.name, leagueName: userLeague.name, position, points: pts.points,
-      played: pts.played, champion, promoted, relegated,
+      played: pts.played, champion, promoted, relegated, cup: cupResult,
     });
     await query(
       db,
@@ -142,6 +178,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   // Spieler: Saisonbilanz, Alterung, Rücktritte, Verträge
   const newSeason = career.season + 1;
   const retired: string[] = [];
+  const loansEnded: string[] = [];
   const released: string[] = [];
   for (const p of [...w.players.values()]) {
     const club = p.clubId !== null ? w.clubs.get(p.clubId) : undefined;
@@ -162,6 +199,13 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
       if (p.clubId === career.club_id) retired.push(`${p.firstName} ${p.lastName} (${p.age})`);
       removePlayer(w, p);
       continue;
+    }
+    // Leihen enden mit der Saison: zurück zum Stammverein
+    if (p.loan && p.loan.untilSeason <= career.season) {
+      const parentId = p.loan.parentClubId;
+      if (p.clubId === career.club_id || parentId === career.club_id) loansEnded.push(`${p.firstName} ${p.lastName}`);
+      p.loan = null;
+      movePlayer(w, p, w.clubs.has(parentId) ? parentId : null);
     }
     if (p.contract && p.contract.untilSeason < newSeason && p.clubId !== null) {
       if (p.clubId === career.club_id) {
@@ -233,7 +277,6 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   career.week = 0;
   const newUserClub = career.club_id ? w.clubs.get(career.club_id) : undefined;
   const newUserLeague = newUserClub ? w.leagues.get(newUserClub.league_id) : undefined;
-  career.season_weeks = newUserLeague ? roundsFor(newUserLeague.size) : career.season_weeks;
   await scheduleSeason(db, career);
   if (newUserClub && newUserLeague && !dismissed) {
     const conf = career.board.confidence;
@@ -251,6 +294,17 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
         `\nNeues Saisonziel: ${career.board.objective}`) +
       `\n\nMeister der Topligen: ${champions.slice(0, 8).map((c) => `${c.clubName} (${c.leagueName})`).join(", ")}`,
   );
+  if (review) {
+    const own = review.awards.filter((a) => a.entry?.own);
+    await addInbox(db, career.id, newSeason, 0, "news", `Saisonrückblick ${review.season}`,
+      review.awards.map((a) => `${a.title}: ${a.entry ? `${a.entry.name} (${a.entry.clubName}, ${a.entry.value})` : "–"}`).join("\n") +
+        (own.length ? `\n\nGlückwunsch: ${own.length} Auszeichnung(en) gehen an deine Spieler.` : "") +
+        "\n\nDen ganzen Rückblick findest du unter Karriere → Saisonrückblick.");
+  }
+  if (loansEnded.length) {
+    await addInbox(db, career.id, newSeason, 0, "transfer", "Leihgeschäfte beendet",
+      `Diese Leihen sind mit dem Saisonende ausgelaufen:\n${loansEnded.map((n) => `• ${n}`).join("\n")}`);
+  }
   if (retired.length || released.length) {
     await addInbox(db, career.id, newSeason, 0, "contract", "Kaderveränderungen zum Saisonwechsel",
       (retired.length ? `Karriereende:\n${retired.map((r) => `• ${r}`).join("\n")}\n\n` : "") +

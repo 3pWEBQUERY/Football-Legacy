@@ -11,3 +11,4 @@ export * from "./progression";
 export * from "./economy";
 export * from "./transfers";
 export * from "./gamification";
+export * from "./cup";

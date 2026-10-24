@@ -2,7 +2,7 @@
 import {
   ACHIEVEMENTS, ALL_ATTRS, CARD_PACK, COUNTRIES, COUNTRY_BY_CODE, FINANCE_LABEL, FORMATIONS, LEVEL_TITLES, MISSIONS, ROLES,
   Rng, SKINS, STYLE_LABEL, STYLE_PRESETS, UNLOCKS, askingPrice, computeStandings, flagEmoji, formatMoney, isUnlocked,
-  ratingAt, seedFor, squadRanks, streakReward, titleForLevel, transferWindow, validateTactic, xpForLevel,
+  ratingAt, seedFor, squadRanks, streakReward, titleForLevel, transferWindow, validateTactic, wageBill, xpForLevel,
   type Player, type Position,
 } from "@fl/sim";
 import { one, pool, query } from "./db";
@@ -32,7 +32,7 @@ export function playerView(p: Player, knowledge: Knowledge, extra: Record<string
     nationality: p.nationality, flag: flagEmoji(p.nationality), position: p.position, altPositions: p.altPositions,
     foot: p.foot, archetype: p.archetype, form: p.form, fitness: p.fitness, morale: p.morale, value: p.value,
     contract: p.contract, injuryWeeks: p.injuryWeeks, suspendedWeeks: p.suspendedWeeks, stats: p.stats, listed: p.listed,
-    youth: p.youth, clubId: p.clubId, history: p.history ?? [], knowledge, ...extra,
+    youth: p.youth, clubId: p.clubId, history: p.history ?? [], loan: p.loan ?? null, knowledge, ...extra,
   };
   if (knowledge === "exact") {
     return { ...base, rating: p.rating, potential: p.potential, wonderkid: p.wonderkid, attrs: p.attrs, ratingRange: [p.rating, p.rating], attrRanges: null };
@@ -127,14 +127,18 @@ export async function dashboard(careerId: string, accountId: string) {
     const s = await standings(career, league.id);
     const pos = s.rows.findIndex((r) => r.clubId === club.id);
     table = s.rows.slice(Math.max(0, Math.min(pos - 3, s.rows.length - 7)), Math.max(7, pos + 4));
-    recent = s.fixtures
-      .filter((f) => f.played && (f.home_id === club.id || f.away_id === club.id))
-      .sort((a, b) => b.week - a.week)
-      .slice(0, 5)
-      .map((f) => ({
-        fixtureId: f.id, week: f.week, home: f.home_id === club.id, opponent: s.clubs.get(f.home_id === club.id ? f.away_id : f.home_id)?.name,
-        goalsFor: f.home_id === club.id ? f.home_goals : f.away_goals, goalsAgainst: f.home_id === club.id ? f.away_goals : f.home_goals,
-      }));
+    const own = await query<FixtureRow & { opponent: string }>(
+      pool(),
+      `select f.*, o.name as opponent from fixtures f join clubs o on o.id = case when f.home_id = $3 then f.away_id else f.home_id end
+        where f.career_id = $1 and f.season = $2 and f.played and $3 in (f.home_id, f.away_id) order by f.week desc limit 5`,
+      [career.id, career.season, club.id],
+    );
+    recent = own.map((f) => ({
+      fixtureId: f.id, week: f.week, home: f.home_id === club.id, opponent: f.opponent, cup: !!f.cup_id,
+      goalsFor: f.home_id === club.id ? f.home_goals : f.away_goals, goalsAgainst: f.home_id === club.id ? f.away_goals : f.home_goals,
+      pens: f.pen_home !== null ? (f.home_id === club.id ? `${f.pen_home}:${f.pen_away}` : `${f.pen_away}:${f.pen_home}`) : null,
+      won: f.pen_home !== null ? (f.home_id === club.id ? f.pen_home! > f.pen_away! : f.pen_away! > f.pen_home!) : null,
+    }));
   }
   const offers = await query(pool(), "select * from transfers where career_id = $1 and kind = 'offer_in' and status = 'pending' order by id desc", [career.id]);
   ensureMissions(career);
@@ -193,13 +197,30 @@ export async function squadView(careerId: string, accountId: string) {
   const club = (await getClub(pool(), career.id, career.club_id))!;
   const players = await getPlayers(pool(), career.id, [club.id]);
   const ranks = squadRanks(players);
+  const out = await loanedOut(career.id, club.id);
+  const parentIds = [...new Set(players.map((p) => p.loan?.parentClubId).filter((x): x is number => !!x))];
+  const names = await clubNames(career.id, [...parentIds, ...out.map((p) => p.clubId!)]);
   return {
     career: careerSummary(career),
     club: { ...clubSummary(club), balance: club.balance, transferBudget: club.transfer_budget },
     players: players
       .sort((a, b) => positionOrder(a.position) - positionOrder(b.position) || b.rating - a.rating)
-      .map((p) => playerView(p, "exact", { squadRank: ranks.get(p.id) })),
+      .map((p) => playerView(p, "exact", { squadRank: ranks.get(p.id), loanFrom: p.loan ? names.get(p.loan.parentClubId) ?? null : null })),
+    loanedOut: out.map((p) => playerView(p, "exact", { loanTo: names.get(p.clubId!) ?? null })),
   };
+}
+
+/** Eigene Spieler, die derzeit an andere Vereine verliehen sind. */
+async function loanedOut(careerId: string, clubId: number): Promise<Player[]> {
+  const rows = await query<{ data: Player; club_id: number | null }>(pool(),
+    "select data, club_id from players where career_id = $1 and (data->'loan'->>'parentClubId')::int = $2", [careerId, clubId]);
+  return rows.map((r) => ({ ...r.data, clubId: r.club_id }));
+}
+
+async function clubNames(careerId: string, ids: number[]): Promise<Map<number, string>> {
+  if (!ids.length) return new Map();
+  const rows = await query<{ id: number; name: string }>(pool(), "select id, name from clubs where career_id = $1 and id = any($2::int[])", [careerId, ids]);
+  return new Map(rows.map((r) => [r.id, r.name]));
 }
 
 const ORDER: Position[] = ["GK", "DR", "DC", "DL", "DM", "MR", "MC", "ML", "AMR", "AMC", "AML", "ST"];
@@ -257,6 +278,8 @@ export async function playerDetail(careerId: string, accountId: string, playerId
     window: transferWindow(career.week, career.season_weeks),
     scoutLimit: scoutLimit(career),
     budget: userClub?.transfer_budget ?? 0,
+    loanParent: p.loan ? (await clubNames(career.id, [p.loan.parentClubId])).get(p.loan.parentClubId) ?? null : null,
+    loanedOutByUser: !!p.loan && p.loan.parentClubId === career.club_id,
   };
 }
 
@@ -426,7 +449,7 @@ export async function financeView(careerId: string, accountId: string) {
   const recent = await query(pool(),
     "select week, kind, amount, label from finance_log where career_id = $1 and club_id = $2 order by id desc limit 40", [career.id, club.id]);
   const players = await getPlayers(pool(), career.id, [club.id]);
-  const wages = players.reduce((s, p) => s + (p.contract?.wage ?? 0), 0);
+  const wages = wageBill(players, await loanedOut(career.id, club.id));
   // Kontostandsverlauf rückwärts rekonstruieren
   let running = club.balance;
   const balanceSeries: { week: number; balance: number }[] = [];

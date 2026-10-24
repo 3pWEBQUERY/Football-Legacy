@@ -13,7 +13,7 @@ export interface ManagerProfile {
   winStreak: number;
   unbeaten: number;
   bestWinStreak: number;
-  totals: { wins: number; draws: number; losses: number; goals: number; conceded: number; titles: number; promotions: number; seasons: number; youthDebuts: number; signings: number; bigSigning: number };
+  totals: { wins: number; draws: number; losses: number; goals: number; conceded: number; titles: number; promotions: number; seasons: number; youthDebuts: number; signings: number; bigSigning: number; cups?: number };
   missions: { date: string; items: MissionState[] };
   cards: CollectedCard[];
   skins: string[];
@@ -23,6 +23,7 @@ export interface ManagerProfile {
   history: SeasonRecord[];
   autoSubs?: boolean;
   streakRewardDay?: string;
+  pressDone?: number;
 }
 
 export interface SeasonRecord {
@@ -35,6 +36,7 @@ export interface SeasonRecord {
   champion: boolean;
   promoted: boolean;
   relegated: boolean;
+  cup?: string;
 }
 
 export interface CollectedCard {
@@ -147,6 +149,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "big_signing", name: "Königstransfer", description: "Verpflichte einen Spieler für mindestens 10 Mio. €.", icon: "💰", xp: 150, points: 60 },
   { id: "season_done", name: "Saison überstanden", description: "Schliesse deine erste Saison ab.", icon: "📅", xp: 100, points: 50 },
   { id: "promotion", name: "Aufstieg!", description: "Steige mit deinem Verein auf.", icon: "📈", xp: 400, points: 150 },
+  { id: "cup_winner", name: "Pokalsieger", description: "Gewinne den Landespokal.", icon: "cup", xp: 450, points: 180 },
   { id: "champion", name: "Meister", description: "Gewinne eine Meisterschaft.", icon: "🏆", xp: 600, points: 250 },
   { id: "double_champion", name: "Titelverteidiger", description: "Werde zweimal Meister.", icon: "👑", xp: 800, points: 300 },
   { id: "objective_met", name: "Vorstand zufrieden", description: "Erfülle das Saisonziel des Vorstands.", icon: "✅", xp: 200, points: 80 },

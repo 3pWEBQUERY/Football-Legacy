@@ -8,12 +8,15 @@ import { useGame } from "@/components/GameShell";
 import { MatchCanvas } from "@/components/MatchCanvas";
 import { RatingList, StatRows } from "@/components/MatchStats";
 import { WeekSummaryView } from "@/components/WeekSummary";
+import { PressConference } from "@/components/PressConference";
 import { Crest, EventIcon, Icon, Loading, Panel, Pos, Progress, useNotes, useToast } from "@/components/ui";
 
-type Phase = "preview" | "loading" | "play1" | "halftime" | "play2" | "fulltime";
+type Phase = "preview" | "loading" | "live" | "halftime" | "fulltime";
 const SPEEDS = [{ label: "1×", tps: 4 }, { label: "2×", tps: 9 }, { label: "4×", tps: 20 }];
 const HIGHLIGHT = new Set(["goal", "penalty_goal", "own_goal", "penalty_miss", "save", "miss", "red"]);
 const STYLE_KEYS: [string, string][] = [["tempo", "Tempo"], ["risk", "Risiko"], ["pressing", "Pressing"], ["defensiveLine", "Abwehrlinie"], ["width", "Breite"], ["passLength", "Passlänge"], ["hardness", "Härte"]];
+const HALF = 270;
+const END = 540;
 
 export default function MatchDay() {
   const { id, shell } = useGame();
@@ -23,18 +26,24 @@ export default function MatchDay() {
   const [phase, setPhase] = useState<Phase>("preview");
   const [preview, setPreview] = useState<any | null>(null);
   const [m, setM] = useState<any | null>(null); // Präsentation (Teams, Seite, Aufstellungsverlauf)
-  const [frames, setFrames] = useState<number[][]>([]);
+  const [frames, setFrames] = useState<number[][]>([]); // Index = Tick
   const [events, setEvents] = useState<any[]>([]);
   const [playhead, setPlayhead] = useState(0);
-  const [endTick, setEndTick] = useState(270);
   const [speed, setSpeed] = useState(1);
   const [paused, setPaused] = useState(false);
   const [change, setChange] = useState<any>({ style: {}, subs: [] });
   const [subSlot, setSubSlot] = useState<number | null>(null);
   const [final, setFinal] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
+  const [talk, setTalk] = useState(false); // Eingreifen-Dialog während des Spiels
+  const [secondHalf, setSecondHalf] = useState(false);
+  const [applyFrom, setApplyFrom] = useState<number | null>(null);
+  const inflight = useRef(false);
+  const queued = useRef<any | null>(null);
   const raf = useRef<number | null>(null);
   const last = useRef<number | null>(null);
+  const bufferEnd = frames.length - 1;
+  const serverDone = !!final && !final.quick;
 
   useEffect(() => {
     api<any>(`careers/${id}/match/preview`).then((r) => {
@@ -44,28 +53,66 @@ export default function MatchDay() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  function resetChange(team: any) {
+    setChange({ style: { ...team.style }, subs: [], autoSubs: change.autoSubs ?? shell?.career?.autoSubs ?? true });
+  }
+
+  /** Übernimmt eine Server-Antwort in den Puffer. */
+  function absorb(r: any) {
+    setFrames((old) => {
+      const next = old.length ? old.slice(0, r.fromTick + 1) : [];
+      while (next.length <= r.fromTick) next.push(r.frames[0]);
+      // start: frames beginnen bei fromTick; step: frames beginnen bei fromTick + 1
+      const add = r.frames.length && next.length === r.fromTick + 1 && old.length === 0 ? r.frames.slice(1) : r.frames;
+      return [...next, ...add];
+    });
+    setEvents(r.events);
+    setM((old: any) => ({ ...(old ?? {}), ...r, side: old?.side ?? r.side, formations: old?.formations ?? r.formations }));
+    if (r.done) setFinal(r);
+  }
+
   async function start() {
     setPhase("loading");
     try {
       const r = await api<any>(`careers/${id}/match/start`, { body: {} });
+      setFrames([]);
+      absorb(r);
       setM(r);
-      setEvents(r.events);
-      setChange({ style: { ...r.teams[r.side].style }, subs: [], autoSubs: shell?.career?.autoSubs ?? true });
-      if (r.frames.length) {
-        setFrames(r.frames);
-        setPlayhead(0);
-        setEndTick(270);
-        setPhase("play1");
-      } else {
-        // Seite neu geladen: direkt in die Kabine
-        setPhase("halftime");
-        setPlayhead(270);
-      }
+      resetChange(r.teams[r.side]);
+      setPlayhead(r.fromTick);
+      setSecondHalf(r.fromTick > HALF);
+      setPhase(r.fromTick === HALF ? "halftime" : "live");
     } catch (e) {
       toast((e as Error).message, "error");
       setPhase("preview");
     }
   }
+
+  /** Nächsten Abschnitt holen (optional mit Änderungen oder bis zu einem Tick). */
+  const step = useCallback(async (opts: { change?: any; until?: number } = {}) => {
+    if (inflight.current) {
+      if (opts.change) queued.current = opts.change;
+      return null;
+    }
+    inflight.current = true;
+    try {
+      const body: any = {};
+      const ch = opts.change ?? queued.current;
+      if (ch) body.change = ch;
+      queued.current = null;
+      if (opts.until !== undefined) body.until = opts.until;
+      const r = await api<any>(`careers/${id}/match/step`, { body });
+      absorb(r);
+      if (ch) setApplyFrom(null);
+      return r;
+    } catch (e) {
+      toast((e as Error).message, "error");
+      return null;
+    } finally {
+      inflight.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, toast]);
 
   async function quick() {
     setBusy(true);
@@ -82,38 +129,56 @@ export default function MatchDay() {
     }
   }
 
-  async function secondHalf() {
+  async function kickoffSecondHalf() {
     setBusy(true);
-    try {
-      const body = { ...change, style: change.style };
-      const r = await api<any>(`careers/${id}/match/continue`, { body });
-      setFrames((f) => [...(f.length ? f : Array.from({ length: 271 }, () => r.frames[0])), ...r.frames]);
-      setEvents(r.events);
-      setM((old: any) => ({ ...old, ...r, side: old.side }));
-      setFinal(r);
-      setEndTick(540);
-      setPlayhead(271);
-      setPaused(false);
-      setPhase("play2");
-    } catch (e) {
-      toast((e as Error).message, "error");
-    } finally {
-      setBusy(false);
-    }
+    const r = await step({ change: cleanChange(change) });
+    setBusy(false);
+    if (!r) return;
+    setSecondHalf(true);
+    resetChange(r.teams[m.side]);
+    setPaused(false);
+    setPlayhead(HALF + 0.01);
+    setPhase("live");
   }
+
+  /** Eingreifen während des Spiels: gilt ab dem nächsten Abschnitt. */
+  async function applyLive() {
+    const ch = cleanChange(change);
+    setTalk(false);
+    setPaused(false);
+    setApplyFrom(bufferEnd);
+    toast(`Anweisungen greifen ab Minute ${Math.floor(bufferEnd / 6) + 1}.`, "success");
+    await step({ change: ch });
+  }
+
+  async function skip() {
+    const limit = playhead < HALF || (!secondHalf && bufferEnd <= HALF) ? HALF : END;
+    setBusy(true);
+    while (inflight.current) await new Promise((res) => setTimeout(res, 40));
+    const r = bufferEnd >= limit ? true : await step({ until: limit });
+    setBusy(false);
+    if (r) setPlayhead(limit);
+  }
+
+  // Puffer auffüllen: immer einen Abschnitt voraus
+  useEffect(() => {
+    if (phase !== "live" || serverDone || inflight.current || frames.length === 0) return;
+    const stopAtHalf = !secondHalf && bufferEnd >= HALF;
+    if (stopAtHalf) return;
+    if (playhead > bufferEnd - 24) step();
+  }, [phase, playhead, bufferEnd, secondHalf, serverDone, frames.length, step]);
 
   // Wiedergabe-Schleife
   const tickLoop = useCallback((ts: number) => {
     if (last.current === null) last.current = ts;
     const dt = Math.min(0.1, (ts - last.current) / 1000);
     last.current = ts;
-    setPlayhead((p) => Math.min(endTick, p + dt * SPEEDS[speed].tps));
+    setPlayhead((p) => Math.min(Math.max(bufferEnd, 0), p + dt * SPEEDS[speed].tps));
     raf.current = requestAnimationFrame(tickLoop);
-  }, [endTick, speed]);
+  }, [bufferEnd, speed]);
 
   useEffect(() => {
-    const playing = (phase === "play1" || phase === "play2") && !paused;
-    if (playing) {
+    if (phase === "live" && !paused && !talk) {
       last.current = null;
       raf.current = requestAnimationFrame(tickLoop);
     }
@@ -121,25 +186,29 @@ export default function MatchDay() {
       if (raf.current) cancelAnimationFrame(raf.current);
       raf.current = null;
     };
-  }, [phase, paused, tickLoop]);
+  }, [phase, paused, talk, tickLoop]);
 
   useEffect(() => {
-    if (phase === "play1" && playhead >= 270) setPhase("halftime");
-    if (phase === "play2" && playhead >= 540) {
+    if (phase !== "live") return;
+    if (!secondHalf && playhead >= HALF && bufferEnd >= HALF) {
+      setPhase("halftime");
+      if (m) resetChange(m.teams[m.side]);
+    }
+    if (serverDone && playhead >= END) {
       setPhase("fulltime");
       showNotes(final?.summary?.notes?.filter((n: any) => n.kind === "level" || n.kind === "achievement"));
       refreshAll();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playhead, phase]);
+  }, [playhead, phase, bufferEnd, serverDone, secondHalf]);
 
-  const visible = useMemo(() => events.filter((e) => e.tick + 0.5 <= playhead || phase === "fulltime" || phase === "halftime" && e.tick <= 270), [events, playhead, phase]);
+  const visible = useMemo(() => events.filter((e) => e.tick + 0.5 <= playhead || phase === "fulltime" || (phase === "halftime" && e.tick <= HALF)), [events, playhead, phase]);
   const score = useMemo(() => {
     const goals = visible.filter((e) => e.score).pop();
     return goals?.score ?? [0, 0];
   }, [visible]);
   const lastGoal = useMemo(() => [...visible].reverse().find((e) => e.type.includes("goal")), [visible]);
-  const flash = lastGoal && playhead - lastGoal.tick < 8 && phase.startsWith("play") ? "TOR!" : null;
+  const flash = lastGoal && playhead - lastGoal.tick < 8 && phase === "live" ? "TOR!" : null;
   const minute = Math.min(90, Math.floor(playhead / 6));
 
   const numbers = useMemo<[number[], number[]]>(() => {
@@ -169,7 +238,7 @@ export default function MatchDay() {
           <Link href={base} className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }}><Icon name="back" size={15} /> Büro</Link>
           {!preview ? <Loading /> : (
             <section className="card card-flush" style={{ ["--home" as string]: preview.home.colors.primary, ["--away" as string]: preview.away.colors.primary }}>
-              <div className="card-head"><h3><Icon name="calendar" size={15} /> Spieltag {preview.week} · Vorbericht</h3></div>
+              <div className="card-head"><h3><Icon name={preview.competition?.kind === "cup" ? "trophy" : "calendar"} size={15} /> {preview.competition?.label} · Vorbericht</h3></div>
               <div className="scoreboard" style={{ borderBottom: "1px solid var(--line)", minHeight: 110 }}>
                 <div className="team home"><Crest colors={preview.home.colors} name={preview.home.name} size={64} /><div><strong>{preview.home.name}</strong><div className="faint small">Heim · Stärke {preview.home.rating}</div></div></div>
                 <div className="center"><div className="score" style={{ fontSize: 28 }}>VS</div></div>
@@ -187,6 +256,7 @@ export default function MatchDay() {
               </div>
             </section>
           )}
+          {preview && <PressConference careerId={id} />}
         </div>
       </div>
     );
@@ -225,7 +295,7 @@ export default function MatchDay() {
       <div className="match-body">
         <div className="stack match-left">
           <Panel title="Statistik" icon="chart">
-            {phase === "play1" ? <p className="faint small">Die Statistik gibt es in der Halbzeitpause.</p> : <StatRows stats={phase === "fulltime" && final ? final.result.stats : statsAt(m, phase)} />}
+            {phase === "live" ? <p className="faint small">Die Statistik gibt es in der Halbzeitpause und nach dem Abpfiff.</p> : <StatRows stats={phase === "fulltime" && final ? final.result.stats : statsAt(m, phase)} />}
           </Panel>
           <Panel title={mine.short + " · Aufstellung"} icon="users" flush>
             <table className="table">
@@ -246,25 +316,32 @@ export default function MatchDay() {
           <div className="match-canvas-wrap">
             <MatchCanvas frames={frames} playhead={Math.min(playhead, frames.length - 1)} colors={colors} numbers={numbers} skin={skinDef} flash={flash} />
           </div>
-          {(phase === "play1" || phase === "play2") && (
+          {phase === "live" && !talk && (
             <div className="card row-wrap" style={{ padding: 8 }}>
               <button className="btn" onClick={() => setPaused((p) => !p)}><Icon name={paused ? "play" : "pause"} size={15} /> {paused ? "Weiter" : "Pause"}</button>
               <div className="seg">{SPEEDS.map((s, i) => <button key={s.label} className={speed === i ? "active" : ""} onClick={() => setSpeed(i)}>{s.label}</button>)}</div>
-              <button className="btn" onClick={() => setPlayhead(endTick)}><Icon name="fast" size={15} /> {phase === "play1" ? "Zur Halbzeit" : "Zum Abpfiff"}</button>
+              <button className="btn btn-primary" onClick={() => { setPaused(true); setTalk(true); if (m) resetChange(m.teams[m.side]); }}><Icon name="board" size={15} /> Eingreifen</button>
+              <button className="btn" disabled={busy} onClick={skip}><Icon name="fast" size={15} /> {secondHalf ? "Zum Abpfiff" : "Zur Halbzeit"}</button>
+              {applyFrom !== null && <span className="badge badge-blue">Neue Anweisungen ab Min. {Math.floor(applyFrom / 6) + 1}</span>}
               {highlights.length > 0 && <span className="faint small up ml-auto">Highlights</span>}
               {highlights.map((e, i) => (
-                <button key={i} className="btn btn-sm" title={e.text} onClick={() => { setPlayhead(Math.max(phase === "play2" ? 271 : 0, e.tick - 4)); setPaused(false); }}>
+                <button key={i} className="btn btn-sm" title={e.text} onClick={() => { setPlayhead(Math.max(secondHalf ? HALF + 1 : 0, e.tick - 4)); setPaused(false); }}>
                   <EventIcon type={e.type} /> {e.minute}'
                 </button>
               ))}
             </div>
           )}
 
-          {phase === "halftime" && (
+          {(phase === "halftime" || talk) && (
             <section className="card card-flush">
               <div className="card-head">
-                <h3><Icon name="board" size={15} /> Kabine · Halbzeitansprache</h3>
-                <button className="btn btn-primary" onClick={secondHalf} disabled={busy}><Icon name="whistle" size={15} /> {busy ? "Simuliere …" : "2. Halbzeit"}</button>
+                <h3><Icon name="board" size={15} /> {phase === "halftime" ? "Kabine · Halbzeitansprache" : `Eingreifen · Minute ${Math.floor(playhead / 6) + 1}`}</h3>
+                <div className="row" style={{ gap: 6 }}>
+                  {talk && <button className="btn btn-ghost" onClick={() => { setTalk(false); setPaused(false); }}>Abbrechen</button>}
+                  {phase === "halftime"
+                    ? <button className="btn btn-primary" onClick={kickoffSecondHalf} disabled={busy}><Icon name="whistle" size={15} /> {busy ? "Simuliere …" : "2. Halbzeit"}</button>
+                    : <button className="btn btn-primary" onClick={applyLive}><Icon name="check" size={15} /> Übernehmen</button>}
+                </div>
               </div>
               <div className="grid grid-2" style={{ alignItems: "start", padding: 14 }}>
                 <div className="stack">
@@ -321,7 +398,7 @@ export default function MatchDay() {
           {phase === "fulltime" && final && (
             <section className="card card-flush">
               <div className="card-head">
-                <h3><Icon name="whistle" size={15} /> {resultText(final.result, side)}</h3>
+                <h3><Icon name="whistle" size={15} /> {resultText(final.result, side, final.summary.cupResults?.find((x: any) => x.fixtureId === final.summary.userFixtureId))}</h3>
                 <Link className="btn btn-primary" href={base}>Zurück ins Büro</Link>
               </div>
               {final.summary.notes?.length > 0 && (
@@ -355,7 +432,7 @@ export default function MatchDay() {
 
 function statsAt(m: any, phase: Phase) {
   // Während der 1. Halbzeit zeigen wir den Stand zur Pause erst in der Kabine
-  if (phase === "play1") return [zero(), zero()];
+  if (phase === "live") return [zero(), zero()];
   return [m.teams[0].stats, m.teams[1].stats];
 }
 
@@ -363,9 +440,14 @@ function zero() {
   return { shots: 0, onTarget: 0, xg: 0, possession: 1, passes: 0, passesOk: 0, fouls: 0, corners: 0, yellow: 0, red: 0 };
 }
 
-function resultText(r: any, side: number) {
+function resultText(r: any, side: number, cupLine?: any) {
   const gf = side === 0 ? r.homeGoals : r.awayGoals;
   const ga = side === 0 ? r.awayGoals : r.homeGoals;
+  if (gf === ga && cupLine?.penHome !== undefined && cupLine?.penHome !== null) {
+    const pf = side === 0 ? cupLine.penHome : cupLine.penAway;
+    const pa = side === 0 ? cupLine.penAway : cupLine.penHome;
+    return `${pf > pa ? "Weiter im Elfmeterschiessen" : "Aus im Elfmeterschiessen"} · ${r.homeGoals}:${r.awayGoals} (${cupLine.penHome}:${cupLine.penAway} i.E.)`;
+  }
   if (gf > ga) return `Sieg! ${r.homeGoals}:${r.awayGoals}`;
   if (gf === ga) return `Unentschieden ${r.homeGoals}:${r.awayGoals}`;
   return `Niederlage ${r.homeGoals}:${r.awayGoals}`;
@@ -386,4 +468,14 @@ function similar(a: string, b: string) {
 function ink(hex: string) {
   const [r, g, b] = rgb(hex);
   return r * 0.299 + g * 0.587 + b * 0.114 > 160 ? "#111" : "#fff";
+}
+
+/** Nur echte Änderungen an den Server schicken. */
+function cleanChange(change: any) {
+  const out: any = {};
+  if (change.formation) out.formation = change.formation;
+  if (change.style && Object.keys(change.style).length) out.style = change.style;
+  if (change.subs?.length) out.subs = change.subs;
+  if (typeof change.autoSubs === "boolean") out.autoSubs = change.autoSubs;
+  return out;
 }

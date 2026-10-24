@@ -23,7 +23,7 @@ export default function Report() {
           <div className="center"><div className="score">{f.played ? `${f.home_goals} – ${f.away_goals}` : "– : –"}</div></div>
           <div className="team away"><strong className="truncate">{data.away.name}</strong><Crest colors={data.away.colors} name={data.away.name} size={40} /></div>
         </div>
-        <div className="faint small up" style={{ textAlign: "center", padding: "6px 0", borderTop: "1px solid var(--line)" }}>{f.week}. Spieltag · Abpfiff</div>
+        <div className="faint small up" style={{ textAlign: "center", padding: "6px 0", borderTop: "1px solid var(--line)" }}>{f.cup_id ? "Pokal" : `${f.round}. Spieltag`} · Abpfiff{f.pen_home !== null ? ` · ${f.pen_home}:${f.pen_away} im Elfmeterschiessen` : ""}</div>
       </div>
       {!r ? (
         <div className="card"><Empty>Für dieses Spiel gibt es keinen detaillierten Bericht.</Empty></div>

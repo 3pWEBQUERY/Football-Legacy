@@ -1,6 +1,6 @@
 /** Spieltag des Nutzers: Vorschau, erste Halbzeit, Halbzeitpause, zweite Halbzeit. */
 import {
-  FORMATIONS, HALF_TICK, TICKS, applyChange, createMatch, isUnlocked, result, seedFor, simulate, transferWindow,
+  FORMATIONS, HALF_TICK, TICKS, applyChange, createMatch, currentFrame, isUnlocked, result, seedFor, simulate, transferWindow,
   validateTactic, type MatchState, type Side, type TacticChange,
 } from "@fl/sim";
 import type pg from "pg";
@@ -46,7 +46,7 @@ export async function quickMatch(careerId: string, accountId: string): Promise<W
     ensurePlayable(career);
     if (career.pending_match) {
       // Laufendes Spiel zu Ende simulieren
-      return finishPending(db, career, {});
+      return finishPending(db, career);
     }
     const fixture = await nextUserFixture(db, career);
     if (!fixture) throw new GameError("Diese Woche hast du kein Spiel.");
@@ -101,28 +101,36 @@ function presentation(state: MatchState) {
   };
 }
 
+/** Länge eines Simulationsabschnitts: 30 Ticks = 5 Spielminuten. */
+const SEGMENT = 30;
+
+/**
+ * Anpfiff oder Fortsetzen: liefert den aktuellen Stand und – bei einem neuen
+ * Spiel – den ersten Abschnitt mit Positionsdaten.
+ */
 export async function startMatch(careerId: string, accountId: string) {
   return withCareer(careerId, accountId, async (db, career) => {
     ensurePlayable(career);
     let state: MatchState;
-    let frames: number[][] = [];
-    let fixtureId: number;
+    let frames: number[][];
+    let fromTick: number;
     if (career.pending_match) {
-      // Bereits angepfiffen (z. B. Seite neu geladen): Stand der Halbzeit liefern
       state = career.pending_match.state as MatchState;
-      fixtureId = career.pending_match.fixtureId;
+      fromTick = state.tick;
+      frames = [currentFrame(state)];
     } else {
       const f = await nextUserFixture(db, career);
       if (!f) throw new GameError("Diese Woche hast du kein Spiel.");
-      fixtureId = f.id;
       state = await buildMatch(db, career, f);
-      frames = simulate(state, HALF_TICK, { frames: true });
+      fromTick = 0;
+      frames = simulate(state, SEGMENT, { frames: true });
       career.pending_match = { fixtureId: f.id, side: sideOf(career, f), state, half: 1 };
       await saveCareer(db, career);
     }
     return {
-      fixtureId,
+      fixtureId: career.pending_match!.fixtureId,
       side: career.pending_match!.side,
+      fromTick,
       frames,
       events: state.events,
       ...presentation(state),
@@ -131,22 +139,41 @@ export async function startMatch(careerId: string, accountId: string) {
   });
 }
 
-/** Zweite Halbzeit mit den Änderungen aus der Kabine. */
-export async function continueMatch(careerId: string, accountId: string, change: TacticChange) {
+/**
+ * Nächster Abschnitt. Optional mit Taktik-/Personaländerungen, die ab dem
+ * aktuellen Serverstand gelten. Die Simulation stoppt immer zur Halbzeit.
+ */
+export async function stepMatch(careerId: string, accountId: string, input: { change?: TacticChange; until?: number }) {
   return withCareer(careerId, accountId, async (db, career) => {
     ensurePlayable(career);
-    if (!career.pending_match) throw new GameError("Kein laufendes Spiel.");
-    const state = career.pending_match.state as MatchState;
-    const side = career.pending_match.side;
-    const eventsBefore = state.events.length;
-    applyChange(state, side, sanitizeChange(change));
-    aiHalftime(state, side === 0 ? 1 : 0);
-    const frames = simulate(state, TICKS, { frames: true });
+    const pending = career.pending_match;
+    if (!pending) throw new GameError("Kein laufendes Spiel.");
+    const state = pending.state as MatchState;
+    const side = pending.side;
+    const fromTick = state.tick;
+    if (input.change) applyChange(state, side, sanitizeChange(input.change));
+    if (state.tick >= HALF_TICK && !pending.aiHalftimeDone) {
+      aiHalftime(state, side === 0 ? 1 : 0);
+      pending.aiHalftimeDone = true;
+    }
+    const limit = state.tick < HALF_TICK ? HALF_TICK : TICKS;
+    const wanted = typeof input.until === "number" && Number.isFinite(input.until) ? input.until : state.tick + SEGMENT;
+    const target = Math.max(state.tick + 1, Math.min(limit, Math.round(wanted)));
+    const frames = simulate(state, target, { frames: true });
     const view = presentation(state);
-    const newEvents = state.events.slice(eventsBefore);
-    const summary = await finishPending(db, career, {}, state);
-    return { frames, events: state.events, newEvents, ...view, summary, result: result(state) };
+    if (state.finished) {
+      const summary = await finishPending(db, career, state);
+      return { fromTick, frames, events: state.events, ...view, done: true as const, summary, result: result(state) };
+    }
+    pending.half = state.tick >= HALF_TICK ? 2 : 1;
+    await saveCareer(db, career);
+    return { fromTick, frames, events: state.events, ...view, done: false as const };
   });
+}
+
+/** Kompatibilität: zweite Halbzeit in einem Schritt bis zum Abpfiff. */
+export async function continueMatch(careerId: string, accountId: string, change: TacticChange) {
+  return stepMatch(careerId, accountId, { change, until: TICKS });
 }
 
 function sanitizeChange(change: TacticChange): TacticChange {
@@ -173,12 +200,14 @@ function aiHalftime(state: MatchState, side: Side) {
   else if (diff >= 2) applyChange(state, side, { style: { risk: Math.max(0, team.style.risk - 15), defensiveLine: Math.max(0, team.style.defensiveLine - 10) } });
 }
 
-async function finishPending(db: pg.PoolClient, career: CareerRow, change: TacticChange, simulated?: MatchState): Promise<WeekSummary> {
+async function finishPending(db: pg.PoolClient, career: CareerRow, simulated?: MatchState): Promise<WeekSummary> {
   const pending = career.pending_match!;
   const state = simulated ?? (pending.state as MatchState);
   if (!simulated) {
-    applyChange(state, pending.side, change);
-    aiHalftime(state, pending.side === 0 ? 1 : 0);
+    if (!pending.aiHalftimeDone && state.tick <= HALF_TICK) {
+      simulate(state, HALF_TICK);
+      aiHalftime(state, pending.side === 0 ? 1 : 0);
+    }
     simulate(state, TICKS);
   }
   const starters = state.lineupHistory.filter((h) => h.tick === 0 && h.side === pending.side).map((h) => h.playerId);
@@ -213,9 +242,20 @@ export async function matchPreview(db: pg.Pool, career: CareerRow) {
       }),
     };
   }
+  let competition: { kind: "league" | "cup"; name: string; label: string };
+  if (f.cup_id) {
+    const cup = await one<{ name: string; rounds: { round: number; name: string }[] }>(db, "select name, rounds from cups where id = $1", [f.cup_id]);
+    const roundName = cup?.rounds.find((r) => r.round === f.cup_round)?.name ?? "Pokal";
+    competition = { kind: "cup", name: cup?.name ?? "Pokal", label: `${cup?.name ?? "Pokal"} · ${roundName}` };
+  } else {
+    const league = await one<{ name: string }>(db, "select name from leagues where id = $1", [f.league_id]);
+    competition = { kind: "league", name: league?.name ?? "Liga", label: `${league?.name ?? "Liga"} · ${f.round}. Spieltag` };
+  }
   return {
     fixtureId: f.id,
     week: f.week,
+    round: f.round,
+    competition,
     home: { id: home.id, name: home.name, short: home.short_name, colors: home.colors, rating: home.rating },
     away: { id: away.id, name: away.name, short: away.short_name, colors: away.colors, rating: away.rating },
     analysis,

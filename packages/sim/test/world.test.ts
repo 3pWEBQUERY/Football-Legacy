@@ -135,3 +135,42 @@ describe("Transfers & Gamification", () => {
     expect(dailyMissions(1, "2026-10-23").length).toBe(3);
   });
 });
+
+import { cupRoundName, cupWeekPositions, drawCupRound, penaltyShootout, planCup } from "../src/index";
+
+describe("Pokal", () => {
+  it("Vorrunde füllt auf eine Zweierpotenz auf", () => {
+    const entrants = Array.from({ length: 56 }, (_, i) => ({ id: i + 1, tier: i < 18 ? 1 : i < 36 ? 2 : 3, rating: 80 - i / 2 }));
+    const plan = planCup(entrants);
+    expect(plan.prelim.length).toBe(48);
+    expect(plan.byes.length).toBe(8);
+    expect(plan.prelim.length / 2 + plan.byes.length).toBe(32);
+    expect(plan.rounds).toBe(6);
+    // Erstligisten haben Freilos
+    expect(plan.byes.every((id) => id <= 18)).toBe(true);
+    expect(cupRoundName(6, 6)).toBe("Finale");
+    expect(cupRoundName(3, 6)).toBe("Achtelfinale");
+  });
+
+  it("Klassentieferer Verein hat Heimrecht", () => {
+    const pairs = drawCupRound(new Rng(2), [{ id: 1, tier: 1, rating: 80 }, { id: 2, tier: 3, rating: 50 }]);
+    expect(pairs[0]).toEqual([2, 1]);
+  });
+
+  it("Pokalwochen sind aufsteigend und innerhalb der Saison", () => {
+    const w = cupWeekPositions(6, 34);
+    expect(w.length).toBe(6);
+    expect([...w].sort((a, b) => a - b)).toEqual(w);
+    expect(w[w.length - 1]).toBeLessThanOrEqual(34);
+  });
+
+  it("Elfmeterschiessen hat immer einen Sieger", () => {
+    const rng = new Rng(5);
+    const s = Array.from({ length: 11 }, () => ({ penalties: 12, composure: 12 }));
+    for (let i = 0; i < 200; i++) {
+      const [h, a] = penaltyShootout(rng, s, s, 12, 12);
+      expect(h).not.toBe(a);
+      expect(Math.max(h, a)).toBeGreaterThanOrEqual(3);
+    }
+  });
+});

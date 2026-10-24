@@ -21,6 +21,7 @@ export default function PlayerPage() {
   const [offer, setOffer] = useState<{ fee: number; wage: number; years: number } | null>(null);
   const [renew, setRenew] = useState<{ wage: number; years: number; demand: number } | null>(null);
   const [msg, setMsg] = useState<any | null>(null);
+  const [loan, setLoan] = useState<{ share: number; msg: any | null } | null>(null);
   const [busy, setBusy] = useState(false);
   if (error) return <ErrorBox message={error} />;
   if (!data) return <Loading />;
@@ -82,6 +83,28 @@ export default function PlayerPage() {
     }
   }
 
+  async function sendLoan() {
+    if (!loan) return;
+    const r = await action("loan_in", { wageShare: loan.share / 100 });
+    if (!r) return;
+    if (r.status === "completed") {
+      toast(r.message, "success");
+      setLoan(null);
+      reload();
+      refreshAll();
+    } else {
+      setLoan({ share: r.minShare ? Math.round(r.minShare * 100) : loan.share, msg: r });
+    }
+  }
+
+  async function lendOut() {
+    if (!confirm(`${p.name} bis Saisonende verleihen?`)) return;
+    const r = await action("loan_out");
+    if (!r) return;
+    toast(r.message, r.status === "completed" ? "success" : "info");
+    if (r.status === "completed") { reload(); refreshAll(); }
+  }
+
   const season = data.career.season;
   const isGk = p.position === "GK";
   const startOffer = () => {
@@ -106,6 +129,7 @@ export default function PlayerPage() {
               <span>Fuss {p.foot === "L" ? "links" : p.foot === "R" ? "rechts" : "beidfüssig"}</span>
               {p.wonderkid && <span className="badge badge-gold">Ausnahmetalent</span>}
               {p.injuryWeeks > 0 && <span className="badge badge-danger">Verletzt · {p.injuryWeeks} W</span>}
+              {p.loan && <span className="badge badge-accent">{data.loanedOutByUser ? "Von dir verliehen" : `Leihe von ${data.loanParent ?? "Stammverein"}`} · bis Saisonende</span>}
             </div>
             <div style={{ marginTop: 8 }}>
               {data.club ? (
@@ -126,12 +150,17 @@ export default function PlayerPage() {
           </div>
         </div>
         <div className="row-wrap" style={{ padding: "10px 16px", borderTop: "1px solid var(--line)", background: "var(--panel-2)" }}>
-          {data.own ? (
+          {data.own && p.loan ? (
+            <span className="dim small">Leihspieler von <b>{data.loanParent}</b> – kehrt zum Saisonende zurück. Du zahlst {Math.round(p.loan.wageShare * 100)} % des Gehalts ({money((p.contract?.wage ?? 0) * p.loan.wageShare)} pro Woche).</span>
+          ) : data.loanedOutByUser ? (
+            <span className="dim small">An <b>{data.club?.name}</b> verliehen – kehrt zum Saisonende zurück. {data.club?.name} zahlt {Math.round(p.loan.wageShare * 100)} % des Gehalts.</span>
+          ) : data.own ? (
             <>
               <button className="btn" disabled={busy} onClick={openRenew}><Icon name="contract" size={15} /> Vertrag verlängern</button>
               <button className="btn" disabled={busy} onClick={async () => { const r = await action("list"); if (r) { toast(r.listed ? "Auf die Transferliste gesetzt" : "Von der Transferliste genommen"); reload(); } }}>
                 <Icon name="transfer" size={15} /> {p.listed ? "Von Transferliste nehmen" : "Auf Transferliste"}
               </button>
+              <button className="btn" disabled={busy || !data.window.open} onClick={lendOut} title={!data.window.open ? "Transferfenster geschlossen" : "Bis Saisonende an einen passenden Verein verleihen"}>Verleihen</button>
               <button className="btn btn-danger ml-auto" disabled={busy} onClick={async () => {
                 if (!confirm(`Vertrag mit ${p.name} auflösen? Es wird eine Abfindung fällig.`)) return;
                 const r = await action("release");
@@ -147,6 +176,9 @@ export default function PlayerPage() {
               <button className="btn btn-primary" disabled={busy || (!data.window.open && p.clubId !== null)} onClick={startOffer} title={!data.window.open && p.clubId !== null ? "Transferfenster geschlossen" : ""}>
                 {p.clubId === null ? "Vertrag anbieten" : "Angebot abgeben"}
               </button>
+              {p.clubId !== null && !p.loan && (
+                <button className="btn" disabled={busy || !data.window.open} onClick={() => setLoan({ share: 75, msg: null })} title={!data.window.open ? "Transferfenster geschlossen" : "Bis Saisonende ausleihen"}>Ausleihen</button>
+              )}
               {data.askingPrice && <span className="faint small ml-auto">Ablöseforderung ca. <b style={{ color: "var(--text)" }}>{money(data.askingPrice)}</b></span>}
             </>
           )}
@@ -233,6 +265,24 @@ export default function PlayerPage() {
             <div className="row" style={{ justifyContent: "flex-end" }}>
               <button className="btn btn-ghost" onClick={() => setOffer(null)}>Abbrechen</button>
               <button className="btn btn-primary" disabled={busy} onClick={sendOffer}>{msg?.status === "countered" ? "Gegenangebot annehmen" : "Angebot senden"}</button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!loan} onClose={() => setLoan(null)}>
+        {loan && (
+          <div className="stack">
+            <h2>Leihanfrage: {p.name}</h2>
+            <p className="dim">Leihe bis zum Saisonende ohne Ablöse. {data.club?.name} gibt in der Regel nur Ergänzungsspieler und junge Spieler ab.</p>
+            <div className="field">
+              <label>Dein Gehaltsanteil: {loan.share} % ({money((p.contract?.wage ?? 0) * loan.share / 100)} pro Woche)</label>
+              <input type="range" min={0} max={100} step={5} value={loan.share} onChange={(e) => setLoan({ ...loan, share: Number(e.target.value) })} />
+            </div>
+            {loan.msg && <div className={`badge ${loan.msg.status === "rejected" ? "badge-danger" : "badge-warn"}`} style={{ whiteSpace: "normal", padding: "8px 10px" }}>{loan.msg.message}</div>}
+            <div className="row" style={{ justifyContent: "flex-end" }}>
+              <button className="btn btn-ghost" onClick={() => setLoan(null)}>Abbrechen</button>
+              <button className="btn btn-primary" disabled={busy || loan.msg?.status === "rejected"} onClick={sendLoan}>Anfrage senden</button>
             </div>
           </div>
         )}

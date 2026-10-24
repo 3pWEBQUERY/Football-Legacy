@@ -201,4 +201,38 @@ create table season_results (
 create index season_results_ppg_idx on season_results(ppg desc);
 `,
   },
+  {
+    name: "002_cup.sql",
+    sql: `
+alter table fixtures add column if not exists cup_id int;
+alter table fixtures add column if not exists cup_round int;
+alter table fixtures add column if not exists pen_home int;
+alter table fixtures add column if not exists pen_away int;
+create table if not exists cups (
+  id serial primary key,
+  career_id uuid not null references careers(id) on delete cascade,
+  season int not null,
+  country_code text not null,
+  name text not null,
+  rounds jsonb not null,
+  byes jsonb not null default '[]',
+  current_round int not null default 1,
+  winner_club_id int,
+  runner_up_club_id int
+);
+create index if not exists cups_career_idx on cups(career_id, season);
+create index if not exists fixtures_cup_idx on fixtures(career_id, cup_id);
+`,
+  },
+  {
+    name: "003_reviews_loans.sql",
+    sql: `
+create table if not exists season_reviews (
+  career_id uuid not null references careers(id) on delete cascade,
+  season int not null,
+  data jsonb not null,
+  primary key (career_id, season)
+);
+`,
+  },
 ];
