@@ -5,6 +5,7 @@ import { api, useApi } from "@/lib/client/api";
 import { money } from "@/lib/client/format";
 import { MobileSubnav, useGame } from "@/components/GameShell";
 import { ErrorBox, Icon, Loading, Nat, Pos, Rating, useToast } from "@/components/ui";
+import { PlayerFace } from "@/components/PlayerFace";
 
 const POSITIONS = ["", "GK", "DR", "DC", "DL", "DM", "MR", "MC", "ML", "AMR", "AMC", "AML", "ST"];
 const POS_DE: Record<string, string> = { "": "Alle Positionen", GK: "Torwart", DR: "Rechter Verteidiger", DC: "Innenverteidiger", DL: "Linker Verteidiger", DM: "Defensives Mittelfeld", MR: "Rechtes Mittelfeld", MC: "Zentrales Mittelfeld", ML: "Linkes Mittelfeld", AMR: "Rechtsaussen", AMC: "Offensives Mittelfeld", AML: "Linksaussen", ST: "Stürmer" };
@@ -88,7 +89,7 @@ export default function Market() {
                     <tr key={p.id} className="clickable" onClick={() => router.push(`/c/${id}/player/${p.id}`)}>
                       <td><Pos p={p.position} /></td>
                       <td>
-                        <span className="row" style={{ gap: 6 }}><span className="name">{p.name}</span>{p.shortlisted && <span title="Beobachtet" style={{ color: "var(--accent)", display: "inline-flex" }}><Icon name="eye" size={14} /></span>}{p.listed && <span className="badge badge-blue">Transferliste</span>}</span>
+                        <span className="row" style={{ gap: 6 }}><PlayerFace player={p} kit={p.kit} size={28} /><span className="name">{p.name}</span>{p.shortlisted && <span title="Beobachtet" style={{ color: "var(--accent)", display: "inline-flex" }}><Icon name="eye" size={14} /></span>}{p.listed && <span className="badge badge-blue">Transferliste</span>}</span>
                       </td>
                       <td><Nat code={p.nationality} /></td>
                       <td className="c">{p.age}</td>

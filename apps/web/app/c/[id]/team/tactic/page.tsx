@@ -5,6 +5,7 @@ import { POS_LABEL } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { PitchBoard, type BoardSlot } from "@/components/PitchBoard";
 import { Condition, ErrorBox, Loading, Panel, Pos, Rating, useNotes, useToast } from "@/components/ui";
+import { PlayerFace } from "@/components/PlayerFace";
 
 export default function TacticPage() {
   const { id } = useGame();
@@ -198,8 +199,13 @@ export default function TacticPage() {
                     <tr key={p.id} className={`clickable ${status === "Elf" ? "highlight" : ""}`} style={{ opacity: unavailable ? 0.45 : 1 }} onClick={() => !unavailable && assign(p.id)}>
                       <td><Pos p={p.position} /></td>
                       <td>
-                        <div className="truncate name" style={{ maxWidth: 160 }}>{p.name}</div>
-                        {unavailable && <div className="small neg-txt">{p.injuryWeeks > 0 ? `Verletzt · ${p.injuryWeeks} W` : "Gesperrt"}</div>}
+                        <div className="face-card" style={{ gap: 8 }}>
+                          <PlayerFace player={p} kit={data.club?.colors} size={26} />
+                          <div style={{ minWidth: 0 }}>
+                            <div className="truncate name" style={{ maxWidth: 140 }}>{p.name}</div>
+                            {unavailable && <div className="small neg-txt">{p.injuryWeeks > 0 ? `Verletzt · ${p.injuryWeeks} W` : "Gesperrt"}</div>}
+                          </div>
+                        </div>
                       </td>
                       <td className="c"><Condition value={p.fitness} /></td>
                       <td className="c"><Rating value={selPos ? p.ratings[selPos] : p.rating} /></td>

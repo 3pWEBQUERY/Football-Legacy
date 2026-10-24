@@ -4,6 +4,7 @@ import { useApi } from "@/lib/client/api";
 import { money } from "@/lib/client/format";
 import { MobileSubnav, useGame } from "@/components/GameShell";
 import { ErrorBox, Loading, Pos, Rating, SortTable } from "@/components/ui";
+import { FaceName } from "@/components/PlayerFace";
 
 export default function Contracts() {
   const { id } = useGame();
@@ -31,7 +32,7 @@ export default function Contracts() {
           rowClass={(p: any) => ((p.contract?.untilSeason ?? 0) <= season ? "highlight" : "")}
           columns={[
             { key: "pos", label: "Pos", render: (p: any) => <Pos p={p.position} /> },
-            { key: "name", label: "Name", render: (p: any) => <b>{p.name}</b>, sort: (p: any) => p.lastName },
+            { key: "name", label: "Name", render: (p: any) => <b><FaceName player={p} kit={data.kit} /></b>, sort: (p: any) => p.lastName },
             { key: "age", label: "Alter", render: (p: any) => p.age, sort: (p: any) => p.age, className: "c" },
             { key: "rating", label: "Stärke", render: (p: any) => <Rating value={p.rating} />, sort: (p: any) => p.rating, className: "c" },
             { key: "morale", label: "Moral", render: (p: any) => `${p.morale}%`, sort: (p: any) => p.morale, className: "c" },

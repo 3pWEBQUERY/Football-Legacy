@@ -253,7 +253,7 @@ export async function matchPreview(db: pg.Pool, career: CareerRow) {
     analysis = {
       formation: opp.tactic?.formation ?? "4-4-2",
       style: opp.tactic?.style ?? null,
-      keyPlayers: top.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, position: p.position, rating: p.rating })),
+      keyPlayers: top.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, age: p.age, nationality: p.nationality, position: p.position, rating: p.rating })),
       form: recent.map((r) => {
         const gf = r.home_id === oppId ? r.home_goals! : r.away_goals!;
         const ga = r.home_id === oppId ? r.away_goals! : r.home_goals!;

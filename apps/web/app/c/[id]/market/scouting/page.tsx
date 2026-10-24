@@ -5,6 +5,7 @@ import { api, refreshAll, useApi } from "@/lib/client/api";
 import { POS_LABEL, money } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { Empty, ErrorBox, Icon, Loading, Nat, Panel, Pos, Rating, useToast } from "@/components/ui";
+import { FaceName } from "@/components/PlayerFace";
 
 const POSITIONS = ["", "GK", "DR", "DC", "DL", "DM", "MR", "MC", "ML", "AMR", "AMC", "AML", "ST"];
 const AGES = [["", "Alle Altersklassen"], ["19", "bis 19 Jahre"], ["21", "bis 21 Jahre"], ["23", "bis 23 Jahre"], ["27", "bis 27 Jahre"]];
@@ -60,7 +61,7 @@ export default function ScoutingPage() {
                     {r.players.map((p: any) => (
                       <tr key={p.id} className="clickable" onClick={() => (window.location.href = `/c/${id}/player/${p.id}`)}>
                         <td><Pos p={p.position} /></td>
-                        <td className="name">{p.name}{p.own && <span className="badge" style={{ marginLeft: 6 }}>Eigener Spieler</span>}</td>
+                        <td className="name"><FaceName player={p} kit={p.kit}>{p.name}{p.own && <span className="badge" style={{ marginLeft: 6 }}>Eigener Spieler</span>}</FaceName></td>
                         <td><Nat code={p.nationality} /></td>
                         <td className="c">{p.age}</td>
                         <td className="truncate">{p.clubId ? <Link href={`/c/${id}/club/${p.clubId}`} onClick={(e) => e.stopPropagation()}>{p.clubName}</Link> : "vereinslos"}</td>

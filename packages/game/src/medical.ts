@@ -3,7 +3,7 @@ import { dateOf } from "@fl/sim";
 import { pool } from "./db";
 import { readCareer } from "./career";
 import { GameError } from "./errors";
-import { getPlayers } from "./repo";
+import { getClub, getPlayers } from "./repo";
 
 const iso = (season: number, day: number) => dateOf(season, day).toISOString().slice(0, 10);
 
@@ -15,7 +15,7 @@ export async function medicalView(careerId: string, accountId: string) {
     .filter((p) => p.injuryWeeks > 0)
     .sort((a, b) => b.injuryWeeks - a.injuryWeeks)
     .map((p) => ({
-      id: p.id, name: `${p.firstName} ${p.lastName}`, position: p.position, rating: p.rating,
+      id: p.id, name: `${p.firstName} ${p.lastName}`, age: p.age, nationality: p.nationality, position: p.position, rating: p.rating,
       injury: p.injury?.name ?? "Verletzung",
       since: p.injury ? iso(p.injury.season, p.injury.day) : null,
       weeksLeft: p.injuryWeeks,
@@ -33,18 +33,20 @@ export async function medicalView(careerId: string, accountId: string) {
       if (p.age >= 31) { score += 1; reasons.push(`${p.age} Jahre`); }
       if (p.attrs.stamina <= 9) { score += 1; reasons.push("geringe Ausdauer"); }
       if (intensity === "high") score += 1;
-      return { id: p.id, name: `${p.firstName} ${p.lastName}`, position: p.position, fitness: p.fitness, score, reasons };
+      return { id: p.id, name: `${p.firstName} ${p.lastName}`, age: p.age, nationality: p.nationality, position: p.position, fitness: p.fitness, score, reasons };
     })
     .filter((r) => r.score >= 2 && r.reasons.length)
     .sort((a, b) => b.score - a.score)
     .slice(0, 10)
     .map((r) => ({ ...r, level: r.score >= 4 ? "hoch" : r.score >= 3 ? "erhöht" : "mittel" }));
+  const club = await getClub(pool(), career.id, career.club_id);
   return {
+    kit: club?.colors ?? null,
     physio: career.staff.physio,
     intensity,
     squadSize: squad.length,
     available: squad.filter((p) => p.injuryWeeks === 0 && p.suspendedWeeks === 0).length,
-    suspended: squad.filter((p) => p.suspendedWeeks > 0).map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, position: p.position, matches: p.suspendedWeeks })),
+    suspended: squad.filter((p) => p.suspendedWeeks > 0).map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, age: p.age, nationality: p.nationality, position: p.position, matches: p.suspendedWeeks })),
     injured,
     risk,
   };

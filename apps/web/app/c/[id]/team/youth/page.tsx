@@ -4,6 +4,7 @@ import { api, refreshAll, useApi } from "@/lib/client/api";
 import { ATTR_GROUPS, attrColor } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { Empty, ErrorBox, Icon, Loading, Modal, Nat, Pos, useToast } from "@/components/ui";
+import { PlayerFace } from "@/components/PlayerFace";
 
 function Stars({ n }: { n: number }) {
   return (
@@ -59,7 +60,7 @@ export default function YouthPage() {
               {data.players.map((p: any) => (
                 <tr key={p.id} className="clickable" onClick={() => setOpen(p)}>
                   <td><Pos p={p.position} /></td>
-                  <td><span className="row" style={{ gap: 8 }}><span className="name">{p.name}</span>{p.wonderkid && <span className="badge badge-gold">Ausnahmetalent</span>}</span></td>
+                  <td><span className="row" style={{ gap: 8 }}><PlayerFace player={p} kit={data.kit} size={28} /><span className="name">{p.name}</span>{p.wonderkid && <span className="badge badge-gold">Ausnahmetalent</span>}</span></td>
                   <td><Nat code={p.nationality} /></td>
                   <td className="c">{p.age}</td>
                   <td className="c cond" style={{ fontWeight: 700 }}>{p.ratingRange[0]}–{p.ratingRange[1]}</td>
@@ -80,9 +81,12 @@ export default function YouthPage() {
         {open && (
           <div className="stack">
             <div className="between">
-              <div>
+              <div className="face-card">
+                <PlayerFace player={open} kit={data.kit} size={84} />
+                <div>
                 <div className="faint small up">{open.archetype} · {open.age} Jahre · Fuss {open.foot === "L" ? "links" : open.foot === "R" ? "rechts" : "beidfüssig"}</div>
                 <h2>{open.name}</h2>
+                </div>
               </div>
               <div className="row" style={{ gap: 16 }}>
                 <div className="stat"><span className="label">Stärke</span><span className="value">{open.ratingRange[0]}–{open.ratingRange[1]}</span></div>

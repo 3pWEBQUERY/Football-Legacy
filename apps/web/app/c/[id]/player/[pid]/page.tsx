@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { PlayerFace } from "@/components/PlayerFace";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, refreshAll, useApi } from "@/lib/client/api";
@@ -126,7 +127,8 @@ export default function PlayerPage() {
       <div className="row"><button className="btn btn-ghost btn-sm" onClick={() => router.back()}><Icon name="back" size={16} /> Zurück</button></div>
       <section className="card card-flush">
         <div style={{ display: "flex", flexWrap: "wrap", boxShadow: `inset 6px 0 0 ${data.club?.colors.primary ?? "var(--line-2)"}` }}>
-          <div style={{ padding: "16px 20px 14px 24px", flex: "1 1 360px", minWidth: 0 }}>
+          <PlayerFace player={p} kit={data.club?.colors} size={132} className="face-portrait" />
+          <div style={{ padding: "16px 20px 14px 20px", flex: "1 1 360px", minWidth: 0 }}>
             <div className="faint small up" style={{ fontWeight: 600 }}>{POS_LONG[p.position]} · {p.archetype}</div>
             <h1 style={{ fontSize: 34, marginTop: 2 }}>{p.name}</h1>
             <div className="row-wrap dim" style={{ marginTop: 6 }}>

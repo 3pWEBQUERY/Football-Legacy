@@ -349,8 +349,8 @@ export async function competitionView(careerId: string, accountId: string, leagu
       [career.id, league.id],
     );
     scorers = rows.map((r) => ({
-      id: r.data.id, name: `${r.data.firstName} ${r.data.lastName}`, clubId: r.club_id, club: s.clubs.get(r.club_id)?.short_name,
-      position: r.data.position, apps: r.data.stats.apps, goals: r.data.stats.goals, assists: r.data.stats.assists,
+      id: r.data.id, name: `${r.data.firstName} ${r.data.lastName}`, age: r.data.age, nationality: r.data.nationality, clubId: r.club_id, club: s.clubs.get(r.club_id)?.short_name,
+      colors: s.clubs.get(r.club_id)?.colors, position: r.data.position, apps: r.data.stats.apps, goals: r.data.stats.goals, assists: r.data.stats.assists,
       avgRating: r.data.stats.apps ? Math.round((r.data.stats.ratingSum / r.data.stats.apps) * 100) / 100 : 0,
     }));
   }
@@ -417,9 +417,9 @@ export async function marketView(careerId: string, accountId: string, f: MarketF
   }
   const order = f.sort === "value" ? "p.value desc" : f.sort === "age" ? "p.age asc" : f.sort === "potential" ? "p.potential desc" : "p.rating desc";
   const page = Math.max(0, f.page ?? 0);
-  const rows = await query<{ data: Player; club_id: number | null; club_name: string | null; league_name: string | null; country_code: string | null }>(
+  const rows = await query<{ data: Player; club_id: number | null; club_name: string | null; club_colors: unknown; league_name: string | null; country_code: string | null }>(
     pool(),
-    `select p.data, p.club_id, c.name as club_name, l.name as league_name, l.country_code
+    `select p.data, p.club_id, c.name as club_name, c.colors as club_colors, l.name as league_name, l.country_code
        from players p left join clubs c on c.id = p.club_id left join leagues l on l.id = c.league_id
       where ${where.join(" and ")}
       order by ${order} limit 51 offset ${page * 50}`,
@@ -435,7 +435,7 @@ export async function marketView(careerId: string, accountId: string, f: MarketF
     window: windowFor(career),
     players: rows.slice(0, 50).map((r, i) => ({
       ...playerView(players[i], k.of(players[i])),
-      clubName: r.club_name, leagueName: r.league_name, leagueCountry: r.country_code, shortlisted: k.shortlisted.has(players[i].id),
+      clubName: r.club_name, kit: r.club_colors ?? null, leagueName: r.league_name, leagueCountry: r.country_code, shortlisted: k.shortlisted.has(players[i].id),
     })),
     hasMore: rows.length > 50,
     page,
@@ -450,8 +450,10 @@ export async function contractsView(careerId: string, accountId: string) {
   const career = await readCareer(careerId, accountId);
   if (!career.club_id) throw new GameError("Kein Verein");
   const players = await getPlayers(pool(), career.id, [career.club_id]);
+  const club = await getClub(pool(), career.id, career.club_id);
   return {
     career: careerSummary(career),
+    kit: club?.colors ?? null,
     players: players.sort((a, b) => (a.contract?.untilSeason ?? 0) - (b.contract?.untilSeason ?? 0) || b.rating - a.rating).map((p) => playerView(p, "exact")),
   };
 }

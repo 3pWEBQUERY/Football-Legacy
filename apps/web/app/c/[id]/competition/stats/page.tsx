@@ -5,6 +5,7 @@ import { useApi } from "@/lib/client/api";
 import { MobileSubnav, useGame } from "@/components/GameShell";
 import { LeaguePicker } from "@/components/LeaguePicker";
 import { Empty, ErrorBox, Loading, Pos, SortTable } from "@/components/ui";
+import { FaceName } from "@/components/PlayerFace";
 
 function Stats() {
   const { id } = useGame();
@@ -32,7 +33,7 @@ function Stats() {
             onRowClick={(r: any) => router.push(`/c/${id}/player/${r.id}`)}
             columns={[
               { key: "pos", label: "Pos", render: (r: any) => <Pos p={r.position} /> },
-              { key: "name", label: "Spieler", render: (r: any) => <b>{r.name}</b>, sort: (r: any) => r.name },
+              { key: "name", label: "Spieler", render: (r: any) => <b>{r.age !== undefined ? <FaceName player={r} kit={r.colors} /> : r.name}</b>, sort: (r: any) => r.name },
               { key: "club", label: "Verein", render: (r: any) => <span className="dim">{r.club}</span>, sort: (r: any) => r.club },
               { key: "apps", label: "Spiele", render: (r: any) => r.apps, sort: (r: any) => r.apps, className: "c" },
               { key: "goals", label: "Tore", render: (r: any) => <b>{r.goals}</b>, sort: (r: any) => r.goals, className: "c" },

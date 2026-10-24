@@ -36,6 +36,7 @@
   --gold: #e9c349;
   --gold-soft: rgba(233, 195, 73, 0.14);
   --purple: #a78bfa;
+  --face-bg: #262d38;
   --club: #2b3444;
   --club-2: #ffffff;
   --club-ink: #ffffff;
@@ -48,6 +49,7 @@
 }
 
 :root[data-theme="light"] {
+  --face-bg: #cfd5de;
   --bg: #e9ecf1;
   --bg-2: #f1f3f7;
   --panel: #ffffff;
@@ -604,3 +606,13 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .advice-medium { box-shadow: inset 3px 0 0 var(--warn); }
 .advice-low { box-shadow: inset 3px 0 0 var(--accent); color: var(--text-2); }
 .advice-ok { box-shadow: inset 3px 0 0 var(--pos); color: var(--text-2); }
+
+/* ---------------------------------------------------------------- Spielergesichter */
+.face { display: inline-block; flex-shrink: 0; overflow: hidden; background: var(--face-bg); border: 1px solid var(--line); border-radius: var(--r-sm); vertical-align: middle; }
+.face svg { display: block; width: 100%; height: 100%; }
+.face-portrait { align-self: flex-end; margin-left: 6px; border: 0; border-right: 1px solid var(--line); border-radius: 0; }
+.face-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.face-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.face-card { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.key-players { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.key-player { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 6px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-sm); min-width: 180px; }

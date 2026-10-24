@@ -136,7 +136,9 @@ export async function academyView(careerId: string, accountId: string) {
   const fac = facilitiesOf(career);
   const intakeDay = career.calendar ? youthIntakeDay(career.calendar) : null;
   const intakeDate = intakeDay !== null ? dateOf(career.season, intakeDay) : null;
+  const club = career.club_id ? await getClub(pool(), career.id, career.club_id) : null;
   return {
+    kit: club?.colors ?? null,
     career: { season: career.season, day: career.day, clubId: career.club_id },
     staffYouth: career.staff.youth,
     facilityYouth: fac.youth,

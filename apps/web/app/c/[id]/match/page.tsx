@@ -11,6 +11,7 @@ import { WeekSummaryView } from "@/components/WeekSummary";
 import { PressConference } from "@/components/PressConference";
 import { TeamTalk } from "@/components/TeamTalk";
 import { Crest, EventIcon, Icon, Loading, Panel, Pos, Progress, useNotes, useToast } from "@/components/ui";
+import { PlayerFace } from "@/components/PlayerFace";
 
 type Phase = "preview" | "loading" | "live" | "halftime" | "fulltime";
 const SPEEDS = [{ label: "1×", tps: 4 }, { label: "2×", tps: 9 }, { label: "4×", tps: 20 }];
@@ -249,7 +250,15 @@ export default function MatchDay() {
               </div>
               {preview.analysis && (
                 <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)" }} className="small">
-                  <span className="faint up">Gegneranalyse</span> · Formation <b>{preview.analysis.formation}</b> · Schlüsselspieler: {preview.analysis.keyPlayers.map((p: any) => `${p.name} (${p.rating})`).join(", ")}
+                  <div><span className="faint up">Gegneranalyse</span> · Formation <b>{preview.analysis.formation}</b> · Schlüsselspieler</div>
+                  <div className="key-players">
+                    {preview.analysis.keyPlayers.map((p: any) => (
+                      <div key={p.id} className="key-player">
+                        {p.age !== undefined && <PlayerFace player={p} kit={(previewMine === 0 ? preview.away : preview.home).colors} size={44} />}
+                        <div style={{ minWidth: 0 }}><div className="name truncate">{p.name}</div><div className="faint">{p.position} · Stärke {p.rating}</div></div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className="row" style={{ padding: 14, justifyContent: "flex-end", flexWrap: "wrap" }}>

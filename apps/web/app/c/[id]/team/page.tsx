@@ -5,6 +5,7 @@ import { useApi } from "@/lib/client/api";
 import { matchRatingColor, money, posGroup } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { Condition, ErrorBox, EventIcon, Icon, Loading, Nat, Pos, Rating, Seg, SortTable, moraleLabel, type Column } from "@/components/ui";
+import { FaceName, PlayerFace } from "@/components/PlayerFace";
 
 type Group = "ALL" | "GK" | "DEF" | "MID" | "ATT";
 const ORDER = ["GK", "DR", "DC", "DL", "DM", "MR", "MC", "ML", "AMR", "AMC", "AML", "ST"];
@@ -23,6 +24,7 @@ export default function Squad() {
     { key: "pos", label: "Pos", render: (p) => <Pos p={p.position} />, sort: (p) => ORDER.indexOf(p.position) },
     { key: "name", label: "Name", render: (p) => (
       <span className="row" style={{ gap: 8 }}>
+        <PlayerFace player={p} kit={data.club?.colors} size={28} />
         <span className="name">{p.name}</span>
         {p.wonderkid && <span className="badge badge-gold">Talent</span>}
         {p.listed && <span className="badge badge-blue">Transferliste</span>}
@@ -85,7 +87,7 @@ export default function Squad() {
               {data.loanedOut.map((p: any) => (
                 <tr key={p.id} className="clickable" onClick={() => router.push(`/c/${id}/player/${p.id}`)}>
                   <td><Pos p={p.position} /></td>
-                  <td className="name">{p.name}</td>
+                  <td className="name"><FaceName player={p} /></td>
                   <td className="truncate">{p.loanTo}</td>
                   <td className="c">{p.age}</td>
                   <td className="c"><Rating value={p.rating} /></td>

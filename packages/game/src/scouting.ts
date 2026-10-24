@@ -62,8 +62,8 @@ export async function scoutingView(careerId: string, accountId: string) {
   const s = scoutingOf(career);
   const ids = [...new Set(s.done.flatMap((d) => d.playerIds))];
   const rows = ids.length
-    ? await query<{ data: Player; club_id: number | null; club_name: string | null; report: Record<string, unknown> | null }>(pool(),
-      `select p.data, p.club_id, c.name as club_name, sl.report from players p left join clubs c on c.id = p.club_id
+    ? await query<{ data: Player; club_id: number | null; club_name: string | null; club_colors: unknown; report: Record<string, unknown> | null }>(pool(),
+      `select p.data, p.club_id, c.name as club_name, c.colors as club_colors, sl.report from players p left join clubs c on c.id = p.club_id
         left join shortlist sl on sl.career_id = p.career_id and sl.player_id = p.id where p.career_id = $1 and p.id = any($2::int[])`, [career.id, ids])
     : [];
   const byId = new Map(rows.map((r) => [r.data.id, r]));
@@ -75,7 +75,7 @@ export async function scoutingView(careerId: string, accountId: string) {
       id: d.id, title: title(d), dateLabel: fmtDay(d.season, d.day),
       players: d.playerIds.map((pid) => byId.get(pid)).filter(Boolean).map((r) => ({
         id: r!.data.id, name: `${r!.data.firstName} ${r!.data.lastName}`, age: r!.data.age, position: r!.data.position, nationality: r!.data.nationality,
-        clubId: r!.club_id, clubName: r!.club_name, value: r!.data.value, rating: r!.report?.rating ?? null,
+        clubId: r!.club_id, clubName: r!.club_name, kit: r!.club_colors ?? null, value: r!.data.value, rating: r!.report?.rating ?? null,
         potentialMin: r!.report?.potentialMin ?? null, potentialMax: r!.report?.potentialMax ?? null, verdict: r!.report?.verdict ?? null,
         own: r!.club_id === career.club_id,
       })),
