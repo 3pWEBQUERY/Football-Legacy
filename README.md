@@ -64,7 +64,9 @@ Kennzahlen der Engine (gleich starke Teams): ~2,7 Tore, ~23 Schüsse, ~2,7 Gelbe
 
 1. Neues Projekt mit einem PostgreSQL-Service anlegen.
 2. Dieses Repository als Service hinzufügen – gebaut wird über das `Dockerfile` (siehe `railway.json`, Healthcheck `/api/health`).
-3. Im Web-Service die Variable `DATABASE_URL=${{Postgres.DATABASE_URL}}` setzen und eine Domain generieren.
+3. Im Web-Service die Variablen `DATABASE_URL=${{Postgres.DATABASE_URL}}` und `PORT=3000` setzen und eine Domain auf Port 3000 generieren (ohne `PORT` startet Railway den Server auf 8080 – dann muss die Domain auf 8080 zeigen).
+
+Live-Instanz: https://web-production-4d4918.up.railway.app (Railway-Projekt „Football Legacy“, Region europe-west4).
 
 Beim ersten Start legt der Server das Schema selbst an. Redis, ein separater Simulations-Worker und ein Mail-Dienst (z. B. Resend für Magic-Links) sind für spätere Ausbaustufen vorgesehen und für Version 1.0 nicht nötig.
 
