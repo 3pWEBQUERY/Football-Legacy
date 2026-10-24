@@ -264,6 +264,18 @@ export default function MatchDay() {
               </div>
             </section>
           )}
+          {preview?.advice && (
+            <section className="card card-flush">
+              <div className="card-head">
+                <h3><Icon name="info" size={15} /> Hinweise des Co-Trainers</h3>
+                <Link className="btn btn-ghost btn-sm" href={`${base}/team/tactic`}>Zur Taktik</Link>
+              </div>
+              <div className="advice-list">
+                {preview.advice.length === 0 && <div className="advice advice-ok">Der Co-Trainer hat keine Einwände gegen die Aufstellung.</div>}
+                {preview.advice.map((a: any, i: number) => <div key={i} className={`advice advice-${a.level}`}>{a.text}</div>)}
+              </div>
+            </section>
+          )}
           {preview?.today && <TeamTalk careerId={id} />}
           {preview && <PressConference careerId={id} />}
         </div>

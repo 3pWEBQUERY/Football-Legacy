@@ -13,6 +13,7 @@ import { aiTactic, teamSetup } from "./setup";
 import { processWeek, type WeekSummary } from "./week";
 import { advanceDay, nextSlotDay, type DayResult } from "./day";
 import { competitionOf } from "./cup";
+import { assistantAdvice } from "./advice";
 
 async function nextUserFixture(db: pg.PoolClient | import("pg").Pool, career: CareerRow): Promise<FixtureRow | null> {
   if (!career.club_id) return null;
@@ -272,5 +273,6 @@ export async function matchPreview(db: pg.Pool, career: CareerRow) {
     window: windowFor(career, career.calendar?.slots[f.week - 1]?.day ?? career.day),
     day: career.calendar?.slots[f.week - 1]?.day ?? null,
     today: isMatchday(career),
+    advice: await assistantAdvice(db, career),
   };
 }

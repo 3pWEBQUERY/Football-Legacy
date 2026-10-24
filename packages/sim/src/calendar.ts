@@ -173,3 +173,27 @@ export function marketWindow(cal: SeasonCalendar, day: number): MarketWindow {
   if (day >= ws && day <= we) return { open: true, label: "Winter-Transferfenster", closes: we, opens: null };
   return { open: false, label: "Transferfenster geschlossen", closes: null, opens: day < ws ? ws : null };
 }
+
+/**
+ * Länderspielfenster (Montag bis Donnerstag) im September, Oktober, November
+ * und März – jeweils die erste Woche des Monats ohne eigene Spielrunde.
+ */
+export function internationalWindows(cal: SeasonCalendar, season: number): [number, number][] {
+  const busy = new Set(cal.slots.map((s) => s.day));
+  const last = cal.slots.length ? cal.slots[cal.slots.length - 1].day : 300;
+  const out: [number, number][] = [];
+  for (const month of [8, 9, 10, 2]) {
+    for (let d = 0; d <= last; d += 7) {
+      const date = dateOf(season, d);
+      if (date.getUTCMonth() !== month) continue;
+      const window: [number, number] = [d, d + 3];
+      const clash = [0, 1, 2, 3].some((o) => busy.has(d + o))
+        || (cal.winterBreak !== null && d + 3 >= cal.winterBreak[0] && d <= cal.winterBreak[1]);
+      if (!clash) {
+        out.push(window);
+        break;
+      }
+    }
+  }
+  return out.sort((a, b) => a[0] - b[0]);
+}

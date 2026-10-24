@@ -90,6 +90,7 @@ export default function CalendarPage() {
                   ) : (
                     <span className="cal-type">{d.label}</span>
                   )}
+                  {d.international && <span className="cal-intl">Länderspiele</span>}
                 </div>
               );
             })}
@@ -102,6 +103,7 @@ export default function CalendarPage() {
             <span><i className="t-training" /> Training</span>
             <span><i className="t-off" /> Frei / Winterpause</span>
             <span><b className="cal-window">TF</b> Transferfenster</span>
+            <span><b className="cal-intl" style={{ marginTop: 0 }}>Länderspiele</b> Länderspielpause</span>
           </div>
         </section>
 

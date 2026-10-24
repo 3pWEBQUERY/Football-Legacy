@@ -132,6 +132,7 @@ route("POST", career("players/:pid"), async (c) => {
     case "loan_in": return game.loanIn(c.params.id, acc(c), pid, Number(c.body.wageShare ?? 1));
     case "loan_out": return game.loanOut(c.params.id, acc(c), pid);
     case "talk": return game.talkToPlayer(c.params.id, acc(c), pid, String(c.body.topic) as never);
+    case "individual": return game.setIndividualTraining(c.params.id, acc(c), pid, (c.body.focus as string) || null, (c.body.position as string) || null);
     default: throw new game.GameError("Unbekannte Aktion");
   }
 });

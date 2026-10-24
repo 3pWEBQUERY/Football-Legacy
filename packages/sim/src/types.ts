@@ -108,6 +108,13 @@ export interface Player {
   promise?: { season: number; until: number; needed: number; starts: number } | null;
   /** Trainingsnoten der letzten Einheiten */
   training?: number[];
+  /** Individuelles Training: eigener Schwerpunkt und Umschulung auf eine neue Position (Fortschritt 0–100) */
+  individual?: { focus: import("./progression").TrainingFocus | null; position: Position | null; progress: number } | null;
+  /** Länderspiele und Tore für die Nationalmannschaft */
+  caps?: number;
+  intlGoals?: number;
+  /** Abgestellt zur Nationalmannschaft bis zu diesem Tag */
+  away?: { season: number; until: number } | null;
 }
 
 export interface PlayerSeason {

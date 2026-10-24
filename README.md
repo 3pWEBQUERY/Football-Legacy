@@ -34,6 +34,9 @@ Ein tiefgehender Fussball-Manager im Browser: Kader, Taktik, Transfers und Saiso
 | Vorstand und Anlagen | Anfragen an den Vorstand: mehr Transferbudget, Ausbau von Trainingszentrum und Jugendakademie (fünf Stufen) und Stadion. Entscheidung nach Vertrauen und Finanzen, Bauprojekte mit Fertigstellungsdatum |
 | Weiter wie im Manager | „Weiter“ lässt die Tage automatisch ablaufen; das Datum in der Kopfleiste läuft mit. Die Verarbeitung hält an, sobald etwas Wichtiges passiert (Spielvorbereitung, Testspiel, Verletzung, Transfers, Vorstand, Scoutbericht, Jugendtag), öffnet die Nachricht im Posteingang und führt am Spieltag direkt zum Spiel. Ein zweiter Klick (oder Strg + Leertaste) hält an |
 | Training und Ansprache | Tägliche Einheiten nach Wochentag und Schwerpunkt, Trainingsnoten wirken leicht auf die Form (Ø im Kader sichtbar). Mannschaftsansprache vor dem Anpfiff mit drei Tonlagen, Wirkung nach Favoritenrolle und Moral |
+| Individuelles Training | Eigener Schwerpunkt pro Spieler und Umschulung auf eine neue Position (Fortschritt pro Woche, jüngere Spieler lernen schneller) |
+| Länderspielpausen | Im September, Oktober, November und März werden starke Spieler je nach Land nominiert: sie fehlen im Training, sammeln Länderspiele und Tore und kehren mit Moral, Müdigkeit oder einer Verletzung zurück. Im Kalender markiert |
+| Co-Trainer | Hinweise im Vorbericht: verletzte, gesperrte oder müde Spieler in der Startelf, Spieler auf fremder Position, stärkere Alternativen, zu kleine Bank |
 | Navigation | Horizontales Hauptmenü mit Untermenüs, Datum und Weiter-Button in der Kopfleiste |
 
 ## Architektur

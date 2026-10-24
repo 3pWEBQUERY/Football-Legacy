@@ -1,5 +1,5 @@
 /** Kalender der Saison aus Sicht des eigenen Vereins. */
-import { DAY_TYPE_LABEL, dateOf, dayType, marketWindow } from "@fl/sim";
+import { DAY_TYPE_LABEL, dateOf, dayType, internationalWindows, marketWindow } from "@fl/sim";
 import { pool, query } from "./db";
 import { readCareer } from "./career";
 import { userMatchDays } from "./day";
@@ -33,6 +33,7 @@ export async function calendarView(careerId: string, accountId: string) {
     "select id, name, kind, rounds from cups where career_id = $1 and season = $2", [career.id, career.season])).map((c) => [c.id, c]));
   const last = cal.slots.length ? cal.slots[cal.slots.length - 1].day : 0;
   const window = windowDays(career);
+  const intlWindows = internationalWindows(cal, career.season);
   const days = [];
   for (let d = 0; d <= last; d++) {
     const f = fixtures.get(d);
@@ -51,7 +52,10 @@ export async function calendarView(careerId: string, accountId: string) {
         goalsAgainst: f.played ? (home ? f.away_goals : f.home_goals) : null,
       };
     }
-    days.push({ day: d, date: isoDate(career.season, d), type, label: DAY_TYPE_LABEL[type], window: window.has(d), match });
+    days.push({
+      day: d, date: isoDate(career.season, d), type, label: DAY_TYPE_LABEL[type], window: window.has(d), match,
+      international: intlWindows.some(([a, b]) => d >= a && d <= b),
+    });
   }
   return {
     season: career.season,

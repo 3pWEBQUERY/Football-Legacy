@@ -4,7 +4,7 @@
  */
 import {
   DEFAULT_TRAINING, Rng, afterMatch, penaltyShootout, shootersFrom, attendance, benchMorale, computeStandings, formatMoney, playMatch, quickResult,
-  seedFor, squadRanks, teamRating, validateTactic, wageBill, weeklyDevelopment, weeklyFinances, weeksSincePreviousLeague,
+  retrainStep, seedFor, squadRanks, teamRating, validateTactic, wageBill, weeklyDevelopment, weeklyFinances, weeksSincePreviousLeague,
   type MatchResult, type Player,
 } from "@fl/sim";
 import type pg from "pg";
@@ -201,6 +201,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
 
   // Training & Entwicklung aller Spieler aktiver Vereine (eigene Kondition erholt sich täglich)
   const boost = !midweek && career.manager.trainingBoostWeeks > 0;
+  const retrained: Player[] = [];
   if (midweek) {
     for (const [clubId, squad] of w.squads) {
       for (const p of squad) {
@@ -217,7 +218,10 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     const plan = isUser ? career.training : DEFAULT_TRAINING;
     const coach = isUser ? career.staff.coach + (facilitiesOf(career).training - 1) * 1.5 : Math.round(4 + club.reputation / 10);
     for (const p of squad) {
-      const { injured } = weeklyDevelopment(rng, p, plan, { minutesLastWeek: minutes.get(p.id) ?? 0, coachQuality: coach, physioQuality: physio(clubId), skipFitness: isUser });
+      // Individueller Schwerpunkt ersetzt den Mannschaftsschwerpunkt
+      const own = isUser && p.individual?.focus ? { ...plan, focus: p.individual.focus } : plan;
+      if (isUser && retrainStep(p)) retrained.push(p);
+      const { injured } = weeklyDevelopment(rng, p, own, { minutesLastWeek: minutes.get(p.id) ?? 0, coachQuality: coach, physioQuality: physio(clubId), skipFitness: isUser });
       if (isUser && boost) {
         p.devProgress += 0.03;
         p.morale = Math.min(100, p.morale + 1);
@@ -228,6 +232,10 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   }
   if (boost) career.manager.trainingBoostWeeks--;
   if (!midweek && userClubId) await academyWeek(db, career, rng);
+  for (const p of retrained) {
+    await addInbox(db, career.id, career.season, week, "training", `Umschulung abgeschlossen: ${p.firstName} ${p.lastName}`,
+      `${p.firstName} ${p.lastName} beherrscht jetzt auch die Position ${p.altPositions[p.altPositions.length - 1]}.`, { type: "player", playerId: p.id });
+  }
   // Nach der Winterpause sind Verletzungen entsprechend weiter ausgeheilt
   const extraWeeks = career.calendar ? Math.round(weeksSincePreviousLeague(career.calendar, week)) - 1 : 0;
   if (extraWeeks > 0) {

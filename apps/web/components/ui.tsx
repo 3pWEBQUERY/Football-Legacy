@@ -308,7 +308,7 @@ export function EventIcon({ type }: { type: string }) {
 
 const CATEGORY_ICONS: Record<string, string> = {
   board: "board", tips: "info", match: "ball", transfer: "transfer", medical: "medical", contract: "contract", youth: "youth",
-  news: "news", finance: "euro", career: "star", scout: "search", training: "team",
+  news: "news", finance: "euro", career: "star", scout: "search", training: "team", international: "flag",
 };
 
 export function CategoryIcon({ category }: { category: string }) {

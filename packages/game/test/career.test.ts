@@ -15,6 +15,8 @@ let careerId = "";
 const loans: { inId?: number; outId?: number; parentId?: number } = {};
 let promised = 0;
 let trainingApproved = false;
+let retrainId = 0;
+let retrainPos = "";
 
 beforeAll(async () => {
   await pool().query("drop schema public cascade; create schema public;");
@@ -96,6 +98,17 @@ describe("Karriere", () => {
     promised = fringe.id;
   });
 
+  it("Individuelles Training mit Umschulung", async () => {
+    const squad = await squadView(careerId, accountId);
+    const p = squad.players.find((x) => x.position === "MC" && !x.altPositions.includes("DM")) ?? squad.players.find((x) => x.position !== "GK")!;
+    const target = p.position === "MC" ? "DM" : "MC";
+    const r = await game.setIndividualTraining(careerId, accountId, p.id, "technical", target);
+    expect(r.individual.position).toBe(target);
+    retrainId = p.id;
+    retrainPos = target;
+    await expect(game.setIndividualTraining(careerId, accountId, p.id, null, p.position)).rejects.toThrow(/bereits/);
+  });
+
   it("Vorstandsanfragen", async () => {
     const b = await game.boardView(careerId, accountId);
     expect(b.offers.length).toBe(4);
@@ -164,6 +177,8 @@ describe("Karriere", () => {
   it("spielt ein Spiel in Abschnitten mit Live-Eingriffen", async () => {
     const a = await advance(careerId, accountId);
     expect(a.kind).toBe("match");
+    const pv = await game.dashboard(careerId, accountId);
+    expect(Array.isArray(pv.next?.advice)).toBe(true);
     const tt = await game.teamTalkState(careerId, accountId);
     expect(tt.available).toBe(true);
     const talk = await game.giveTeamTalk(careerId, accountId, "motivate");
@@ -257,6 +272,11 @@ describe("Karriere", () => {
     expect(pr2.playerId).toBe(youngster.id);
     expect((await squadView(careerId, accountId)).players.some((p) => p.id === youngster.id)).toBe(true);
     if (trainingApproved) expect((await game.boardView(careerId, accountId)).facilities.training.level).toBe(2);
+    // Umschulung abgeschlossen, Länderspielpausen ausgewertet
+    const rp = await pool().query("select data from players where career_id = $1 and id = $2", [careerId, retrainId]);
+    if (rp.rows[0]) expect(rp.rows[0].data.altPositions).toContain(retrainPos);
+    const calls = await pool().query("select count(*) filter (where title like 'Länderspielpause%')::int as a, count(*) filter (where title like 'Rückkehr von den Nationalmannschaften')::int as b from inbox where career_id = $1", [careerId]);
+    expect(calls.rows[0].a).toBe(calls.rows[0].b);
     const lb = await leaderboards();
     expect(lb.best.length).toBe(1);
   }, 240_000);

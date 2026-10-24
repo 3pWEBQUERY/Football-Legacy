@@ -13,6 +13,7 @@ import { type CareerRow, type FixtureRow, addInbox, getClub, getClubs, getPlayer
 import { aiTactic, teamSetup } from "./setup";
 import { competitionOf } from "./cup";
 import { checkPromises } from "./talk";
+import { internationalDuty, isAway } from "./international";
 import { checkProjects } from "./facilities";
 import { runYouthIntake, youthIntakeDay } from "./academy";
 
@@ -97,7 +98,7 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
   if (type === "training" || type === "prep") {
     // Trainingseinheit mit Noten für alle einsatzfähigen Spieler
     const trng = new Rng(seedFor(career.seed, "training", career.season, day));
-    const rated = squad.filter((p) => p.injuryWeeks === 0).map((p) => {
+    const rated = squad.filter((p) => p.injuryWeeks === 0 && !isAway(p, career)).map((p) => {
       const r = trainingRating(trng, p, career.training);
       applyTrainingRating(p, r);
       return { id: p.id, name: `${p.firstName.charAt(0)}. ${p.lastName}`, position: p.position, rating: r };
@@ -118,6 +119,7 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
   }
   events.push(...(await completeScouting(db, career)));
   events.push(...(await checkPromises(db, career, squad)));
+  events.push(...(await internationalDuty(db, career, squad)));
   events.push(...(await checkProjects(db, career)));
   if (day === youthIntakeDay(cal)) {
     const e = await runYouthIntake(db, career);

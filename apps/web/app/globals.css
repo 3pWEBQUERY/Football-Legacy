@@ -595,3 +595,12 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .processing-bar.on span { display: block; height: 100%; width: 25%; background: var(--accent); animation: proc 1s linear infinite; }
 @keyframes proc { from { transform: translateX(-100%); } to { transform: translateX(400%); } }
 @media (prefers-reduced-motion: reduce) { .continue-spin, .processing-bar.on span { animation-duration: 3s; } }
+.cal-intl { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #8b6cf0; margin-top: auto; }
+@media (max-width: 860px) { .cal-intl { display: none; } }
+.advice-list { display: flex; flex-direction: column; }
+.advice { padding: 8px 14px 8px 16px; border-bottom: 1px solid var(--line); font-size: 13.5px; box-shadow: inset 3px 0 0 var(--line-2); }
+.advice:last-child { border-bottom: none; }
+.advice-high { box-shadow: inset 3px 0 0 var(--neg); }
+.advice-medium { box-shadow: inset 3px 0 0 var(--warn); }
+.advice-low { box-shadow: inset 3px 0 0 var(--accent); color: var(--text-2); }
+.advice-ok { box-shadow: inset 3px 0 0 var(--pos); color: var(--text-2); }

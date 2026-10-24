@@ -594,3 +594,26 @@ export async function loanOut(careerId: string, accountId: string, playerId: num
     return { status: "completed", message: `${p.firstName} ${p.lastName} wird bis Saisonende an ${target.name} verliehen. ${target.name} übernimmt ${Math.round(share * 100)} % des Gehalts.` };
   });
 }
+
+/** Individuelles Training: Schwerpunkt (oder null für den Mannschaftsplan) und Umschulungsposition. */
+export async function setIndividualTraining(careerId: string, accountId: string, playerId: number, focus: string | null, position: string | null) {
+  return withCareer(careerId, accountId, async (db, career) => {
+    const clubId = requireClub(career);
+    const p = await getPlayer(db, career.id, playerId);
+    if (!p || p.clubId !== clubId) throw new GameError("Spieler nicht in deinem Kader.");
+    const FOCI = ["attack", "defense", "physical", "technical", "mental", "recovery"];
+    if (focus !== null && !FOCI.includes(focus)) throw new GameError("Unbekannter Schwerpunkt");
+    const POS = ["GK", "DR", "DC", "DL", "DM", "MR", "MC", "ML", "AMR", "AMC", "AML", "ST"];
+    if (position !== null && !POS.includes(position)) throw new GameError("Unbekannte Position");
+    if (position && (position === "GK") !== (p.position === "GK")) throw new GameError("Torhüter und Feldspieler lassen sich nicht umschulen.");
+    if (position && (position === p.position || p.altPositions.includes(position as never))) throw new GameError("Diese Position beherrscht der Spieler bereits.");
+    const prev = p.individual;
+    p.individual = {
+      focus: focus as never,
+      position: position as never,
+      progress: prev?.position === position ? prev.progress : 0,
+    };
+    await savePlayers(db, career.id, [p]);
+    return { individual: p.individual };
+  });
+}

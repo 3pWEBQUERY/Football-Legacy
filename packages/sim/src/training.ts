@@ -39,3 +39,16 @@ export function trainingAverage(p: Pick<Player, "training">): number | null {
   const t = p.training ?? [];
   return t.length ? Math.round((t.reduce((a, b) => a + b, 0) / t.length) * 10) / 10 : null;
 }
+
+/** Wöchentlicher Fortschritt der Positionsumschulung; true, wenn abgeschlossen. */
+export function retrainStep(p: Player): boolean {
+  const ind = p.individual;
+  if (!ind?.position || ind.position === p.position || p.altPositions.includes(ind.position)) return false;
+  const base = p.age <= 21 ? 9 : p.age <= 25 ? 7 : p.age <= 29 ? 5 : 4;
+  ind.progress = Math.min(100, Math.round(ind.progress + base + (p.attrs.decisions - 10) * 0.3));
+  if (ind.progress < 100) return false;
+  p.altPositions = [...p.altPositions, ind.position];
+  ind.position = null;
+  ind.progress = 0;
+  return true;
+}

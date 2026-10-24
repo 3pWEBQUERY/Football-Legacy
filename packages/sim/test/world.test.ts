@@ -1,4 +1,4 @@
-import { buildCalendar, dateOf, dayType, marketWindow, seasonStart } from "../src/calendar";
+import { buildCalendar, dateOf, dayType, internationalWindows, marketWindow, seasonStart } from "../src/calendar";
 import { allocateSlots, drawGroups, groupMatchdays } from "../src/continental";
 import { describe, expect, it } from "vitest";
 import {
@@ -224,3 +224,19 @@ describe("Transferfenster und Kontinentalpokal", () => {
   });
 });
 let teams0 = 1;
+
+describe("Länderspielfenster", () => {
+  it("liegt im Sep/Okt/Nov/Mär auf Montag bis Donnerstag ohne Spielrunde", () => {
+    const kinds = Array.from({ length: 34 }, () => "league" as const) as ("league" | "cup" | "intl")[];
+    kinds.splice(4, 0, "cup");
+    const cal = buildCalendar(kinds);
+    const ws = internationalWindows(cal, 2026);
+    expect(ws.length).toBe(4);
+    const busy = new Set(cal.slots.map((s) => s.day));
+    for (const [a, b] of ws) {
+      expect(dateOf(2026, a).getUTCDay()).toBe(1);
+      for (let d = a; d <= b; d++) expect(busy.has(d)).toBe(false);
+    }
+    expect(ws.map(([a]) => dateOf(2026, a).getUTCMonth())).toEqual([8, 9, 10, 2]);
+  });
+});

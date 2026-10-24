@@ -138,6 +138,8 @@ export default function PlayerPage() {
               <span>Fuss {p.foot === "L" ? "links" : p.foot === "R" ? "rechts" : "beidfüssig"}</span>
               {p.wonderkid && <span className="badge badge-gold">Ausnahmetalent</span>}
               {p.injuryWeeks > 0 && <span className="badge badge-danger">Verletzt · {p.injuryWeeks} W</span>}
+              {p.away && data.career.day <= p.away.until && <span className="badge badge-blue">Bei der Nationalmannschaft</span>}
+              {p.caps > 0 && <span className="faint">{p.caps} Länderspiele{p.intlGoals ? ` · ${p.intlGoals} Tore` : ""}</span>}
               {p.promise && <span className="badge badge-warn" title="Versprochene Einsatzzeit">Versprechen · {p.promise.starts}/{p.promise.needed} Startelf bis {fmtDate(dayIso(data.career.season, p.promise.until), { year: false })}</span>}
               {p.loan && <span className="badge badge-accent">{data.loanedOutByUser ? "Von dir verliehen" : `Leihe von ${data.loanParent ?? "Stammverein"}`} · bis Saisonende</span>}
             </div>
@@ -224,6 +226,7 @@ export default function PlayerPage() {
               <Radar value={val} gk={isGk} size={260} />
             </div>
           </Panel>
+          {data.own && !p.loan && <IndividualTraining player={p} careerId={id} onSaved={reload} />}
           <Panel title="Vertrag" icon="contract">
             <div className="kv"><span className="k">Gehalt</span><span className="v">{p.contract ? `${money(p.contract.wage)} / Woche` : "–"}</span></div>
             <div className="kv"><span className="k">Vertrag bis</span><span className="v">{p.contract?.untilSeason ?? "–"}</span></div>
@@ -356,5 +359,56 @@ export default function PlayerPage() {
         )}
       </Modal>
     </>
+  );
+}
+
+const FOCUS_OPTIONS: [string, string][] = [["", "Mannschaftsplan"], ["attack", "Angriff"], ["defense", "Abwehr"], ["physical", "Athletik"], ["technical", "Technik"], ["mental", "Mental"], ["recovery", "Regeneration"]];
+const ALL_POS = ["GK", "DR", "DC", "DL", "DM", "MR", "MC", "ML", "AMR", "AMC", "AML", "ST"];
+
+/** Individueller Trainingsschwerpunkt und Umschulung auf eine neue Position. */
+function IndividualTraining({ player: p, careerId, onSaved }: { player: any; careerId: string; onSaved: () => void }) {
+  const toast = useToast();
+  const [focus, setFocus] = useState<string>(p.individual?.focus ?? "");
+  const [position, setPosition] = useState<string>(p.individual?.position ?? "");
+  const [busy, setBusy] = useState(false);
+  const options = ALL_POS.filter((x) => x !== p.position && !p.altPositions.includes(x) && (x === "GK") === (p.position === "GK"));
+  const changed = focus !== (p.individual?.focus ?? "") || position !== (p.individual?.position ?? "");
+  async function save() {
+    setBusy(true);
+    try {
+      await api(`careers/${careerId}/players/${p.id}`, { body: { action: "individual", focus: focus || null, position: position || null } });
+      toast("Individuelles Training gespeichert.", "success");
+      onSaved();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Panel title="Individuelles Training" icon="team">
+      <div className="field">
+        <label>Schwerpunkt</label>
+        <select className="select" value={focus} onChange={(e) => setFocus(e.target.value)}>
+          {FOCUS_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </div>
+      <div className="field" style={{ marginTop: 10 }}>
+        <label>Neue Position lernen</label>
+        <select className="select" value={position} onChange={(e) => setPosition(e.target.value)}>
+          <option value="">Keine Umschulung</option>
+          {options.map((x) => <option key={x} value={x}>{POS_LONG[x]} ({POS_LABEL[x]})</option>)}
+        </select>
+      </div>
+      {p.individual?.position && (
+        <div className="stack-sm" style={{ marginTop: 10 }}>
+          <div className="between small"><span className="faint">Umschulung {POS_LABEL[p.individual.position]}</span><b>{p.individual.progress} %</b></div>
+          <div className="progress"><span style={{ width: `${p.individual.progress}%` }} /></div>
+        </div>
+      )}
+      <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
+        <button className="btn btn-primary btn-sm" disabled={busy || !changed} onClick={save}>Speichern</button>
+      </div>
+    </Panel>
   );
 }
