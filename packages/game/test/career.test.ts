@@ -744,3 +744,27 @@ describe("Taktik-Ausbau", () => {
     expect(fam0).toBeGreaterThan(0);
   }, 120_000);
 });
+
+describe("Nachrichten-Engine", () => {
+  it("erzeugt unterschiedliche Nachrichten mit Absender und Inhalt; Filter und Archiv", async () => {
+    const kinds = await pool().query("select distinct kind from inbox where career_id = $1 and kind is not null", [careerId]);
+    const set = new Set(kinds.rows.map((r: { kind: string }) => r.kind.replace(/_\d+$/, "")));
+    for (const k of ["preview", "analysis", "milestone", "board_monthly"]) expect(set.has(k)).toBe(true);
+    expect(set.size).toBeGreaterThanOrEqual(8);
+    const v = await game.inboxView(careerId, accountId, {});
+    expect(v.messages.length).toBe(40);
+    expect(v.messages.every((m) => (m.sender as { name: string }).name.length > 1)).toBe(true);
+    const rich = v.messages.find((m) => Array.isArray(m.blocks) && (m.blocks as unknown[]).length > 0);
+    expect(rich).toBeTruthy();
+    const older = await game.inboxView(careerId, accountId, { before: v.messages[39].id });
+    expect(older.messages[0].id).toBeLessThan(v.messages[39].id);
+    const matches = await game.inboxView(careerId, accountId, { filter: "match" });
+    expect(matches.messages.every((m) => m.category === "match")).toBe(true);
+    const preview = (await pool().query("select blocks, sender from inbox where career_id = $1 and kind = 'preview' order by id desc limit 1", [careerId])).rows[0];
+    expect(preview.sender.kind).toBe("staff");
+    expect(preview.blocks.some((b: { t: string }) => b.t === "players")).toBe(true);
+    const id = v.messages[0].id;
+    await game.archiveInbox(careerId, accountId, [id]);
+    expect((await game.inboxView(careerId, accountId, {})).messages.some((m) => m.id === id)).toBe(false);
+  });
+});

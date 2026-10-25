@@ -292,10 +292,12 @@ export async function addInbox(
   title: string,
   body: string,
   action: unknown = null,
+  meta: { sender?: unknown; blocks?: unknown[]; priority?: number; kind?: string } = {},
 ) {
   // Datum: aktueller Tag der Karriere (wird vor Tagesereignissen gespeichert)
-  await query(db, "insert into inbox(career_id, season, week, category, title, body, action, day) values ($1,$2,$3,$4,$5,$6,$7,(select day from careers where id = $1))", [
+  await query(db, "insert into inbox(career_id, season, week, category, title, body, action, day, sender, blocks, priority, kind) values ($1,$2,$3,$4,$5,$6,$7,(select day from careers where id = $1),$8,$9,$10,$11)", [
     careerId, season, week, category, title, body, action ? JSON.stringify(action) : null,
+    meta.sender ? JSON.stringify(meta.sender) : null, meta.blocks?.length ? JSON.stringify(meta.blocks) : null, meta.priority ?? 1, meta.kind ?? null,
   ]);
 }
 

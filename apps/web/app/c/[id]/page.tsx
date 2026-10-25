@@ -6,6 +6,7 @@ import { dayIso, fmtDate, money, weekdayShort } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { CategoryIcon, Crest, Empty, FormChips, Icon, Loading, Panel, Progress, Rating, useToast } from "@/components/ui";
 import { useConfirm, usePrompt } from "@/components/Dialog";
+import { Inbox } from "@/components/Inbox";
 
 export default function Office() {
   const { id, shell: d, advance, busy, pendingMessage, clearPendingMessage } = useGame();
@@ -37,7 +38,6 @@ export default function Office() {
   const c = d.career;
   const board = d.board;
   const next = d.next;
-  const open = d.inbox.find((m: any) => m.id === openId) ?? null;
 
   async function select(m: any) {
     setOpenId(m.id);
@@ -76,7 +76,6 @@ export default function Office() {
   }
 
   const offerFor = (m: any) => (m?.action?.type === "transfer_offer" ? d.offers.find((o: any) => o.id === m.action.transferId) : null);
-  const openOffer = offerFor(open);
 
   return (
     <>
@@ -168,51 +167,31 @@ export default function Office() {
           <Panel title="Nächstes Spiel" icon="calendar"><p className="dim">Aktuell ist kein Pflichtspiel angesetzt.</p></Panel>
         )}
 
-        <section className="card card-flush">
-          <div className="card-head">
-            <h3><Icon name="mail" size={15} /> Posteingang {d.unread > 0 && <span className="badge badge-blue">{d.unread} neu</span>}</h3>
-            {d.unread > 0 && <button className="btn btn-ghost btn-sm" onClick={async () => { await api(`careers/${id}/inbox`, { body: { ids: "all" } }); refreshAll(); }}>Alle gelesen</button>}
-          </div>
-          {d.inbox.length === 0 ? <Empty>Keine Nachrichten.</Empty> : (
-            <div className="inbox">
-              <div className="inbox-list">
-                {d.inbox.map((m: any) => (
-                  <div key={m.id} className={`inbox-item ${m.read ? "" : "unread"} ${openId === m.id ? "active" : ""}`} onClick={() => select(m)} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && select(m)}>
-                    <div className="inbox-icon"><CategoryIcon category={m.category} /></div>
-                    <div style={{ minWidth: 0, flex: 1, paddingRight: 12 }}>
-                      <div className="inbox-title truncate">{m.title}</div>
-                      <div className="faint small">{m.day !== null && m.day !== undefined ? fmtDate(dayIso(m.season, m.day)) : m.week === 0 ? "Vorbereitung" : `Runde ${m.week}`}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="inbox-read">
-                {open ? (
+        <Inbox careerId={id} today={{ season: c.season, day: c.day }} openId={openId} onSelect={select} initialUnread={d.unread}
+          actions={(m: any) => {
+            const offer = offerFor(m);
+            return (
+              <>
+                {m.action?.type === "fixture" && <Link className="btn" href={`${base}/report/${m.action.fixtureId}`}>Spielbericht öffnen</Link>}
+                {m.action?.type === "scouting" && <Link className="btn" href={`${base}/market/scouting`}>Zur Scouting-Zentrale</Link>}
+                {m.action?.type === "academy" && <Link className="btn" href={`${base}/team/youth`}>Zur Jugendakademie</Link>}
+                {m.action?.type === "club" && <Link className="btn" href={`${base}/verein`}>Zu Verein & Fans</Link>}
+                {m.action?.type === "jobs" && <Link className="btn" href={`${base}/career/jobs`}>Zu den freien Stellen</Link>}
+                {m.action?.type === "awards" && <Link className="btn" href={`${base}/competition/awards`}>Zu den Auszeichnungen</Link>}
+                {m.action?.type === "tactic" && <Link className="btn" href={`${base}/team/tactic`}>Zur Taktik</Link>}
+                {m.action?.type === "national" && <><Link className="btn" href={`${base}/national`}>Zum Nationalteam</Link><Link className="btn btn-ghost" href={`${base}/national/squad`}>Kader nominieren</Link></>}
+                {m.action?.type === "player" && <Link className="btn" href={`${base}/player/${m.action.playerId}`}>Spielerprofil öffnen</Link>}
+                {m.category === "medical" && m.action?.type !== "tactic" && <Link className="btn btn-ghost" href={`${base}/team/medical`}>Zur Medizin</Link>}
+                {offer && (
                   <>
-                    <div className="faint small up">{open.day !== null && open.day !== undefined ? fmtDate(dayIso(open.season, open.day), { long: true }) : open.week === 0 ? "Saisonvorbereitung" : `Runde ${open.week}`}</div>
-                    <h2>{open.title}</h2>
-                    <p className="inbox-body">{open.body}</p>
-                    {open.action?.type === "fixture" && <div><Link className="btn" href={`${base}/report/${open.action.fixtureId}`}>Spielbericht öffnen</Link></div>}
-                    {open.action?.type === "scouting" && <div><Link className="btn" href={`${base}/market/scouting`}>Zur Scouting-Zentrale</Link></div>}
-                    {open.action?.type === "academy" && <div><Link className="btn" href={`${base}/team/youth`}>Zur Jugendakademie</Link></div>}
-                    {open.action?.type === "club" && <div><Link className="btn" href={`${base}/verein`}>Zu Verein & Fans</Link></div>}
-                    {open.action?.type === "jobs" && <div><Link className="btn" href={`${base}/career/jobs`}>Zu den freien Stellen</Link></div>}
-                    {open.action?.type === "awards" && <div><Link className="btn" href={`${base}/competition/awards`}>Zu den Auszeichnungen</Link></div>}
-                    {open.action?.type === "national" && <div className="row"><Link className="btn" href={`${base}/national`}>Zum Nationalteam</Link><Link className="btn btn-ghost" href={`${base}/national/squad`}>Kader nominieren</Link></div>}
-                    {open.action?.type === "player" && <div><Link className="btn" href={`${base}/player/${open.action.playerId}`}>Spielerprofil öffnen</Link></div>}
-                    {openOffer && (
-                      <div className="row">
-                        <button className="btn btn-primary" onClick={() => respond(openOffer.id, "accept")}>Angebot annehmen</button>
-                        <button className="btn" onClick={() => respond(openOffer.id, "counter")}>Mehr fordern</button>
-                        <button className="btn btn-ghost" onClick={() => respond(openOffer.id, "reject")}>Ablehnen</button>
-                      </div>
-                    )}
+                    <button className="btn btn-primary" onClick={() => respond(offer.id, "accept")}>Angebot annehmen</button>
+                    <button className="btn" onClick={() => respond(offer.id, "counter")}>Mehr fordern</button>
+                    <button className="btn btn-ghost" onClick={() => respond(offer.id, "reject")}>Ablehnen</button>
                   </>
-                ) : <Empty>Wähle eine Nachricht.</Empty>}
-              </div>
-            </div>
-          )}
-        </section>
+                )}
+              </>
+            );
+          }} />
 
         {d.headlines?.length > 0 && (
           <Panel title="Schlagzeilen" icon="news" flush actions={<Link href={`${base}/media`} className="btn btn-ghost btn-sm">Alle Meldungen</Link>}>

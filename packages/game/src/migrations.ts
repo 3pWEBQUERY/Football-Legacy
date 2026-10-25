@@ -411,4 +411,14 @@ alter table careers add column if not exists jobs jsonb;
 alter table careers add column if not exists tactics jsonb;
 `,
   },
+  {
+    name: "016_inbox_rich.sql",
+    sql: `
+alter table inbox add column if not exists sender jsonb;
+alter table inbox add column if not exists blocks jsonb;
+alter table inbox add column if not exists priority int not null default 1;
+alter table inbox add column if not exists kind text;
+create index if not exists inbox_kind on inbox(career_id, kind, id desc);
+`,
+  },
 ];

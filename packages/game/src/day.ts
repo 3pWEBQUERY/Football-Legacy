@@ -13,6 +13,7 @@ import type pg from "pg";
 import { windowFor } from "./window";
 import { type Db, query } from "./db";
 import { jobsDaily } from "./jobs";
+import { matchPreview, newsDaily } from "./news";
 import { familiarityTick } from "./tactics";
 import { type CareerRow, type FixtureRow, addInbox, getClub, getClubs, getPlayers, saveCareer, savePlayers } from "./repo";
 import { aiTactic, teamSetup } from "./setup";
@@ -175,6 +176,9 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
   }
   const rumour = await dailyRumours(db, career, squad, win.open);
   if (rumour) events.push(rumour);
+  // Nachrichten-Engine: Geburtstage, Belastung, Vorstand, Berater
+  const nextMatch = [...fixtures.entries()].filter(([d, f]) => d >= day && !f.played).sort((a, b) => a[0] - b[0])[0];
+  await newsDaily(db, career, squad, { type, nextMatchDay: nextMatch ? nextMatch[0] : null });
 
   await savePlayers(db, career.id, squad);
   // Monatsauszeichnungen erst nach dem Speichern des Kaders, sonst würde der Tageskader sie überschreiben
@@ -297,14 +301,8 @@ async function opponentReport(db: pg.PoolClient, career: CareerRow, f: FixtureRo
   const d = dateOf(career.season, matchDay);
   const when = `${["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][d.getUTCDay()]}, ${d.getUTCDate()}. ${MONTHS[d.getUTCMonth()]}`;
   const title = `Spielvorbereitung: ${opp.name}`;
-  await addInbox(db, career.id, career.season, career.week, "match", title,
-    `${(await competitionOf(db, f)).label} am ${when}, ${f.home_id === career.club_id ? "zu Hause" : "auswärts"}.\n\n` +
-      `Formation: ${opp.tactic?.formation ?? "unbekannt"}\nStärke: ${opp.rating}\n` +
-      `Form (letzte Spiele): ${form.length ? form.join(" ") : "noch keine Pflichtspiele"}\n` +
-      `Ausfälle: ${injured === 0 ? "keine" : injured}\n\n` +
-      `Schlüsselspieler:\n${key.map((p) => `• ${p.firstName} ${p.lastName} (${p.position}, ${p.age} Jahre)`).join("\n")}\n\n` +
-      "Die Pressekonferenz findet am Spieltag vor dem Anpfiff statt.",
-    { type: "fixture", fixtureId: f.id });
+  void key; void form; void injured;
+  await matchPreview(db, career, f, when, (await competitionOf(db, f)).label);
   return title;
 }
 

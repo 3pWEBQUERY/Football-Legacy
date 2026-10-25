@@ -30,3 +30,4 @@ export { clubManagementView, fanAction, setTicketLevel, updateIdentity } from ".
 export { addOnlineBots, createOnlineLeague, joinOnlineLeague, kickOnlineMember, leaveOnlineLeague, onlineLeagueView, onlineMatchReport, onlineOverview, playOnlineRound, postOnlineMessage, roundRobin, setOnlineReady, startOnlineLeague, switchOnlineTeam } from "./online";
 export { acceptJob, applyForJob, declineOffer, jobsView, resignJob, toggleInterest, withdrawApplication } from "./jobs";
 export { tacticSlotAction } from "./tactics";
+export { archiveInbox, inboxView } from "./inbox";

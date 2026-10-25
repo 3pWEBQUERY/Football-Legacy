@@ -241,6 +241,8 @@ route("POST", career("jobs/withdraw"), async (c) => game.withdrawApplication(c.p
 route("POST", career("jobs/interest"), async (c) => game.toggleInterest(c.params.id, acc(c), num(c.body.clubId)));
 route("POST", career("jobs/decline"), async (c) => game.declineOffer(c.params.id, acc(c), num(c.body.clubId)));
 route("POST", career("jobs/resign"), async (c) => game.resignJob(c.params.id, acc(c)));
+route("GET", career("inbox"), async (c) => game.inboxView(c.params.id, acc(c), { filter: str(c.query.get("filter")) || undefined, before: c.query.get("before") ? num(c.query.get("before")) : undefined }));
+route("POST", career("inbox/archive"), async (c) => game.archiveInbox(c.params.id, acc(c), ((c.body.ids as unknown[]) ?? []).map(num)));
 route("POST", career("inbox"), async (c) => game.markInboxRead(c.params.id, acc(c), c.body.ids === "all" ? "all" : ((c.body.ids as unknown[]) ?? []).map(num)));
 route("GET", career("match/preview"), async (c) => {
   const cr = await game.readCareer(c.params.id, acc(c));

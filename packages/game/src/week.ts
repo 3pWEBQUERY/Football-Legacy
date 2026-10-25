@@ -27,6 +27,7 @@ import { academyWeek } from "./academy";
 import { facilitiesOf } from "./facilities";
 import { endSeason, type SeasonSummary } from "./season-end";
 import { jobsSeasonEnd, jobsWeek } from "./jobs";
+import { matchAnalysis, milestones, newsWeekly, send, staffSender } from "./news";
 import { familiarityTick, userFamiliarity } from "./tactics";
 import { type WorldState, loadWorld, squadOf } from "./world-state";
 
@@ -336,6 +337,14 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     }
   }
 
+  // Meilensteine eigener Spieler (vor dem Speichern, da die Moral steigt)
+  if (userFixture && userClubId) {
+    const rep = await query<{ data: { players?: { playerId: number; goals: number; minutes: number; side: number }[] } }>(db, "select data from match_reports where fixture_id = $1", [userFixture.id]);
+    const side = userFixture.home_id === userClubId ? 0 : 1;
+    const own = squadOf(w, userClubId);
+    await milestones(db, career, w.clubs.get(userClubId)!, own, (rep[0]?.data.players ?? []).filter((l) => l.side === side));
+    for (const p of own) w.dirtyPlayers.add(p.id);
+  }
   await persistWorld(db, w);
 
   // Posteingang: eigenes Ergebnis, Verletzungen, Hinweise
@@ -355,6 +364,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   await announceNotes(db, career, notes);
 
   if (!midweek) await jobsWeek(db, career);
+  if (!midweek && userClubId) await newsWeekly(db, career, week);
   if (userFixture) await familiarityTick(db, career, "match");
 
   let seasonEnd: SeasonSummary | null = null;
@@ -422,21 +432,23 @@ async function weeklyInbox(
     );
     const pos = table.findIndex((t) => t.clubId === club.id) + 1;
     position = pos;
-    await addInbox(
-      db, career.id, career.season, week, "match",
-      `${userFixture.cup_id ? cupName ?? "Pokal" : `${userFixture.round}. Spieltag`}: ${home.short_name} ${r.home}:${r.away}${r.penHome !== undefined ? ` (${r.penHome}:${r.penAway} i.E.)` : ""} ${away.short_name}`,
-      userFixture.cup_id
-        ? `${home.name} – ${away.name} ${r.home}:${r.away}${r.penHome !== undefined ? `, ${r.penHome}:${r.penAway} im Elfmeterschiessen` : ""}.`
-        : `${home.name} – ${away.name} ${r.home}:${r.away}. ${club.name} steht jetzt auf Platz ${pos}.`,
-      { type: "fixture", fixtureId: userFixture.id },
-    );
+    await matchAnalysis(db, career, userFixture, home, away, r.home, r.away, userFixture.cup_id ? null : pos,
+      userFixture.cup_id ? cupName ?? "Pokal" : `${userFixture.round}. Spieltag`, r.penHome !== undefined ? [r.penHome, r.penAway!] : undefined);
     await matchArticle(db, career, userFixture, home, away, r, userFixture.cup_id ? null : pos,
       userFixture.cup_id ? cupName ?? "Pokal" : `${userFixture.round}. Spieltag`);
   }
   const fresh = squad.filter((p) => injuredNow.has(p.id) && p.injuryWeeks > 0);
   if (fresh.length) {
-    const list = fresh.map((p) => `• ${p.firstName} ${p.lastName}: ${p.injury?.name ?? "Verletzung"} – fällt ${p.injuryWeeks === 1 ? "eine Woche" : `${p.injuryWeeks} Wochen`} aus`);
-    await addInbox(db, career.id, career.season, week, "medical", "Bericht der medizinischen Abteilung", `Neue Verletzungen:\n${list.join("\n")}`);
+    await send(db, career, {
+      category: "medical", title: fresh.length === 1 ? `Verletzung: ${fresh[0].firstName} ${fresh[0].lastName}` : `${fresh.length} neue Verletzungen`,
+      sender: await staffSender(db, career, club, "physio"),
+      blocks: [
+        { t: "p", text: fresh.length === 1 ? "Leider müssen wir einen Ausfall melden." : "Die medizinische Abteilung meldet mehrere Ausfälle." },
+        { t: "players", title: "Ausfälle", items: fresh.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, pos: p.position, value: p.injuryWeeks === 1 ? "1 Woche" : `${p.injuryWeeks} Wochen`, note: p.injury?.name ?? "Verletzung" })) },
+        { t: "p", text: "Details und Genesungsverlauf findest du unter Team → Medizin." },
+      ],
+      priority: 2, kind: "injury", action: fresh.length === 1 ? { type: "player", playerId: fresh[0].id } : null,
+    });
   }
   if (week === career.season_weeks - 6) {
     const expiring = squad.filter((p) => p.contract && p.contract.untilSeason <= career.season);

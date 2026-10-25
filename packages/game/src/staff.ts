@@ -85,7 +85,7 @@ function sync(career: CareerRow, team: StaffTeam) {
   for (const role of STAFF_ROLES) career.staff[role] = team.members.find((m) => m.role === role)?.quality ?? VACANT_QUALITY;
 }
 
-async function teamOf(db: Db, career: CareerRow, club: ClubRow): Promise<StaffTeam> {
+export async function teamOf(db: Db, career: CareerRow, club: ClubRow): Promise<StaffTeam> {
   const rows = await query<{ staff_team: StaffTeam | null }>(db, "select staff_team from careers where id = $1", [career.id]);
   return rows[0]?.staff_team ?? initialTeam(career, club);
 }

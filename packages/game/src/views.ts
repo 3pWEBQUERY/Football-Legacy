@@ -1,6 +1,7 @@
 /** Lesende Sichten für die Oberfläche. */
 import { INSTRUCTION_CONFLICTS, INSTRUCTION_LABEL, DUTY_LABEL, MENTALITY_LABEL, tacticIntensity } from "@fl/sim";
 import { MAX_TACTICS, familiarityOf, getTactics, presetName } from "./tactics";
+import { inboxRows } from "./inbox";
 import { windowFor } from "./window";
 import {
   ACHIEVEMENTS, ALL_ATTRS, CARD_PACK, COUNTRIES, COUNTRY_BY_CODE, FINANCE_LABEL, FORMATIONS, LEVEL_TITLES, MISSIONS, ROLES,
@@ -125,7 +126,7 @@ export async function dashboard(careerId: string, accountId: string) {
   const career = await readCareer(careerId, accountId);
   const club = career.club_id ? await getClub(pool(), career.id, career.club_id) : null;
   const league = club ? await getLeague(pool(), career.id, club.league_id) : null;
-  const inbox = await query(pool(), "select id, season, week, day, category, title, body, read, action, created_at from inbox where career_id = $1 order by id desc limit 40", [career.id]);
+  const inbox = (await inboxRows(pool(), career, { limit: 60 })).rows;
   const unread = await one<{ n: number }>(pool(), "select count(*)::int as n from inbox where career_id = $1 and not read", [career.id]);
   const next = await matchPreview(pool(), career);
   const headlines = await latestHeadlines(career.id, 4);
