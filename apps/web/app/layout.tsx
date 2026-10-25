@@ -7,6 +7,11 @@ import "@fontsource/barlow-condensed/500.css";
 import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
 import "./globals.css";
+import "./styles/controls.css";
+import "./styles/sections.css";
+import "./styles/tactic.css";
+import "./styles/inbox.css";
+import "./styles/market.css";
 import { ToastProvider } from "@/components/ui";
 import { DialogProvider } from "@/components/Dialog";
 

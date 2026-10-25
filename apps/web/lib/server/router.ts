@@ -196,10 +196,7 @@ route("GET", career("market"), async (c) => {
     sort: (q.get("sort") as never) ?? undefined, page: n("page"),
   });
 });
-route("POST", career("offers"), async (c) => game.makeOffer(c.params.id, acc(c), {
-  playerId: num(c.body.playerId), fee: num(c.body.fee ?? 0), wage: num(c.body.wage ?? 0), years: num(c.body.years ?? 3),
-  releaseClause: c.body.releaseClause ? num(c.body.releaseClause) : null,
-}));
+
 route("GET", career("transfers"), async (c) => game.transferHub(c.params.id, acc(c)));
 route("POST", career("transfers/budget"), async (c) => game.setWageBudget(c.params.id, acc(c), num(c.body.wageBudget)));
 const clubOffer = (b: Record<string, unknown>) => ({ fee: num(b.fee ?? 0), upfrontPct: num(b.upfrontPct ?? 100), installmentYears: num(b.installmentYears ?? 0), sellOn: num(b.sellOn ?? 0) });

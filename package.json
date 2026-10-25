@@ -10,6 +10,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
+    "check:lines": "node scripts/check-lines.mjs",
     "test": "pnpm -r test",
     "dev": "pnpm --filter @fl/web dev",
     "start": "pnpm --filter @fl/web start",

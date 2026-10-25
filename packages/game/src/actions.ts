@@ -1,23 +1,21 @@
 /** Aktionen des Nutzers: Taktik, Training, Transfers, Verträge, Scouting, Shop, Jobwechsel. */
 import { paySellOn } from "./negotiations";
 import {
-  CARD_PACK, COUNTRY_BY_CODE, FORMATIONS, ROLE_BY_ID, Rng, SKINS, askingPrice, evaluateFee, evaluateTerms, formatMoney,
-  isUnlocked, renewalDemand, roundsFor, seedFor, squadRanks, validateTactic,
+  CARD_PACK, COUNTRY_BY_CODE, FORMATIONS, ROLE_BY_ID, Rng, SKINS, askingPrice, formatMoney,
+  isUnlocked, renewalDemand, seedFor, squadRanks, validateTactic,
   type Formation, type Player, type Tactic, type TrainingPlan,
   INSTRUCTION_CONFLICTS, INSTRUCTION_LABEL, type PlayerInstruction,
 } from "@fl/sim";
-import type pg from "pg";
 import { windowFor } from "./window";
-import { addArticle } from "./media";
 import { one, query } from "./db";
-import { activateClubs, activateLeague, boardObjectives, scheduleSeason, withCareer } from "./career";
+import { activateClubs, activateLeague, withCareer } from "./career";
 import { GameError } from "./errors";
 import { applyStyleChange, getTactics, saveTactics } from "./tactics";
 import {
-  type CareerRow, type ClubRow, addFinance, addInbox, getClub, getClubs, getLeague, getLeagues, getPlayer, getPlayers,
+  type CareerRow, type ClubRow, addFinance, addInbox, getClub, getClubs, getLeagues, getPlayer, getPlayers,
   saveCareer, saveClubs, savePlayers,
 } from "./repo";
-import { type RewardNote, announceNotes, awardCard, completeMission, openPack, unlockAchievement } from "./rewards";
+import { type RewardNote, announceNotes, completeMission, openPack } from "./rewards";
 
 function requireClub(career: CareerRow): number {
   if (!career.club_id || career.status !== "active") throw new GameError("Du hast aktuell keinen Verein.");
@@ -111,134 +109,6 @@ export async function setAutoSubs(careerId: string, accountId: string, autoSubs:
 }
 
 // ---------------------------------------------------------------- Transfers
-
-async function sellerContextFor(db: pg.PoolClient, career: CareerRow, p: Player) {
-  const squad = p.clubId !== null ? await getPlayers(db, career.id, [p.clubId]) : [];
-  const club = p.clubId !== null ? await getClub(db, career.id, p.clubId) : null;
-  return {
-    ctx: {
-      season: career.season,
-      squadRank: squadRanks(squad).get(p.id) ?? 30,
-      squadSize: squad.length,
-      sellerReputation: club?.reputation ?? 30,
-      isUserClub: false,
-    },
-    club,
-  };
-}
-
-export interface OfferInput {
-  playerId: number;
-  fee: number;
-  wage: number;
-  years: number;
-  releaseClause?: number | null;
-}
-
-export type OfferOutcome =
-  | { status: "completed"; message: string; notes: RewardNote[] }
-  | { status: "countered"; message: string; counterFee?: number; counterWage?: number }
-  | { status: "rejected"; message: string };
-
-export async function makeOffer(careerId: string, accountId: string, input: OfferInput): Promise<OfferOutcome> {
-  return withCareer(careerId, accountId, async (db, career) => {
-    const clubId = requireClub(career);
-    const p = await getPlayer(db, career.id, input.playerId);
-    if (!p) throw new GameError("Spieler nicht gefunden", 404);
-    if (p.clubId === clubId) throw new GameError("Der Spieler gehört bereits zu deinem Verein.");
-    if (p.loan) throw new GameError("Der Spieler ist ausgeliehen und steht erst nach der Saison zur Verfügung.");
-    const window = windowFor(career);
-    if (p.clubId !== null && !window.open) throw new GameError("Das Transferfenster ist geschlossen. Vereinslose Spieler kannst du jederzeit verpflichten.");
-    const buyer = (await getClub(db, career.id, clubId))!;
-    const fee = Math.max(0, Math.round(input.fee || 0));
-    const wage = Math.max(0, Math.round(input.wage || 0));
-    const years = Math.max(1, Math.min(5, Math.round(input.years || 3)));
-    if (fee > buyer.transfer_budget) throw new GameError(`Die Ablöse übersteigt dein Transferbudget (${formatMoney(buyer.transfer_budget)}).`);
-    const squad = await getPlayers(db, career.id, [clubId]);
-    if (squad.length >= 32) throw new GameError("Dein Kader ist voll (max. 32 Spieler). Gib zuerst Spieler ab.");
-
-    // Geduld des Vereins: nach drei gescheiterten Angeboten wird abgebrochen
-    const tries = await one<{ n: number }>(
-      db, "select count(*)::int as n from transfers where career_id = $1 and player_id = $2 and season = $3 and kind = 'buy' and status in ('rejected','countered')",
-      [career.id, p.id, career.season],
-    );
-    if ((tries?.n ?? 0) >= 4) return { status: "rejected", message: "Der Verein hat die Verhandlungen abgebrochen." };
-
-    const rng = new Rng(seedFor(career.seed, "offer", p.id, career.season, career.week, tries?.n ?? 0));
-    const record = async (status: string, message: string, counterFee: number | null = null, counterWage: number | null = null) => {
-      await query(
-        db,
-        `insert into transfers(career_id, player_id, player_name, from_club, to_club, fee, wage, years, kind, status, counter_fee, counter_wage, message, season, week)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,'buy',$9,$10,$11,$12,$13,$14)`,
-        [career.id, p.id, `${p.firstName} ${p.lastName}`, p.clubId, clubId, fee, wage, years, status, counterFee, counterWage, message, career.season, career.week],
-      );
-    };
-
-    let seller: ClubRow | null = null;
-    if (p.clubId !== null) {
-      const { ctx, club } = await sellerContextFor(db, career, p);
-      seller = club;
-      const verdict = evaluateFee(p, fee, ctx, rng);
-      if (verdict.kind === "reject") {
-        await record("rejected", verdict.message);
-        return { status: "rejected", message: verdict.message };
-      }
-      if (verdict.kind === "counter") {
-        await record("countered", verdict.message, verdict.fee);
-        return { status: "countered", message: `${verdict.message} Gegenangebot: ${formatMoney(verdict.fee)}.`, counterFee: verdict.fee };
-      }
-    }
-    const terms = evaluateTerms(p, { wage, years, releaseClause: input.releaseClause ?? null }, buyer.reputation, seller?.reputation ?? Math.max(1, buyer.reputation - 20), rng);
-    if (terms.kind === "reject") {
-      await record("rejected", terms.message);
-      return { status: "rejected", message: terms.message };
-    }
-    if (terms.kind === "counter") {
-      await record("countered", terms.message, null, terms.wage);
-      return { status: "countered", message: terms.message, counterWage: terms.wage };
-    }
-
-    // Abschluss
-    if (seller) {
-      seller.balance += fee;
-      seller.transfer_budget += Math.round(fee * 0.6);
-    }
-    buyer.balance -= fee;
-    buyer.transfer_budget -= fee;
-    await saveClubs(db, career.id, seller ? [buyer, seller] : [buyer]);
-    if (seller?.tactic) {
-      seller.tactic.lineup = seller.tactic.lineup.map((id) => (id === p.id ? null : id));
-      seller.tactic.bench = seller.tactic.bench.filter((id) => id !== p.id);
-      await saveClubs(db, career.id, [seller]);
-    }
-    p.clubId = clubId;
-    p.listed = false;
-    p.joined = { season: career.season };
-    p.squadStatus = null;
-    p.transferRequest = false;
-    p.contract = { wage, untilSeason: career.season + years - 1, releaseClause: input.releaseClause ?? null, goalBonus: 0 };
-    p.morale = 80;
-    await savePlayers(db, career.id, [p]);
-    if (fee > 0) await addFinance(db, career.id, clubId, career.season, career.week, [{ kind: "transfer_out", amount: -fee, label: `Ablöse ${p.firstName} ${p.lastName}` }]);
-    await record("completed", "Transfer abgeschlossen");
-    const notes: RewardNote[] = [];
-    career.manager.totals.signings++;
-    unlockAchievement(career, "first_signing", notes);
-    if (fee >= 10_000_000) unlockAchievement(career, "big_signing", notes);
-    completeMission(career, "sign_player", notes);
-    awardCard(career, p, "Verpflichtung", notes);
-    await saveCareer(db, career);
-    await addInbox(db, career.id, career.season, career.week, "transfer", `${p.firstName} ${p.lastName} unterschreibt!`,
-      `${p.firstName} ${p.lastName} wechselt ${seller ? `von ${seller.name} ` : ""}zu ${buyer.name}${fee ? ` (Ablöse ${formatMoney(fee)})` : " (ablösefrei)"}. Gehalt: ${formatMoney(wage)} pro Woche, Vertrag bis ${career.season + years - 1}.`);
-    await addArticle(db, career, {
-      kind: "transfer", title: fee ? `${buyer.name} holt ${p.firstName} ${p.lastName} für ${formatMoney(fee)}` : `${p.firstName} ${p.lastName} wechselt ablösefrei zu ${buyer.name}`,
-      body: `${buyer.name} hat ${p.firstName} ${p.lastName} (${p.age}, ${p.position}) ${seller ? `von ${seller.name} ` : ""}verpflichtet${fee ? ` – die Ablöse beträgt ${formatMoney(fee)}` : ""}. Der Vertrag läuft bis ${career.season + years - 1}.`,
-      clubId: buyer.id, playerId: p.id, own: true, importance: fee >= 10_000_000 ? 3 : 2,
-    });
-    await announceNotes(db, career, notes);
-    return { status: "completed", message: `${p.firstName} ${p.lastName} ist verpflichtet!`, notes };
-  });
-}
 
 /** Auf ein KI-Angebot für einen eigenen Spieler reagieren. */
 export async function respondToOffer(careerId: string, accountId: string, transferId: number, decision: "accept" | "reject" | "counter", counterFee?: number) {
