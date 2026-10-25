@@ -12,7 +12,7 @@ export interface SelectOption<T extends string> {
  * Eigenes Auswahlfeld im Stil des Spiels (statt der nativen Browser-Auswahl).
  * Bedienung per Maus, Touch und Tastatur (Pfeile, Enter, Escape, Anfangsbuchstabe).
  */
-export function Select<T extends string>({ value, options, onChange, label, placeholder, width, menuWidth }: {
+export function Select<T extends string>({ value, options, onChange, label, placeholder, width, menuWidth, suffix }: {
   value: T | null;
   options: SelectOption<T>[];
   onChange: (v: T) => void;
@@ -20,6 +20,8 @@ export function Select<T extends string>({ value, options, onChange, label, plac
   placeholder?: string;
   width?: number;
   menuWidth?: number;
+  /** Gedämpfte Bezeichnung hinter dem Wert, z. B. „4-4-2 Formation“ */
+  suffix?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -82,7 +84,7 @@ export function Select<T extends string>({ value, options, onChange, label, plac
       <button type="button" className="fl-select-btn" aria-haspopup="listbox" aria-expanded={open} aria-label={`${label}: ${current?.label ?? placeholder ?? ""}`}
         aria-controls={`${id}-list`} onClick={() => setOpen(!open)} onKeyDown={onKey}>
         {current?.icon && <span className="fl-select-icon">{current.icon}</span>}
-        <span className="fl-select-value">{current?.label ?? <span className="faint">{placeholder}</span>}</span>
+        <span className="fl-select-value">{current?.label ?? <span className="faint">{placeholder}</span>}{suffix && <span className="fl-select-suffix">{suffix}</span>}</span>
         <svg className="fl-select-chev" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.5 4.5l3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.7" /></svg>
       </button>
       {open && (

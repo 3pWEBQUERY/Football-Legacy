@@ -226,77 +226,68 @@ export default function TacticPage() {
       <div className="page-head">
         <div>
           <h1>Taktik</h1>
-          <p>Position anklicken und Spieler in der Liste wählen – oder Rechtsklick (am Handy lange drücken) für Rolle, Ersatz und Standards.</p>
+          <p>Position anklicken und Spieler in der Liste wählen – oder Rechtsklick (am Handy lange drücken) für Rolle, Pflicht, Anweisungen und Ersatz.</p>
         </div>
-        <div className="row-wrap">
-          <div className="field">
-            <label>Formation</label>
-            <Select label="Formation" value={t.formation} width={150} menuWidth={220} onChange={(f) => changeFormation(f)}
-              options={Object.keys(data.formations).map((f) => ({ value: f, label: f, icon: <FormationIcon slots={data.formations[f]} />, description: formationText(data.formations[f]) }))} />
-          </div>
-          <div className="field">
-            <label>Spielidee</label>
-            <Select label="Spielidee" value={presetKey} width={190} menuWidth={290}
-              onChange={(k) => { const v = data.presets[k]; if (v) update((n) => { n.style = { ...v.style }; n.mentality = v.mentality ?? 0; }); }}
-              options={[
-                ...Object.entries(data.presets).map(([k, v]: [string, any]) => ({ value: k, label: v.name, description: styleText(v.style) })),
-                ...(presetKey === "custom" ? [{ value: "custom", label: "Individuell", description: styleText(t.style) }] : []),
-              ]} />
-          </div>
-          <div className="field">
-            <label>Mentalität</label>
-            <Select label="Mentalität" value={String(t.mentality ?? 0)} width={170} menuWidth={240}
-              onChange={(v) => update((n) => { n.mentality = Number(v); })}
-              options={["-3", "-2", "-1", "0", "1", "2", "3"].map((k) => ({ value: k, label: data.mentalities[k], description: MENTALITY_TEXT[k], icon: <MentalityIcon level={Number(k)} /> }))} />
-          </div>
-          <div className="row" style={{ alignSelf: "flex-end" }}>
-            <button className="btn" onClick={autoPick}>Auto-Aufstellung</button>
-            <button className="btn btn-primary" onClick={save} disabled={!dirty || saving}>{saving ? "Speichere …" : dirty ? "Speichern" : "Gespeichert"}</button>
-          </div>
+        <div className="row">
+          <button className="btn" onClick={autoPick}>Auto-Aufstellung</button>
+          <button className="btn btn-primary" onClick={save} disabled={!dirty || saving}>{saving ? "Speichere …" : dirty ? "Speichern" : "Gespeichert"}</button>
         </div>
       </div>
 
-      <div className="tactic-slots" role="tablist" aria-label="Taktiken">
-        {data.tactics.slots.map((x: any) => (
-          <div key={x.index} className={`tactic-slot ${x.index === data.tactics.active ? "active" : ""}`}>
-            <button role="tab" aria-selected={x.index === data.tactics.active} className="tactic-slot-main" onClick={() => slotAction("select", x.index)}>
-              <span className="tactic-slot-no">{x.index + 1}</span>
-              <span className="tactic-slot-text"><b>{x.name}</b><small>{x.index === data.tactics.active ? t.formation : x.formation} · {x.index === data.tactics.active ? (presetKey === "custom" ? "Individuell" : data.presets[presetKey].name) : x.preset}</small></span>
-            </button>
-            {x.index === data.tactics.active && (
-              <>
-                <button className="tactic-slot-tool" title="Umbenennen" aria-label="Taktik umbenennen" onClick={() => { const name = prompt("Name der Taktik", x.name); if (name) slotAction("rename", x.index, name); }}><Icon name="contract" size={13} /></button>
-                {data.tactics.slots.length > 1 && <button className="tactic-slot-tool" title="Löschen" aria-label="Taktik löschen" onClick={() => slotAction("delete", x.index)}><Icon name="close" size={13} /></button>}
-              </>
+      <section className="card tactic-header">
+        <div className="th-row">
+          <div className="tactic-slots" role="tablist" aria-label="Taktiken">
+            {data.tactics.slots.map((x: any) => (
+              <div key={x.index} className={`tactic-slot ${x.index === data.tactics.active ? "active" : ""}`}>
+                <button role="tab" aria-selected={x.index === data.tactics.active} className="tactic-slot-main" onClick={() => slotAction("select", x.index)}>
+                  <span className="tactic-slot-no">{x.index + 1}</span>
+                  <span className="tactic-slot-text"><b>{x.name}</b><small>{x.index === data.tactics.active ? t.formation : x.formation} · {x.index === data.tactics.active ? (presetKey === "custom" ? "Individuell" : data.presets[presetKey].name) : x.preset}</small></span>
+                </button>
+                {x.index === data.tactics.active && (
+                  <>
+                    <button className="tactic-slot-tool" title="Umbenennen" aria-label="Taktik umbenennen" onClick={() => { const name = prompt("Name der Taktik", x.name); if (name) slotAction("rename", x.index, name); }}><Icon name="contract" size={13} /></button>
+                    {data.tactics.slots.length > 1 && <button className="tactic-slot-tool" title="Löschen" aria-label="Taktik löschen" onClick={() => slotAction("delete", x.index)}><Icon name="close" size={13} /></button>}
+                  </>
+                )}
+              </div>
+            ))}
+            {data.tactics.slots.length < data.tactics.max && (
+              <button className="tactic-slot-add" onClick={() => slotAction("add")} title="Neue Taktik (Kopie der aktiven)" aria-label="Neue Taktik"><Icon name="plus" size={15} /></button>
             )}
           </div>
-        ))}
-        {data.tactics.slots.length < data.tactics.max && (
-          <button className="tactic-slot-add" onClick={() => slotAction("add")} title="Neue Taktik (Kopie der aktiven)"><Icon name="plus" size={15} /><span>Taktik</span></button>
-        )}
-        <div className="tactic-meters">
-          <Meter label="Vertrautheit" value={data.familiarity.total} tone="fam" title={`Formation ${data.familiarity.formation} % · Spielweise ${data.familiarity.style} % – steigt durch Training und Spiele`} />
-          <Meter label="Intensität" value={intensity} tone="int" title="Wie sehr die Spielweise an der Kraft zehrt (Pressing, Tempo, Mentalität)" />
+          <div className="tactic-meters">
+            <Meter label="Vertrautheit" value={data.familiarity.total} tone="fam" title={`Formation ${data.familiarity.formation} % · Spielweise ${data.familiarity.style} % – steigt durch Training und Spiele`} />
+            <Meter label="Intensität" value={intensity} tone="int" title="Wie sehr die Spielweise an der Kraft zehrt (Pressing, Tempo, Mentalität)" />
+          </div>
         </div>
-      </div>
-
-      <div className="tactic-bar">
-        {([
-          ["attack", "ball", "Mit Ball", ATTACK_KEYS],
-          ["defend", "shield", "Gegen den Ball", DEFEND_KEYS],
-        ] as [SheetKey, string, string, string[]][]).map(([k, icon, label, keys]) => (
-          <button key={k} ref={(el) => { anchors.current[k] = el; }} className={`tactic-pill ${sheet === k ? "open" : ""}`} onClick={() => openSheet(k)} aria-expanded={sheet === k}>
-            <Icon name={icon} size={16} />
-            <span><b>{label}</b><small>{styleSummary(keys)}</small></span>
-            <Icon name="down" size={13} />
+        <div className="th-row th-controls">
+          <Select label="Formation" suffix="Formation" value={t.formation} menuWidth={230} onChange={(f) => changeFormation(f)}
+            options={Object.keys(data.formations).map((f) => ({ value: f, label: f, icon: <FormationIcon slots={data.formations[f]} />, description: formationText(data.formations[f]) }))} />
+          <Select label="Spielidee" suffix="Spielidee" value={presetKey} menuWidth={300}
+            onChange={(k) => { const v = data.presets[k]; if (v) update((n) => { n.style = { ...v.style }; n.mentality = v.mentality ?? 0; }); }}
+            options={[
+              ...Object.entries(data.presets).map(([k, v]: [string, any]) => ({ value: k, label: v.name, description: styleText(v.style) })),
+              ...(presetKey === "custom" ? [{ value: "custom", label: "Individuell", description: styleText(t.style) }] : []),
+            ]} />
+          <Select label="Mentalität" suffix="Mentalität" value={String(t.mentality ?? 0)} menuWidth={260}
+            onChange={(v) => update((n) => { n.mentality = Number(v); })}
+            options={["-3", "-2", "-1", "0", "1", "2", "3"].map((k) => ({ value: k, label: data.mentalities[k], description: MENTALITY_TEXT[k], icon: <MentalityIcon level={Number(k)} /> }))} />
+          <span className="th-sep" aria-hidden="true" />
+          {([
+            ["attack", "ball", "Mit Ball", ATTACK_KEYS],
+            ["defend", "shield", "Gegen den Ball", DEFEND_KEYS],
+          ] as [SheetKey, string, string, string[]][]).map(([k, icon, label, keys]) => (
+            <button key={k} ref={(el) => { anchors.current[k] = el; }} className={`tactic-pill ${sheet === k ? "open" : ""}`} onClick={() => openSheet(k)} aria-expanded={sheet === k} title={styleSummary(keys)}>
+              <Icon name={icon} size={15} /><b>{label}</b><small>{styleSummary(keys)}</small>
+              <svg className="fl-select-chev" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.5 4.5l3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.7" /></svg>
+            </button>
+          ))}
+          <button ref={(el) => { anchors.current.set = el; }} className={`tactic-pill ${sheet === "set" ? "open" : ""}`} onClick={() => openSheet("set")} aria-expanded={sheet === "set"} title={CORNER_LABEL[t.setPieces.corners]}>
+            <Icon name="flag" size={15} /><b>Standards</b><small>{CORNER_LABEL[t.setPieces.corners]}</small>
+            <svg className="fl-select-chev" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.5 4.5l3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.7" /></svg>
           </button>
-        ))}
-        <button ref={(el) => { anchors.current.set = el; }} className={`tactic-pill ${sheet === "set" ? "open" : ""}`} onClick={() => openSheet("set")} aria-expanded={sheet === "set"}>
-          <Icon name="flag" size={16} />
-          <span><b>Standards</b><small>{CORNER_LABEL[t.setPieces.corners]}</small></span>
-          <Icon name="down" size={13} />
-        </button>
-      </div>
+        </div>
+      </section>
 
       <Sheet open={sheet === "attack"} anchor={anchors.current.attack} title="Anweisungen mit Ball" onClose={() => setSheet(null)}>
         {sliders(ATTACK_KEYS)}
