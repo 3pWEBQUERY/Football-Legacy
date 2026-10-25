@@ -10,10 +10,13 @@ import { Select } from "@/components/Select";
 import { Sheet } from "@/components/Sheet";
 import { Condition, ErrorBox, Icon, Loading, Panel, Seg, moraleLabel, useNotes, useToast } from "@/components/ui";
 import { PlayerFace } from "@/components/PlayerFace";
+import { useConfirm, usePrompt } from "@/components/Dialog";
 
 export default function TacticPage() {
   const { id } = useGame();
   const toast = useToast();
+  const ask = useConfirm();
+  const askText = usePrompt();
   const showNotes = useNotes();
   const { data, error, reload } = useApi<any>(`careers/${id}/tactic`);
   const [t, setT] = useState<any | null>(null);
@@ -203,8 +206,8 @@ export default function TacticPage() {
   const presetKey = Object.entries(data.presets).find(([, v]: [string, any]) => Object.keys(v.style).every((k) => v.style[k] === t.style[k]))?.[0] ?? "custom";
   const intensity = tacticIntensity(t.style, t.mentality ?? 0, t.instructions);
   async function slotAction(action: string, index?: number, name?: string) {
-    if (action !== "rename" && dirty && !confirm("Ungespeicherte Änderungen gehen verloren. Fortfahren?")) return;
-    if (action === "delete" && !confirm("Diese Taktik wirklich löschen?")) return;
+    if (action !== "rename" && dirty && !(await ask({ title: "Ungespeicherte Änderungen verwerfen?", message: "Deine letzten Änderungen an dieser Taktik sind noch nicht gespeichert.", danger: true, confirmLabel: "Verwerfen" }))) return;
+    if (action === "delete" && !(await ask({ title: `„${data.tactics.slots[index ?? 0]?.name ?? "Taktik"}“ löschen?`, message: "Formation, Aufstellung und alle Anweisungen dieser Taktik gehen verloren.", danger: true, confirmLabel: "Taktik löschen" }))) return;
     try {
       const r = await api<any>(`careers/${id}/tactic/slot`, { body: { action, index, name } });
       toast(r.message, "success");
@@ -245,7 +248,7 @@ export default function TacticPage() {
                 </button>
                 {x.index === data.tactics.active && (
                   <>
-                    <button className="tactic-slot-tool" title="Umbenennen" aria-label="Taktik umbenennen" onClick={() => { const name = prompt("Name der Taktik", x.name); if (name) slotAction("rename", x.index, name); }}><Icon name="contract" size={13} /></button>
+                    <button className="tactic-slot-tool" title="Umbenennen" aria-label="Taktik umbenennen" onClick={async () => { const name = await askText({ title: "Taktik umbenennen", defaultValue: x.name, placeholder: "z. B. Gegenpressing 4-3-3", maxLength: 30, confirmLabel: "Umbenennen" }); if (name) slotAction("rename", x.index, name); }}><Icon name="contract" size={13} /></button>
                     {data.tactics.slots.length > 1 && <button className="tactic-slot-tool" title="Löschen" aria-label="Taktik löschen" onClick={() => slotAction("delete", x.index)}><Icon name="close" size={13} /></button>}
                   </>
                 )}

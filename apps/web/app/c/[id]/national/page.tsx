@@ -6,12 +6,14 @@ import { useGame } from "@/components/GameShell";
 import { NationBadge } from "@/components/NationBadge";
 import { MatchRow } from "@/components/NationalMatchRow";
 import { Empty, ErrorBox, Icon, Loading, Panel, useToast } from "@/components/ui";
+import { confirmFrom, useConfirm } from "@/components/Dialog";
 
 const CONFED: Record<string, string> = { UEFA: "Europa", CONMEBOL: "Südamerika", CONCACAF: "Nord- und Mittelamerika", AFC: "Asien", CAF: "Afrika", OFC: "Ozeanien" };
 
 export default function NationalPage() {
   const { id } = useGame();
   const toast = useToast();
+  const ask = useConfirm();
   const base = `/c/${id}`;
   const { data, error, reload } = useApi<any>(`careers/${id}/national`);
   const [busy, setBusy] = useState(false);
@@ -19,7 +21,7 @@ export default function NationalPage() {
   if (!data) return <Loading />;
 
   async function act(path: string, body: unknown, confirmText?: string) {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !(await ask(confirmFrom(confirmText)))) return;
     setBusy(true);
     try {
       const r = await api<any>(`careers/${id}/${path}`, { body });

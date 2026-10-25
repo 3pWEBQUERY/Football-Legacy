@@ -6,6 +6,7 @@ import { api, refreshAll, useApi } from "@/lib/client/api";
 import { money } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { Crest, Empty, ErrorBox, Icon, Loading, Nat, Panel, Progress, Seg, useToast } from "@/components/ui";
+import { confirmFrom, useConfirm } from "@/components/Dialog";
 
 const CONFED: Record<string, string> = { UEFA: "Europa", CONMEBOL: "Südamerika", CONCACAF: "Nord-/Mittelamerika", AFC: "Asien", CAF: "Afrika", OFC: "Ozeanien" };
 const TONE: Record<string, string> = { pos: "var(--pos)", warn: "var(--warn)", neg: "var(--neg)", neutral: "var(--text-3)" };
@@ -20,6 +21,7 @@ export default function JobsPage() {
   const { id, reloadShell } = useGame();
   const router = useRouter();
   const toast = useToast();
+  const ask = useConfirm();
   const [filter, setFilter] = useState({ status: "alle", confed: "", country: "", tier: "", q: "", reachable: false, page: 1 });
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
@@ -33,7 +35,7 @@ export default function JobsPage() {
   const set = (patch: Partial<typeof filter>) => setFilter((f) => ({ ...f, ...patch, page: patch.page ?? 1 }));
 
   async function act(path: string, body: unknown, confirmText?: string, after?: () => void) {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !(await ask(confirmFrom(confirmText)))) return;
     setBusy(true);
     try {
       const r = await api<any>(`careers/${id}/${path}`, { body });

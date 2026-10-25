@@ -5,15 +5,17 @@ import { api, useApi } from "@/lib/client/api";
 import { seasonLabel } from "@/lib/client/format";
 import { Crest, Empty, ErrorBox, Icon, Loading, useToast } from "@/components/ui";
 import { AccountTop } from "@/components/AccountTop";
+import { useConfirm } from "@/components/Dialog";
 
 export default function CareersPage() {
   const { data, error, loading, reload } = useApi<{ careers: any[] }>("careers");
   const me = useApi<{ account: any }>("auth/me");
   const router = useRouter();
   const toast = useToast();
+  const ask = useConfirm();
 
   async function remove(id: string, name: string) {
-    if (!confirm(`Spielstand „${name}“ wirklich löschen? Das kann nicht rückgängig gemacht werden.`)) return;
+    if (!(await ask({ title: `Spielstand „${name}“ löschen?`, message: "Die Karriere wird endgültig gelöscht und kann nicht wiederhergestellt werden.", danger: true, confirmLabel: "Endgültig löschen" }))) return;
     await api(`careers/${id}`, { method: "DELETE" });
     toast("Spielstand gelöscht");
     reload();

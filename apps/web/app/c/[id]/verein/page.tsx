@@ -4,10 +4,12 @@ import { api, refreshAll, useApi } from "@/lib/client/api";
 import { money } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { Crest, ErrorBox, Loading, Panel, Progress, Seg, useToast } from "@/components/ui";
+import { confirmFrom, useConfirm } from "@/components/Dialog";
 
 export default function VereinPage() {
   const { id } = useGame();
   const toast = useToast();
+  const ask = useConfirm();
   const { data, error, reload } = useApi<any>(`careers/${id}/verein`);
   const [form, setForm] = useState({ name: "", short: "", primary: "#000000", secondary: "#ffffff", stadiumName: "" });
   const [busy, setBusy] = useState(false);
@@ -18,7 +20,7 @@ export default function VereinPage() {
   if (!data) return <Loading />;
 
   async function post(path: string, body: unknown, confirmText?: string) {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !(await ask(confirmFrom(confirmText)))) return;
     setBusy(true);
     try {
       const r = await api<any>(`careers/${id}/${path}`, { body });

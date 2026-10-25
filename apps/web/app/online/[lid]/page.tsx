@@ -6,6 +6,7 @@ import { api, useApi } from "@/lib/client/api";
 import { AccountTop } from "@/components/AccountTop";
 import { StatRows } from "@/components/MatchStats";
 import { Crest, Empty, ErrorBox, EventIcon, FormChips, Icon, Loading, Modal, Panel, useToast } from "@/components/ui";
+import { confirmFrom, useConfirm } from "@/components/Dialog";
 
 const STATUS_LABEL: Record<string, string> = { open: "Anmeldung offen", running: "Saison läuft", finished: "Saison beendet" };
 
@@ -21,6 +22,7 @@ export default function OnlineLeaguePage() {
   const { lid } = useParams<{ lid: string }>();
   const router = useRouter();
   const toast = useToast();
+  const ask = useConfirm();
   const { data, error, reload } = useApi<any>(`online/${lid}`);
   const overview = useApi<any>("online");
   const [busy, setBusy] = useState(false);
@@ -50,7 +52,7 @@ export default function OnlineLeaguePage() {
   if (!data) return <div className="landing"><AccountTop /><div className="content"><Loading /></div></div>;
 
   async function act(path: string, body: unknown = {}, confirmText?: string, after?: (r: any) => void) {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !(await ask(confirmFrom(confirmText)))) return;
     setBusy(true);
     try {
       const r = await api<any>(`online/${lid}/${path}`, { body });

@@ -5,6 +5,7 @@ import { ATTR_GROUPS, attrColor } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { Empty, ErrorBox, Icon, Loading, Modal, Nat, Pos, useToast } from "@/components/ui";
 import { PlayerFace } from "@/components/PlayerFace";
+import { useConfirm } from "@/components/Dialog";
 
 function Stars({ n }: { n: number }) {
   return (
@@ -17,6 +18,7 @@ function Stars({ n }: { n: number }) {
 export default function YouthPage() {
   const { id } = useGame();
   const toast = useToast();
+  const ask = useConfirm();
   const { data, error, reload } = useApi<any>(`careers/${id}/academy`);
   const [open, setOpen] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
@@ -24,7 +26,7 @@ export default function YouthPage() {
   if (!data) return <Loading />;
 
   async function act(p: any, action: "promote" | "release") {
-    if (action === "release" && !confirm(`${p.name} aus der Akademie entlassen?`)) return;
+    if (action === "release" && !(await ask({ title: `${p.name} entlassen?`, message: "Der Spieler verlässt die Akademie und ist danach vereinslos.", danger: true, confirmLabel: "Entlassen" }))) return;
     setBusy(true);
     try {
       const r = await api<any>(`careers/${id}/academy/${p.id}`, { body: { action } });

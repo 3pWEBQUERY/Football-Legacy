@@ -10,6 +10,7 @@ import { Radar } from "@/components/Radar";
 import { Condition, Crest, ErrorBox, Icon, Loading, Modal, Nat, Panel, Pos, moraleLabel, useNotes, useToast } from "@/components/ui";
 import { PositionMap } from "@/components/PositionMap";
 import { EXPECTED_SHARE, SQUAD_STATUS, SQUAD_STATUS_LABEL, type SquadStatus } from "@fl/sim";
+import { useConfirm } from "@/components/Dialog";
 
 const POS_LONG: Record<string, string> = { GK: "Torwart", DR: "Rechter Verteidiger", DC: "Innenverteidiger", DL: "Linker Verteidiger", DM: "Defensives Mittelfeld", MR: "Rechtes Mittelfeld", MC: "Zentrales Mittelfeld", ML: "Linkes Mittelfeld", AMR: "Rechtsaussen", AMC: "Offensives Mittelfeld", AML: "Linksaussen", ST: "Stürmer" };
 
@@ -18,6 +19,7 @@ export default function PlayerPage() {
   const { pid } = useParams<{ pid: string }>();
   const router = useRouter();
   const toast = useToast();
+  const ask = useConfirm();
   const showNotes = useNotes();
   const { data, error, reload } = useApi<any>(`careers/${id}/players/${pid}`);
   const [offer, setOffer] = useState<{ fee: number; wage: number; years: number } | null>(null);
@@ -109,7 +111,7 @@ export default function PlayerPage() {
   }
 
   async function lendOut() {
-    if (!confirm(`${p.name} bis Saisonende verleihen?`)) return;
+    if (!(await ask({ title: `${p.name} verleihen?`, message: "Der Spieler wechselt bis Saisonende auf Leihbasis zu einem passenden Verein.", confirmLabel: "Verleihen" }))) return;
     const r = await action("loan_out");
     if (!r) return;
     toast(r.message, r.status === "completed" ? "success" : "info");
@@ -179,7 +181,7 @@ export default function PlayerPage() {
               </button>
               <button className="btn" disabled={busy || !data.window.open} onClick={lendOut} title={!data.window.open ? "Transferfenster geschlossen" : "Bis Saisonende an einen passenden Verein verleihen"}>Verleihen</button>
               <button className="btn btn-danger ml-auto" disabled={busy} onClick={async () => {
-                if (!confirm(`Vertrag mit ${p.name} auflösen? Es wird eine Abfindung fällig.`)) return;
+                if (!(await ask({ title: `Vertrag mit ${p.name} auflösen?`, message: "Es wird eine Abfindung fällig. Der Spieler verlässt den Verein sofort.", danger: true, confirmLabel: "Vertrag auflösen" }))) return;
                 const r = await action("release");
                 if (r) { toast(`Vertrag aufgelöst. Abfindung: ${money(r.compensation)}`); router.push(`/c/${id}/team`); refreshAll(); }
               }}>Vertrag auflösen</button>

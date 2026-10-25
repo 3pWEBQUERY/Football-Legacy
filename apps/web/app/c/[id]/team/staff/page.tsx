@@ -5,6 +5,7 @@ import { money } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { PlayerFace } from "@/components/PlayerFace";
 import { Empty, ErrorBox, Loading, Nat, Panel, Progress, Seg, useToast } from "@/components/ui";
+import { confirmFrom, useConfirm } from "@/components/Dialog";
 
 type Role = "all" | "coach" | "physio" | "scout" | "youth";
 
@@ -20,6 +21,7 @@ function Quality({ q }: { q: number }) {
 export default function StaffPage() {
   const { id } = useGame();
   const toast = useToast();
+  const ask = useConfirm();
   const { data, error, reload } = useApi<any>(`careers/${id}/staff`);
   const [role, setRole] = useState<Role>("all");
   const [busy, setBusy] = useState(false);
@@ -27,7 +29,7 @@ export default function StaffPage() {
   if (!data) return <Loading />;
 
   async function act(path: string, body: unknown, confirmText?: string) {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !(await ask(confirmFrom(confirmText)))) return;
     setBusy(true);
     try {
       const r = await api<any>(`careers/${id}/${path}`, { body });

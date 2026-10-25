@@ -5,10 +5,13 @@ import { api, refreshAll } from "@/lib/client/api";
 import { dayIso, fmtDate, money, weekdayShort } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { CategoryIcon, Crest, Empty, FormChips, Icon, Loading, Panel, Progress, Rating, useToast } from "@/components/ui";
+import { useConfirm, usePrompt } from "@/components/Dialog";
 
 export default function Office() {
   const { id, shell: d, advance, busy, pendingMessage, clearPendingMessage } = useGame();
   const toast = useToast();
+  const ask = useConfirm();
+  const askText = usePrompt();
   const [openId, setOpenId] = useState<number | null>(null);
   const base = `/c/${id}`;
 
@@ -47,7 +50,7 @@ export default function Office() {
   async function respond(transferId: number, decision: "accept" | "reject" | "counter") {
     let counterFee: number | undefined;
     if (decision === "counter") {
-      const v = prompt("Welche Ablöse forderst du (in Mio. €)?");
+      const v = await askText({ title: "Gegenangebot", message: "Welche Ablöse forderst du (in Mio. €)?", placeholder: "z. B. 12,5", inputMode: "decimal", confirmLabel: "Gegenangebot senden" });
       if (!v) return;
       counterFee = Math.round(parseFloat(v.replace(",", ".")) * 1_000_000);
       if (!Number.isFinite(counterFee)) return;
@@ -62,7 +65,7 @@ export default function Office() {
   }
 
   async function acceptJob(clubId: number, name: string) {
-    if (c.status !== "unemployed" && !confirm(`Wirklich zu ${name} wechseln? Du verlässt deinen aktuellen Verein sofort.`)) return;
+    if (c.status !== "unemployed" && !(await ask({ title: `Zu ${name} wechseln?`, message: "Du verlässt deinen aktuellen Verein sofort.", confirmLabel: "Wechseln" }))) return;
     try {
       await api(`careers/${id}/job`, { body: { clubId } });
       toast("Neuer Verein übernommen.", "success");

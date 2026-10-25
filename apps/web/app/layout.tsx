@@ -8,6 +8,7 @@ import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui";
+import { DialogProvider } from "@/components/Dialog";
 
 export const metadata: Metadata = {
   title: "Football Legacy – Schreibe Fussball Geschichte",
@@ -34,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider><DialogProvider>{children}</DialogProvider></ToastProvider>
       </body>
     </html>
   );
