@@ -10,6 +10,7 @@ import { withCareer } from "./career";
 import { GameError } from "./errors";
 import { type CareerRow, type FixtureRow, getClub, getPlayers, saveCareer } from "./repo";
 import { aiTactic, teamSetup } from "./setup";
+import { userFamiliarity } from "./tactics";
 import { processWeek, type WeekSummary } from "./week";
 import { advanceDay, nextSlotDay, type DayResult } from "./day";
 import { competitionOf } from "./cup";
@@ -88,10 +89,11 @@ async function buildMatch(db: pg.PoolClient, career: CareerRow, f: FixtureRow): 
   const userSquad = userIsHome ? hs : as;
   const userTactic = userClub.tactic ? validateTactic(userClub.tactic, userSquad) : aiTactic(userClub, userSquad);
   const autoSubs = career.manager.autoSubs ?? true;
+  const fam = await userFamiliarity(db, career, userClub);
   return createMatch({
     seed: seedFor(career.seed, "match", f.id),
-    home: teamSetup(home, hs, userIsHome ? userTactic : aiTactic(home, hs), userIsHome ? autoSubs : true),
-    away: teamSetup(away, as, userIsHome ? aiTactic(away, as) : userTactic, userIsHome ? true : autoSubs),
+    home: teamSetup(home, hs, userIsHome ? userTactic : aiTactic(home, hs), userIsHome ? autoSubs : true, userIsHome ? fam : undefined),
+    away: teamSetup(away, as, userIsHome ? aiTactic(away, as) : userTactic, userIsHome ? true : autoSubs, userIsHome ? undefined : fam),
   });
 }
 

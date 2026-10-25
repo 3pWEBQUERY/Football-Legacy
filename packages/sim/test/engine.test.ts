@@ -71,3 +71,44 @@ describe("Matchengine", () => {
     expect(favLosses / n).toBeGreaterThan(0.05); // … aber nicht immer
   }, 60_000);
 });
+
+describe("Mentalität, Pflichten, Vertrautheit", () => {
+  const withTactic = (clubId: number, patch: Partial<ReturnType<typeof team>["tactic"]>, familiarity?: number) => {
+    const t = team(clubId, 66);
+    return { ...t, tactic: { ...t.tactic, ...patch }, familiarity };
+  };
+
+  it("offensive Mentalität bringt mehr Torschüsse als defensive", () => {
+    let attack = 0;
+    let defend = 0;
+    for (let i = 0; i < 30; i++) {
+      const a = playMatch({ seed: 9000 + i, home: withTactic(51, { mentality: 3, duties: Array(11).fill("attack") }), away: team(52, 66) });
+      const d = playMatch({ seed: 9000 + i, home: withTactic(51, { mentality: -3, duties: Array(11).fill("defend") }), away: team(52, 66) });
+      attack += a.stats[0].shots;
+      defend += d.stats[0].shots;
+    }
+    expect(attack).toBeGreaterThan(defend);
+  });
+
+  it("hohe Vertrautheit hilft, niedrige schadet", () => {
+    let hi = 0;
+    let lo = 0;
+    for (let i = 0; i < 40; i++) {
+      const h = playMatch({ seed: 12000 + i, home: withTactic(53, {}, 100), away: team(54, 66) });
+      const l = playMatch({ seed: 12000 + i, home: withTactic(53, {}, 0), away: team(54, 66) });
+      hi += h.homeGoals - h.awayGoals;
+      lo += l.homeGoals - l.awayGoals;
+    }
+    expect(hi).toBeGreaterThan(lo);
+  });
+
+  it("Spieleranweisungen und Pflichten lassen sich live ändern", () => {
+    const state = createMatch({ seed: 77, home: team(55, 66), away: team(56, 66) });
+    simulate(state, 100);
+    applyChange(state, 0, { mentality: 2, duties: Array(11).fill("attack"), instructions: Array(11).fill(["shoot_more"]) });
+    expect(state.teams[0].mentality).toBe(2);
+    expect(state.teams[0].style.risk).toBeGreaterThan(state.teams[0].baseStyle!.risk);
+    simulate(state, TICKS);
+    expect(result(state).players.length).toBeGreaterThanOrEqual(22);
+  });
+});

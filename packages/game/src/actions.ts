@@ -3,6 +3,7 @@ import {
   CARD_PACK, COUNTRY_BY_CODE, FORMATIONS, ROLE_BY_ID, Rng, SKINS, askingPrice, evaluateFee, evaluateTerms, formatMoney,
   isUnlocked, renewalDemand, roundsFor, seedFor, squadRanks, validateTactic,
   type Formation, type Player, type Tactic, type TrainingPlan,
+  INSTRUCTION_CONFLICTS, INSTRUCTION_LABEL, type PlayerInstruction,
 } from "@fl/sim";
 import type pg from "pg";
 import { windowFor } from "./window";
@@ -10,6 +11,7 @@ import { addArticle } from "./media";
 import { one, query } from "./db";
 import { activateClubs, activateLeague, boardObjectives, scheduleSeason, withCareer } from "./career";
 import { GameError } from "./errors";
+import { applyStyleChange, getTactics, saveTactics } from "./tactics";
 import {
   type CareerRow, type ClubRow, addFinance, addInbox, getClub, getClubs, getLeague, getLeagues, getPlayer, getPlayers,
   saveCareer, saveClubs, savePlayers,
@@ -55,11 +57,28 @@ export async function saveTactic(careerId: string, accountId: string, input: Tac
         freeKickTaker: ids.has(input.setPieces?.freeKickTaker ?? -1) ? input.setPieces.freeKickTaker : null,
         penaltyTaker: ids.has(input.setPieces?.penaltyTaker ?? -1) ? input.setPieces.penaltyTaker : null,
       },
+      mentality: Math.max(-3, Math.min(3, Math.round(Number(input.mentality) || 0))),
+      duties: slots.map((_, i) => {
+        const d = input.duties?.[i];
+        return d === "defend" || d === "support" || d === "attack" ? d : null;
+      }),
+      instructions: slots.map((s, i) => {
+        if (s.position === "GK") return [];
+        const list = [...new Set((input.instructions?.[i] ?? []).filter((x) => x in INSTRUCTION_LABEL))].slice(0, 3) as PlayerInstruction[];
+        // Widersprüchliche Anweisungen: die zuletzt gewählte gilt
+        for (const [a, b] of INSTRUCTION_CONFLICTS) if (list.includes(a) && list.includes(b)) list.splice(list.indexOf(a), 1);
+        return list;
+      }),
     };
     for (const k of ["tempo", "passLength", "width", "risk", "pressing", "defensiveLine", "hardness"] as const) {
       if (typeof clean.style[k] !== "number") clean.style[k] = 50;
     }
+    const tactics = await getTactics(db, career, club);
+    applyStyleChange(tactics, clean);
     club.tactic = clean;
+    if (tactics.slots.length) tactics.slots[Math.min(tactics.active, tactics.slots.length - 1)].tactic = clean;
+    else tactics.slots = [{ name: "Taktik 1", tactic: clean }];
+    await saveTactics(db, career.id, tactics);
     await saveClubs(db, career.id, [club]);
     const notes: RewardNote[] = [];
     completeMission(career, "set_tactic", notes);

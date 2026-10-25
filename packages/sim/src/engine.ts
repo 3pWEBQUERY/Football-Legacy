@@ -6,10 +6,10 @@
  * (Tor bei x = 105), die Gäste nach links.
  */
 import { Rng, clamp } from "./rng";
-import { FORMATIONS, ROLE_BY_ID, defaultRole } from "./tactics";
+import { FORMATIONS, ROLE_BY_ID, defaultRole, familiarityFactor, mentalityStyle, slotMod } from "./tactics";
 import { shortName } from "./player";
 import type {
-  AttrKey, ClubColors, Formation, MatchEvent, MatchEventType, Player, Position, Tactic, TacticStyle,
+  AttrKey, ClubColors, Duty, Formation, MatchEvent, MatchEventType, Player, PlayerInstruction, Position, Tactic, TacticStyle,
 } from "./types";
 
 export const PITCH_W = 105;
@@ -79,7 +79,15 @@ export interface EngineTeam {
   short: string;
   colors: ClubColors;
   formation: Formation;
+  /** Wirksame Spielweise (inkl. Mentalität) */
   style: TacticStyle;
+  /** Eingestellte Regler ohne Mentalität */
+  baseStyle?: TacticStyle;
+  mentality?: number;
+  duties?: (Duty | null)[];
+  instructions?: PlayerInstruction[][];
+  /** Taktische Vertrautheit 0–100 */
+  familiarity?: number;
   roles: string[];
   slotOffsets: ({ x: number; y: number } | null)[];
   setPieces: Tactic["setPieces"];
@@ -116,6 +124,8 @@ export interface TeamSetup {
   tactic: Tactic;
   players: Player[]; // Kader (mindestens Startelf + Bank)
   autoSubs?: boolean;
+  /** Taktische Vertrautheit 0–100 (KI-Teams: 85) */
+  familiarity?: number;
 }
 
 export interface MatchSetup {
@@ -179,7 +189,12 @@ function buildTeam(setup: TeamSetup): EngineTeam {
     short: setup.shortName,
     colors: setup.colors,
     formation: t.formation,
-    style: { ...t.style },
+    style: mentalityStyle({ ...t.style }, t.mentality ?? 0),
+    baseStyle: { ...t.style },
+    mentality: t.mentality ?? 0,
+    duties: t.duties ? [...t.duties] : [],
+    instructions: t.instructions ? t.instructions.map((x) => [...(x ?? [])]) : [],
+    familiarity: setup.familiarity ?? 85,
     roles: FORMATIONS[t.formation].map((s, i) => t.roles[i] ?? defaultRole(s.position)),
     slotOffsets: t.slotOffsets ?? [],
     setPieces: { ...t.setPieces },
@@ -281,7 +296,7 @@ function onPitch(team: EngineTeam): number[] {
 function eff(state: MatchState, side: Side, p: EnginePlayer, key: AttrKey): number {
   const condition = (0.7 + 0.3 * (p.stamina / 100)) * (0.95 + (p.form / 10) * 0.1) * (0.97 + (p.morale / 100) * 0.06);
   // Unterschiede werden um das Spielniveau gestaucht, damit Favoriten gewinnen, aber nicht immer
-  const raw = p.attrs[key] * condition * (side === 0 ? state.homeAdvantage : 1);
+  const raw = p.attrs[key] * condition * (side === 0 ? state.homeAdvantage : 1) * familiarityFactor(state.teams[side].familiarity);
   return 12 + (raw - state.level) * SPREAD;
 }
 
@@ -328,7 +343,7 @@ function keeperOf(team: EngineTeam): EnginePlayer | null {
 }
 
 function roleMod(team: EngineTeam, slot: number) {
-  return (ROLE_BY_ID[team.roles[slot]] ?? ROLE_BY_ID[defaultRole(slotDef(team, slot).position)]).mod;
+  return slotMod(team.roles[slot], slotDef(team, slot).position, team.duties?.[slot], team.instructions?.[slot], team.mentality ?? 0);
 }
 
 function kickoff(state: MatchState, side: Side) {
@@ -1241,6 +1256,9 @@ export interface TacticChange {
   formation?: Formation;
   style?: Partial<TacticStyle>;
   roles?: string[];
+  mentality?: number;
+  duties?: (Duty | null)[];
+  instructions?: PlayerInstruction[][];
   setPieces?: Partial<Tactic["setPieces"]>;
   /** Wechsel: Slot → ID des Bankspielers */
   subs?: { slot: number; playerId: number }[];
@@ -1257,12 +1275,22 @@ export function applyChange(state: MatchState, side: Side, change: TacticChange)
     team.formation = change.formation;
     team.roles = FORMATIONS[change.formation].map((s) => defaultRole(s.position));
     team.slotOffsets = [];
+    team.duties = [];
+    team.instructions = [];
     changed = true;
   }
-  if (change.style && (Object.keys(change.style) as (keyof TacticStyle)[]).some((k) => change.style![k] !== undefined && change.style![k] !== team.style[k])) {
-    team.style = { ...team.style, ...change.style };
+  const base = team.baseStyle ?? team.style;
+  if (change.style && (Object.keys(change.style) as (keyof TacticStyle)[]).some((k) => change.style![k] !== undefined && change.style![k] !== base[k])) {
+    team.baseStyle = { ...base, ...change.style };
     changed = true;
   }
+  if (change.mentality !== undefined && change.mentality !== (team.mentality ?? 0)) {
+    team.mentality = Math.max(-3, Math.min(3, Math.round(change.mentality)));
+    changed = true;
+  }
+  if (changed) team.style = mentalityStyle(team.baseStyle ?? team.style, team.mentality ?? 0);
+  if (change.duties) { team.duties = [...change.duties]; changed = true; }
+  if (change.instructions) { team.instructions = change.instructions.map((x) => [...(x ?? [])]); changed = true; }
   if (change.roles) {
     team.roles = FORMATIONS[team.formation].map((s, i) => {
       const r = change.roles?.[i];

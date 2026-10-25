@@ -140,6 +140,7 @@ route("POST", career("advance"), async (c) => game.advance(c.params.id, acc(c)))
 route("GET", career("squad"), async (c) => game.squadView(c.params.id, acc(c)));
 route("GET", career("tactic"), async (c) => game.tacticView(c.params.id, acc(c)));
 route("PUT", career("tactic"), async (c) => game.saveTactic(c.params.id, acc(c), c.body as never));
+route("POST", career("tactic/slot"), async (c) => game.tacticSlotAction(c.params.id, acc(c), { action: str(c.body.action), index: c.body.index !== undefined ? num(c.body.index) : undefined, name: str(c.body.name) }));
 route("PUT", career("training"), async (c) => game.setTraining(c.params.id, acc(c), c.body as never));
 route("PUT", career("autosubs"), async (c) => game.setAutoSubs(c.params.id, acc(c), !!c.body.autoSubs));
 route("GET", career("players/:pid"), async (c) => game.playerDetail(c.params.id, acc(c), num(c.params.pid)));

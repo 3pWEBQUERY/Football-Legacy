@@ -1,5 +1,5 @@
 import { ratingForSlot } from "./player";
-import type { Formation, Player, Position, Tactic, TacticStyle } from "./types";
+import type { Duty, Formation, Player, PlayerInstruction, Position, Tactic, TacticStyle } from "./types";
 
 export interface Slot {
   position: Position;
@@ -123,14 +123,87 @@ export const STYLE_LABEL: Record<keyof TacticStyle, [string, string, string]> = 
 };
 
 /** Taktik-Voreinstellungen (auch für KI-Vereine). */
-export const STYLE_PRESETS: Record<string, { name: string; style: TacticStyle }> = {
+export const STYLE_PRESETS: Record<string, { name: string; style: TacticStyle; mentality?: number }> = {
   balanced: { name: "Ausgewogen", style: { ...DEFAULT_STYLE } },
   possession: { name: "Ballbesitz", style: { tempo: 35, passLength: 25, width: 55, risk: 40, pressing: 60, defensiveLine: 60, hardness: 40 } },
   gegenpress: { name: "Gegenpressing", style: { tempo: 75, passLength: 45, width: 50, risk: 60, pressing: 85, defensiveLine: 70, hardness: 60 } },
   counter: { name: "Konter", style: { tempo: 80, passLength: 70, width: 45, risk: 55, pressing: 30, defensiveLine: 30, hardness: 55 } },
   park_bus: { name: "Mauern", style: { tempo: 30, passLength: 65, width: 30, risk: 25, pressing: 20, defensiveLine: 15, hardness: 65 } },
   wing_play: { name: "Flügelspiel", style: { tempo: 60, passLength: 55, width: 85, risk: 50, pressing: 50, defensiveLine: 50, hardness: 50 } },
+  tiki_taka: { name: "Tiki-Taka", style: { tempo: 30, passLength: 10, width: 45, risk: 35, pressing: 75, defensiveLine: 75, hardness: 40 }, mentality: 1 },
+  vertical_tiki: { name: "Vertikales Tiki-Taka", style: { tempo: 65, passLength: 25, width: 35, risk: 65, pressing: 70, defensiveLine: 65, hardness: 45 }, mentality: 1 },
+  fluid_counter: { name: "Fluides Konterspiel", style: { tempo: 75, passLength: 55, width: 55, risk: 60, pressing: 45, defensiveLine: 40, hardness: 50 } },
+  route_one: { name: "Route One", style: { tempo: 80, passLength: 95, width: 60, risk: 70, pressing: 40, defensiveLine: 40, hardness: 65 } },
+  catenaccio: { name: "Catenaccio", style: { tempo: 40, passLength: 60, width: 35, risk: 30, pressing: 25, defensiveLine: 20, hardness: 60 }, mentality: -2 },
+  high_press: { name: "Hohes Pressing", style: { tempo: 70, passLength: 40, width: 55, risk: 55, pressing: 95, defensiveLine: 85, hardness: 60 }, mentality: 1 },
 };
+
+// ---------------------------------------------------------------- Mentalität, Pflichten, Anweisungen
+
+export const MENTALITY_LABEL: Record<string, string> = {
+  "-3": "Sehr defensiv", "-2": "Defensiv", "-1": "Vorsichtig", "0": "Ausgewogen", "1": "Positiv", "2": "Offensiv", "3": "Sehr offensiv",
+};
+
+export const DUTY_LABEL: Record<Duty, { name: string; short: string; text: string }> = {
+  defend: { name: "Verteidigen", short: "V", text: "Bleibt hinten, sichert ab und schaltet sich kaum ein." },
+  support: { name: "Unterstützen", short: "U", text: "Ausgewogen: unterstützt Angriff und Abwehr." },
+  attack: { name: "Angreifen", short: "A", text: "Rückt mit auf, sucht den Abschluss, arbeitet weniger nach hinten." },
+};
+
+export const INSTRUCTION_LABEL: Record<PlayerInstruction, { name: string; text: string }> = {
+  shoot_more: { name: "Öfter schiessen", text: "Schliesst auch aus der Distanz ab." },
+  dribble_more: { name: "Öfter dribbeln", text: "Sucht das Eins-gegen-eins." },
+  pass_safe: { name: "Sichere Pässe", text: "Spielt einfache Bälle, verliert seltener den Ball." },
+  cross_more: { name: "Öfter flanken", text: "Bringt den Ball früh in den Strafraum." },
+  press_more: { name: "Aggressiver anlaufen", text: "Geht früher drauf und arbeitet mehr gegen den Ball (kostet Kraft)." },
+  stay_back: { name: "Hinten bleiben", text: "Rückt nicht mit auf, auch wenn das Team angreift." },
+  get_forward: { name: "Mehr nach vorne", text: "Stösst bei Ballbesitz in die Spitze vor." },
+};
+
+/** Sich gegenseitig ausschliessende Anweisungen */
+export const INSTRUCTION_CONFLICTS: [PlayerInstruction, PlayerInstruction][] = [["stay_back", "get_forward"], ["dribble_more", "pass_safe"]];
+
+export type RoleMod = RoleDef["mod"];
+
+/** Rollenverhalten inkl. Pflicht, Spieleranweisungen und Mentalität. */
+export function slotMod(roleId: string | undefined, position: Position, duty?: Duty | null, instructions?: PlayerInstruction[] | null, mentality = 0): RoleMod {
+  const base = (ROLE_BY_ID[roleId ?? ""] ?? ROLE_BY_ID[defaultRole(position)]).mod;
+  if (position === "GK") return base;
+  const m = { ...base };
+  if (duty === "attack") { m.forward += 0.04; m.shoot *= 1.1; m.dribble *= 1.05; m.defend *= 0.9; }
+  if (duty === "defend") { m.forward -= 0.04; m.defend *= 1.12; m.shoot *= 0.85; m.cross *= 0.9; }
+  for (const pi of instructions ?? []) {
+    if (pi === "shoot_more") m.shoot *= 1.2;
+    if (pi === "dribble_more") m.dribble *= 1.25;
+    if (pi === "pass_safe") { m.pass *= 1.1; m.dribble *= 0.85; }
+    if (pi === "cross_more") m.cross *= 1.3;
+    if (pi === "press_more") m.defend *= 1.1;
+    if (pi === "stay_back") m.forward -= 0.05;
+    if (pi === "get_forward") m.forward += 0.05;
+  }
+  m.forward += mentality * 0.01;
+  return m;
+}
+
+/** Mentalität verschiebt Tempo, Risiko, Abwehrlinie und Pressing. */
+export function mentalityStyle(style: TacticStyle, mentality = 0): TacticStyle {
+  if (!mentality) return style;
+  const c = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
+  return { ...style, tempo: c(style.tempo + mentality * 5), risk: c(style.risk + mentality * 6), defensiveLine: c(style.defensiveLine + mentality * 5), pressing: c(style.pressing + mentality * 3) };
+}
+
+/** Intensität 0–100: wie sehr die Spielweise an der Kraft zehrt (wie in der Engine). */
+export function tacticIntensity(style: TacticStyle, mentality = 0, instructions?: PlayerInstruction[][]): number {
+  const s = mentalityStyle(style, mentality);
+  const raw = 0.7 + (s.pressing / 100) * 0.6 + (s.tempo / 100) * 0.2; // 0.7 … 1.5
+  const press = (instructions ?? []).flat().filter((i) => i === "press_more").length;
+  return Math.max(0, Math.min(100, Math.round(((raw - 0.7) / 0.8) * 100 + press * 2)));
+}
+
+/** Vertrautheit (0–100) wirkt in der Engine leicht auf alle Aktionen. */
+export function familiarityFactor(familiarity = 85): number {
+  return 0.94 + 0.06 * Math.max(0, Math.min(100, familiarity)) / 100;
+}
 
 export function isAvailable(p: Player): boolean {
   return p.injuryWeeks <= 0 && p.suspendedWeeks <= 0;
@@ -278,17 +351,19 @@ export type ShapePhase = "base" | "attack" | "defend";
 export function shapePositions(
   slots: { position: Position; x: number; y: number }[],
   roles: string[],
-  style: TacticStyle,
+  rawStyle: TacticStyle,
   phase: ShapePhase,
+  extra: { duties?: (Duty | null)[]; instructions?: PlayerInstruction[][]; mentality?: number } = {},
 ): { x: number; y: number }[] {
   if (phase === "base") return slots.map((s) => ({ x: s.x, y: s.y }));
+  const style = mentalityStyle(rawStyle, extra.mentality ?? 0);
   const attack = phase === "attack";
   const ballA = attack ? 0.55 : 0.45;
   const widthF = attack ? 0.72 + (style.width / 100) * 0.5 : 0.55 + (style.width / 100) * 0.15;
   const lineAdj = ((style.defensiveLine - 50) / 100) * 0.12;
   return slots.map((s, i) => {
     if (s.position === "GK") return { x: 0.03 + ballA * 0.1, y: 0.5 };
-    const mod = (ROLE_BY_ID[roles[i]] ?? ROLE_BY_ID[defaultRole(s.position)]).mod;
+    const mod = slotMod(roles[i], s.position, extra.duties?.[i], extra.instructions?.[i], extra.mentality ?? 0);
     const x = attack
       ? s.x * 0.75 + ballA * 0.42 - 0.02 + mod.forward + lineAdj * 0.5 + ((style.risk - 50) / 100) * 0.04 * s.x
       : s.x * 0.6 + ballA * 0.38 - 0.06 + lineAdj;

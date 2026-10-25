@@ -698,3 +698,49 @@ describe("Stellenmarkt", () => {
     expect(back.club?.id).toBe(pick2.clubId);
   }, 120_000);
 });
+
+describe("Taktik-Ausbau", () => {
+  it("Mentalität, Pflichten, Anweisungen speichern; mehrere Taktiken; Vertrautheit", async () => {
+    const v = await tacticView(careerId, accountId);
+    expect(v.tactics.slots.length).toBe(1);
+    expect(Object.keys(v.mentalities).length).toBe(7);
+    expect(Object.keys(v.presets).length).toBeGreaterThanOrEqual(12);
+    const fam0 = v.familiarity.total;
+    const duties = v.tactic.lineup.map((_: unknown, i: number) => (i === 10 ? "attack" : i === 1 ? "defend" : null));
+    const instructions = v.tactic.lineup.map((_: unknown, i: number) => (i === 10 ? ["shoot_more", "stay_back", "get_forward"] : i === 0 ? ["shoot_more"] : []));
+    const res = await saveTactic(careerId, accountId, { ...v.tactic, mentality: 2, duties, instructions: instructions as never, style: { ...v.tactic.style, pressing: Math.min(100, v.tactic.style.pressing + 40) } });
+    expect(res.tactic.mentality).toBe(2);
+    expect(res.tactic.duties?.[10]).toBe("attack");
+    expect(res.tactic.instructions?.[10]).toEqual(["shoot_more", "get_forward"]); // Widerspruch aufgelöst
+    expect(res.tactic.instructions?.[0]).toEqual([]); // keine Anweisungen für den Torwart
+    const after = await tacticView(careerId, accountId);
+    expect(after.familiarity.style).toBeLessThan(v.familiarity.style); // Umstellung kostet Vertrautheit
+    expect(after.intensity).toBeGreaterThan(v.intensity);
+
+    // zweite Taktik als Kopie, umbenennen, wechseln, löschen
+    await game.tacticSlotAction(careerId, accountId, { action: "add" });
+    let t2 = await tacticView(careerId, accountId);
+    expect(t2.tactics.slots.length).toBe(2);
+    expect(t2.tactics.active).toBe(1);
+    await saveTactic(careerId, accountId, { ...t2.tactic, formation: "4-4-2", mentality: -1, duties: [], instructions: [] });
+    await game.tacticSlotAction(careerId, accountId, { action: "rename", index: 1, name: "Defensiv 4-4-2" });
+    await game.tacticSlotAction(careerId, accountId, { action: "select", index: 0 });
+    t2 = await tacticView(careerId, accountId);
+    expect(t2.tactic.mentality).toBe(2);
+    expect(t2.tactics.slots[1].name).toBe("Defensiv 4-4-2");
+    expect(t2.tactics.slots[1].formation).toBe("4-4-2");
+    await expect(game.tacticSlotAction(careerId, accountId, { action: "add" }).then(() => game.tacticSlotAction(careerId, accountId, { action: "add" }))).rejects.toThrow(/Höchstens/);
+    await game.tacticSlotAction(careerId, accountId, { action: "delete", index: 2 });
+    expect((await tacticView(careerId, accountId)).tactics.slots.length).toBe(2);
+
+    // Training festigt die Taktik
+    const before = (await tacticView(careerId, accountId)).familiarity;
+    for (let i = 0; i < 10; i++) {
+      const r = await advance(careerId, accountId);
+      if (r.kind === "match") await quickMatch(careerId, accountId);
+    }
+    const later = (await tacticView(careerId, accountId)).familiarity;
+    expect(later.total).toBeGreaterThan(before.total);
+    expect(fam0).toBeGreaterThan(0);
+  }, 120_000);
+});

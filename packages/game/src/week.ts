@@ -27,6 +27,7 @@ import { academyWeek } from "./academy";
 import { facilitiesOf } from "./facilities";
 import { endSeason, type SeasonSummary } from "./season-end";
 import { jobsSeasonEnd, jobsWeek } from "./jobs";
+import { familiarityTick, userFamiliarity } from "./tactics";
 import { type WorldState, loadWorld, squadOf } from "./world-state";
 
 export interface WeekResultLine {
@@ -172,7 +173,8 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
       const as = squadOf(w, away.id);
       const ht = isUser && home.id === userClubId && home.tactic ? validateTactic(home.tactic, hs) : aiTactic(home, hs);
       const at = isUser && away.id === userClubId && away.tactic ? validateTactic(away.tactic, as) : aiTactic(away, as);
-      const r = playMatch({ seed: seedFor(career.seed, "match", f.id), home: teamSetup(home, hs, ht), away: teamSetup(away, as, at) });
+      const fam = isUser ? await userFamiliarity(db, career, w.clubs.get(userClubId!)!) : undefined;
+      const r = playMatch({ seed: seedFor(career.seed, "match", f.id), home: teamSetup(home, hs, ht, true, home.id === userClubId ? fam : undefined), away: teamSetup(away, as, at, true, away.id === userClubId ? fam : undefined) });
       hg = r.homeGoals;
       ag = r.awayGoals;
       applyMatchToPlayers(w, rng, r, home.id, away.id, physio, injuredNow).forEach((id) => minutes.set(id, 90));
@@ -353,6 +355,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   await announceNotes(db, career, notes);
 
   if (!midweek) await jobsWeek(db, career);
+  if (userFixture) await familiarityTick(db, career, "match");
 
   let seasonEnd: SeasonSummary | null = null;
   if (week >= career.season_weeks) {

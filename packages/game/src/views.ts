@@ -1,4 +1,6 @@
 /** Lesende Sichten für die Oberfläche. */
+import { INSTRUCTION_CONFLICTS, INSTRUCTION_LABEL, DUTY_LABEL, MENTALITY_LABEL, tacticIntensity } from "@fl/sim";
+import { MAX_TACTICS, familiarityOf, getTactics, presetName } from "./tactics";
 import { windowFor } from "./window";
 import {
   ACHIEVEMENTS, ALL_ATTRS, CARD_PACK, COUNTRIES, COUNTRY_BY_CODE, FINANCE_LABEL, FORMATIONS, LEVEL_TITLES, MISSIONS, ROLES,
@@ -255,6 +257,7 @@ export async function tacticView(careerId: string, accountId: string) {
   const club = (await getClub(pool(), career.id, career.club_id))!;
   const players = await getPlayers(pool(), career.id, [club.id]);
   const tactic = validateTactic(club.tactic ?? defaultTactic(players, "4-4-2", STYLE_PRESETS.balanced.style), players);
+  const tst = await getTactics(pool(), career, club);
   return {
     career: careerSummary(career),
     club: clubSummary(club),
@@ -268,6 +271,18 @@ export async function tacticView(careerId: string, accountId: string) {
     styleLabels: STYLE_LABEL,
     presets: STYLE_PRESETS,
     training: career.training,
+    mentalities: MENTALITY_LABEL,
+    duties: DUTY_LABEL,
+    instructions: INSTRUCTION_LABEL,
+    conflicts: INSTRUCTION_CONFLICTS,
+    tactics: {
+      active: tst.active,
+      slots: tst.slots.map((x, i) => ({ index: i, name: x.name, formation: x.tactic.formation, preset: presetName(x.tactic), mentality: x.tactic.mentality ?? 0 })),
+      max: MAX_TACTICS,
+    },
+    familiarity: familiarityOf(tst, tactic),
+    formationFamiliarity: tst.formation,
+    intensity: tacticIntensity(tactic.style, tactic.mentality ?? 0, tactic.instructions),
   };
 }
 

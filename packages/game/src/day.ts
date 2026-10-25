@@ -13,6 +13,7 @@ import type pg from "pg";
 import { windowFor } from "./window";
 import { type Db, query } from "./db";
 import { jobsDaily } from "./jobs";
+import { familiarityTick } from "./tactics";
 import { type CareerRow, type FixtureRow, addInbox, getClub, getClubs, getPlayers, saveCareer, savePlayers } from "./repo";
 import { aiTactic, teamSetup } from "./setup";
 import { competitionOf } from "./cup";
@@ -88,6 +89,7 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
     return { day: day + o, date: iso(day + o), type: t2, label: DAY_TYPE_LABEL[t2] };
   });
   events.push(...(await jobsDaily(db, career)));
+  await familiarityTick(db, career, type === "training" || type === "prep" ? "training" : type === "friendly" ? "match" : "rest");
   if (!career.club_id) {
     // Ohne Verein: nur Stellenmarkt und Nationalteam
     events.push(...(await nationalDay(db, career, [])));
@@ -145,8 +147,6 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
   if (date.getUTCDate() === 1) {
     const e = await monthlyReport(db, career, date);
     if (e) events.push(e);
-    const a = await monthlyAwards(db, career, date);
-    if (a) events.push(a);
   }
   if (cal.winterBreak && day === cal.winterBreak[0]) {
     await addInbox(db, career.id, career.season, career.week, "board", "Winterpause",
@@ -177,6 +177,11 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
   if (rumour) events.push(rumour);
 
   await savePlayers(db, career.id, squad);
+  // Monatsauszeichnungen erst nach dem Speichern des Kaders, sonst würde der Tageskader sie überschreiben
+  if (date.getUTCDate() === 1) {
+    const a = await monthlyAwards(db, career, date);
+    if (a) events.push(a);
+  }
   await saveCareer(db, career);
   const fresh = await query<{ id: number; title: string; category: string }>(
     db, "select id, title, category from inbox where career_id = $1 and id > $2 order by id", [career.id, lastInbox],

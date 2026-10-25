@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, useApi } from "@/lib/client/api";
 import { POS_LABEL } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
-import { shapePositions } from "@fl/sim";
+import { shapePositions, tacticIntensity } from "@fl/sim";
 import { PitchBoard, Stars, type BoardSlot, type SlotGroup } from "@/components/PitchBoard";
 import { Select } from "@/components/Select";
 import { Sheet } from "@/components/Sheet";
@@ -54,8 +54,9 @@ export default function TacticPage() {
   // Grundordnung (inkl. verschobener Positionen) und daraus die Laufwege mit/gegen den Ball
   const base = formation.map((s, i) => ({ position: s.position as any, x: t.slotOffsets?.[i]?.x ?? s.x, y: t.slotOffsets?.[i]?.y ?? s.y }));
   const roleIds = formation.map((_, i) => roleOf(i));
-  const shown = phase === "base" ? base : shapePositions(base, roleIds, t.style, phase === "defend" ? "defend" : "attack");
-  const ghosts = phase === "both" ? shapePositions(base, roleIds, t.style, "defend") : null;
+  const extra = { duties: t.duties, instructions: t.instructions, mentality: t.mentality ?? 0 };
+  const shown = phase === "base" ? base : shapePositions(base, roleIds, t.style, phase === "defend" ? "defend" : "attack", extra);
+  const ghosts = phase === "both" ? shapePositions(base, roleIds, t.style, "defend", extra) : null;
   const slots: BoardSlot[] = formation.map((s, i) => {
     const p = t.lineup[i] != null ? byId.get(t.lineup[i]) : null;
     const role = data.roles.find((r: any) => r.id === roleOf(i));
@@ -68,7 +69,7 @@ export default function TacticPage() {
       position: s.position,
       x: shown[i].x,
       y: shown[i].y,
-      role: ROLE_CODE[role?.id] ?? POS_LABEL[s.position] ?? s.position,
+      role: `${ROLE_CODE[role?.id] ?? POS_LABEL[s.position] ?? s.position}${t.duties?.[i] ? `-${data.duties[t.duties[i]].short}` : ""}${t.instructions?.[i]?.length ? " •" : ""}`,
       roleName: role?.name ?? POS_LABEL[s.position],
       group: GROUP[s.position] ?? "mid",
       name: p ? p.lastName : null,
@@ -124,6 +125,8 @@ export default function TacticPage() {
       // Sichtbare Standardrolle je Position übernehmen, damit Anzeige und Speicherstand übereinstimmen
       n.roles = newSlots.map((s) => rolesFor(s.position)[0]?.id ?? "");
       n.slotOffsets = [];
+      n.duties = [];
+      n.instructions = [];
     });
     setSelected(null);
   }
@@ -198,6 +201,19 @@ export default function TacticPage() {
   );
   // Aktive Spielidee: Vorlage, deren Werte exakt der Taktik entsprechen – sonst individuell
   const presetKey = Object.entries(data.presets).find(([, v]: [string, any]) => Object.keys(v.style).every((k) => v.style[k] === t.style[k]))?.[0] ?? "custom";
+  const intensity = tacticIntensity(t.style, t.mentality ?? 0, t.instructions);
+  async function slotAction(action: string, index?: number, name?: string) {
+    if (action !== "rename" && dirty && !confirm("Ungespeicherte Änderungen gehen verloren. Fortfahren?")) return;
+    if (action === "delete" && !confirm("Diese Taktik wirklich löschen?")) return;
+    try {
+      const r = await api<any>(`careers/${id}/tactic/slot`, { body: { action, index, name } });
+      toast(r.message, "success");
+      setSelected(null);
+      reload();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    }
+  }
   const openSheet = (k: SheetKey) => {
     const opening = sheet !== k;
     setSheet(opening ? k : null);
@@ -221,16 +237,46 @@ export default function TacticPage() {
           <div className="field">
             <label>Spielidee</label>
             <Select label="Spielidee" value={presetKey} width={190} menuWidth={290}
-              onChange={(k) => { const v = data.presets[k]; if (v) update((n) => { n.style = { ...v.style }; }); }}
+              onChange={(k) => { const v = data.presets[k]; if (v) update((n) => { n.style = { ...v.style }; n.mentality = v.mentality ?? 0; }); }}
               options={[
                 ...Object.entries(data.presets).map(([k, v]: [string, any]) => ({ value: k, label: v.name, description: styleText(v.style) })),
                 ...(presetKey === "custom" ? [{ value: "custom", label: "Individuell", description: styleText(t.style) }] : []),
               ]} />
           </div>
+          <div className="field">
+            <label>Mentalität</label>
+            <Select label="Mentalität" value={String(t.mentality ?? 0)} width={170} menuWidth={240}
+              onChange={(v) => update((n) => { n.mentality = Number(v); })}
+              options={["-3", "-2", "-1", "0", "1", "2", "3"].map((k) => ({ value: k, label: data.mentalities[k], description: MENTALITY_TEXT[k], icon: <MentalityIcon level={Number(k)} /> }))} />
+          </div>
           <div className="row" style={{ alignSelf: "flex-end" }}>
             <button className="btn" onClick={autoPick}>Auto-Aufstellung</button>
             <button className="btn btn-primary" onClick={save} disabled={!dirty || saving}>{saving ? "Speichere …" : dirty ? "Speichern" : "Gespeichert"}</button>
           </div>
+        </div>
+      </div>
+
+      <div className="tactic-slots" role="tablist" aria-label="Taktiken">
+        {data.tactics.slots.map((x: any) => (
+          <div key={x.index} className={`tactic-slot ${x.index === data.tactics.active ? "active" : ""}`}>
+            <button role="tab" aria-selected={x.index === data.tactics.active} className="tactic-slot-main" onClick={() => slotAction("select", x.index)}>
+              <span className="tactic-slot-no">{x.index + 1}</span>
+              <span className="tactic-slot-text"><b>{x.name}</b><small>{x.index === data.tactics.active ? t.formation : x.formation} · {x.index === data.tactics.active ? (presetKey === "custom" ? "Individuell" : data.presets[presetKey].name) : x.preset}</small></span>
+            </button>
+            {x.index === data.tactics.active && (
+              <>
+                <button className="tactic-slot-tool" title="Umbenennen" aria-label="Taktik umbenennen" onClick={() => { const name = prompt("Name der Taktik", x.name); if (name) slotAction("rename", x.index, name); }}><Icon name="contract" size={13} /></button>
+                {data.tactics.slots.length > 1 && <button className="tactic-slot-tool" title="Löschen" aria-label="Taktik löschen" onClick={() => slotAction("delete", x.index)}><Icon name="close" size={13} /></button>}
+              </>
+            )}
+          </div>
+        ))}
+        {data.tactics.slots.length < data.tactics.max && (
+          <button className="tactic-slot-add" onClick={() => slotAction("add")} title="Neue Taktik (Kopie der aktiven)"><Icon name="plus" size={15} /><span>Taktik</span></button>
+        )}
+        <div className="tactic-meters">
+          <Meter label="Vertrautheit" value={data.familiarity.total} tone="fam" title={`Formation ${data.familiarity.formation} % · Spielweise ${data.familiarity.style} % – steigt durch Training und Spiele`} />
+          <Meter label="Intensität" value={intensity} tone="int" title="Wie sehr die Spielweise an der Kraft zehrt (Pressing, Tempo, Mentalität)" />
         </div>
       </div>
 
@@ -347,6 +393,22 @@ export default function TacticPage() {
               })}
               onSetPiece={(key: string, pid: number) => update((n) => { n.setPieces[key] = n.setPieces[key] === pid ? null : pid; })}
               onReset={() => update((n) => { if (n.slotOffsets) n.slotOffsets[menu.slot] = null; })}
+              duty={t.duties?.[menu.slot] ?? null}
+              dutyLabels={data.duties}
+              onDuty={(d: string) => update((n) => { n.duties = fill(n.duties, 11, null); n.duties[menu.slot] = d === "support" ? null : d; })}
+              instructions={t.instructions?.[menu.slot] ?? []}
+              instructionLabels={data.instructions}
+              onInstruction={(k: string) => update((n) => {
+                n.instructions = fill(n.instructions, 11, null).map((x: any) => x ?? []);
+                let list: string[] = n.instructions[menu.slot];
+                if (list.includes(k)) list = list.filter((x) => x !== k);
+                else {
+                  // Widersprüche auflösen, höchstens drei Anweisungen
+                  for (const [a, b] of data.conflicts as [string, string][]) { if (k === a) list = list.filter((x) => x !== b); if (k === b) list = list.filter((x) => x !== a); }
+                  list = [...list, k].slice(-3);
+                }
+                n.instructions[menu.slot] = list;
+              })}
             />
           )}
           {selected !== null && (
@@ -405,6 +467,32 @@ export default function TacticPage() {
   );
 }
 
+function fill<T>(arr: T[] | undefined, n: number, v: T): T[] {
+  const out = [...(arr ?? [])];
+  while (out.length < n) out.push(v);
+  return out;
+}
+const MENTALITY_TEXT: Record<string, string> = {
+  "-3": "Alles hinter den Ball, nur kontern", "-2": "Tief stehen, wenig Risiko", "-1": "Kontrolliert, Absicherung zuerst", "0": "Gleichgewicht aus Angriff und Abwehr",
+  "1": "Mutig nach vorne, höhere Linie", "2": "Druck machen, viele Spieler im Angriff", "3": "Alles nach vorne – hohes Risiko",
+};
+function MentalityIcon({ level }: { level: number }) {
+  return (
+    <svg viewBox="0 0 28 10" width="28" height="10" aria-hidden="true">
+      {[-3, -2, -1, 0, 1, 2, 3].map((l, i) => <rect key={l} x={i * 4} y={2} width="3" height="6" rx="1" fill={l === level ? (level < 0 ? "#3b82f6" : level > 0 ? "#ef4444" : "#e5e7eb") : "rgba(255,255,255,0.18)"} />)}
+    </svg>
+  );
+}
+function Meter({ label, value, tone, title }: { label: string; value: number; tone: "fam" | "int"; title: string }) {
+  const segs = 10;
+  const on = Math.round((value / 100) * segs);
+  return (
+    <div className={`meter meter-${tone}`} title={title} aria-label={`${label}: ${value} %`}>
+      <span className="meter-label">{label}<b>{value}%</b></span>
+      <span className="meter-segs">{Array.from({ length: segs }, (_, i) => <i key={i} className={i < on ? "on" : ""} />)}</span>
+    </div>
+  );
+}
 const STYLE_SHORT: Record<string, string> = { tempo: "Tempo", passLength: "Pässe", width: "Breite", risk: "Risiko", pressing: "Pressing", defensiveLine: "Linie", hardness: "Härte" };
 function styleText(style: Record<string, number>) {
   return ["tempo", "passLength", "width", "pressing", "defensiveLine"].map((k) => `${STYLE_SHORT[k]} ${style[k]}`).join(" · ");
@@ -478,10 +566,12 @@ function SlotMenu(props: {
   at: { x: number; y: number }; position: string; player: any | null; roles: any[]; role: string; candidates: any[];
   status: (pid: number) => string; setPieces: any; moved: boolean; profileHref: (pid: number) => string; kit: any; numbers: Map<number, number>;
   onClose: () => void; onRole: (r: string) => void; onReplace: (pid: number) => void; onBench: () => void; onSetPiece: (key: string, pid: number) => void; onReset: () => void;
+  duty: string | null; dutyLabels: Record<string, { name: string; short: string; text: string }>; onDuty: (d: string) => void;
+  instructions: string[]; instructionLabels: Record<string, { name: string; text: string }>; onInstruction: (k: string) => void;
 }) {
   const { at, position, player: p, roles, role, candidates, onClose } = props;
   const ref = useRef<HTMLDivElement>(null);
-  const [sub, setSub] = useState<"role" | "replace" | "set" | null>(null);
+  const [sub, setSub] = useState<"role" | "duty" | "pi" | "replace" | "set" | null>(null);
   const [place, setPlace] = useState<{ left: number; top: number; flip: boolean; narrow: boolean }>({ left: at.x, top: at.y, flip: false, narrow: false });
 
   useLayoutEffect(() => {
@@ -529,6 +619,19 @@ function SlotMenu(props: {
           </button>
         );
       })}
+      {sub === "duty" && Object.entries(props.dutyLabels).map(([k, d]) => (
+        <button key={k} role="menuitemradio" aria-checked={(props.duty ?? "support") === k} className="ctx-item ctx-two" onClick={() => act(() => props.onDuty(k))}>
+          <span className="ctx-check">{(props.duty ?? "support") === k && <Icon name="check" size={13} />}</span>
+          <span><b>{d.name}</b> <span className="ctx-code">{d.short}</span><small>{d.text}</small></span>
+        </button>
+      ))}
+      {sub === "pi" && Object.entries(props.instructionLabels).map(([k, d]) => (
+        <button key={k} role="menuitemcheckbox" aria-checked={props.instructions.includes(k)} className="ctx-item ctx-two" onClick={() => props.onInstruction(k)}>
+          <span className="ctx-check">{props.instructions.includes(k) && <Icon name="check" size={13} />}</span>
+          <span><b>{d.name}</b><small>{d.text}</small></span>
+        </button>
+      ))}
+      {sub === "pi" && <div className="faint small" style={{ padding: "4px 10px 6px" }}>Bis zu drei Anweisungen; widersprüchliche ersetzen sich.</div>}
       {sub === "set" && p && SET_PIECES.map(([k, label, attr]) => (
         <button key={k} role="menuitemcheckbox" aria-checked={props.setPieces[k] === p.id} className="ctx-item" onClick={() => act(() => props.onSetPiece(k, p.id))}>
           <span className="ctx-check">{props.setPieces[k] === p.id && <Icon name="check" size={13} />}</span>{label}<span className="ctx-hint">{p.attrs?.[attr] ?? ""}</span>
@@ -553,6 +656,16 @@ function SlotMenu(props: {
           <button className={`ctx-item ctx-more ${sub === "role" ? "open" : ""}`} onClick={() => setSub(sub === "role" ? null : "role")} onMouseEnter={() => !place.narrow && setSub("role")}>
             <Icon name="board" size={14} /><span>Rolle<small>{roleName}</small></span><span className="ctx-arrow">›</span>
           </button>
+          {position !== "GK" && (
+            <button className={`ctx-item ctx-more ${sub === "duty" ? "open" : ""}`} onClick={() => setSub(sub === "duty" ? null : "duty")} onMouseEnter={() => !place.narrow && setSub("duty")}>
+              <Icon name="target" size={14} /><span>Pflicht<small>{props.dutyLabels[props.duty ?? "support"]?.name}</small></span><span className="ctx-arrow">›</span>
+            </button>
+          )}
+          {position !== "GK" && (
+            <button className={`ctx-item ctx-more ${sub === "pi" ? "open" : ""}`} onClick={() => setSub(sub === "pi" ? null : "pi")} onMouseEnter={() => !place.narrow && setSub("pi")}>
+              <Icon name="info" size={14} /><span>Spieleranweisungen<small>{props.instructions.length ? props.instructions.map((k) => props.instructionLabels[k]?.name).join(", ") : "keine"}</small></span><span className="ctx-arrow">›</span>
+            </button>
+          )}
           <button className={`ctx-item ctx-more ${sub === "replace" ? "open" : ""}`} onClick={() => setSub(sub === "replace" ? null : "replace")} onMouseEnter={() => !place.narrow && setSub("replace")}>
             <Icon name="swap" size={14} /><span>{p ? "Spieler ersetzen" : "Spieler einsetzen"}</span><span className="ctx-arrow">›</span>
           </button>

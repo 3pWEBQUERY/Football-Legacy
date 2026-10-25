@@ -925,3 +925,34 @@ a.online-row:hover { background: var(--panel-2); }
 .sheet:not(.narrow) .sheet-body { overflow: visible; }
 .fl-select-list { max-width: calc(100vw - 16px); }
 .fl-select-list.right { left: auto; right: 0; }
+
+/* Einheitliche Höhe: Auswahlfelder wie Buttons */
+.fl-select-btn { height: 32px; }
+
+/* Taktik-Tabs (bis zu drei Taktiken) und Vertrautheit/Intensität */
+.tactic-slots { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.tactic-slot { display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); overflow: hidden; }
+.tactic-slot.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
+.tactic-slot-main { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 8px; border: 0; background: none; color: var(--text); cursor: pointer; text-align: left; min-width: 0; }
+.tactic-slot-no { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; background: var(--panel-2); font-family: var(--font-cond); font-weight: 700; flex: none; }
+.tactic-slot.active .tactic-slot-no { background: var(--accent); color: #fff; }
+.tactic-slot-text b { display: block; font-size: 13.5px; }
+.tactic-slot-text small { display: block; color: var(--text-3); font-size: 11.5px; white-space: nowrap; }
+.tactic-slot-tool { border: 0; border-left: 1px solid var(--line); background: none; color: var(--text-3); padding: 0 9px; cursor: pointer; }
+.tactic-slot-tool:hover { color: var(--text); background: var(--panel-2); }
+.tactic-slot-add { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border: 1px dashed var(--line-2); border-radius: var(--r); background: none; color: var(--text-2); cursor: pointer; font-family: var(--font-cond); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.tactic-slot-add:hover { border-color: var(--accent); color: var(--text); }
+.tactic-meters { margin-left: auto; display: flex; gap: 10px; }
+.meter { display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 6px 12px; min-width: 170px; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); }
+.meter-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-2); }
+.meter-label b { font-family: var(--font-cond); color: var(--text); }
+.meter-segs { display: flex; gap: 3px; }
+.meter-segs i { flex: 1; height: 4px; border-radius: 2px; background: var(--line-2); }
+.meter-fam .meter-segs i.on { background: #2dd4bf; }
+.meter-int .meter-segs i.on { background: #f59e0b; }
+@media (max-width: 860px) {
+  .tactic-meters { margin-left: 0; width: 100%; }
+  .meter { flex: 1; min-width: 0; }
+  .tactic-slot { flex: 1 1 100%; }
+  .tactic-slot-main { flex: 1; }
+}

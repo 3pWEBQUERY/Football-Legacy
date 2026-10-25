@@ -9,7 +9,7 @@ export function aiTactic(club: ClubRow, squad: Player[]): Tactic {
   return validateTactic({ ...base, lineup, bench, slotOffsets: undefined }, squad);
 }
 
-export function teamSetup(club: ClubRow, squad: Player[], tactic: Tactic, autoSubs = true): TeamSetup {
+export function teamSetup(club: ClubRow, squad: Player[], tactic: Tactic, autoSubs = true, familiarity?: number): TeamSetup {
   return {
     clubId: club.id,
     name: club.name,
@@ -18,5 +18,6 @@ export function teamSetup(club: ClubRow, squad: Player[], tactic: Tactic, autoSu
     tactic,
     players: squad,
     autoSubs,
+    familiarity,
   };
 }

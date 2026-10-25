@@ -173,7 +173,16 @@ export interface Tactic {
     freeKickTaker: number | null;
     penaltyTaker: number | null;
   };
+  /** Mentalität −3 (sehr defensiv) … +3 (sehr offensiv) */
+  mentality?: number;
+  /** Pflicht je Slot */
+  duties?: (Duty | null)[];
+  /** Spieleranweisungen je Slot */
+  instructions?: PlayerInstruction[][];
 }
+
+export type Duty = "defend" | "support" | "attack";
+export type PlayerInstruction = "shoot_more" | "dribble_more" | "pass_safe" | "cross_more" | "press_more" | "stay_back" | "get_forward";
 
 export interface Club {
   id: number;
