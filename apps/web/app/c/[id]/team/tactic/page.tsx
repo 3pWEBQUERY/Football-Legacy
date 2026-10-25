@@ -6,6 +6,7 @@ import { POS_LABEL } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { shapePositions } from "@fl/sim";
 import { PitchBoard, Stars, type BoardSlot, type SlotGroup } from "@/components/PitchBoard";
+import { Select } from "@/components/Select";
 import { Sheet } from "@/components/Sheet";
 import { Condition, ErrorBox, Icon, Loading, Panel, Seg, moraleLabel, useNotes, useToast } from "@/components/ui";
 import { PlayerFace } from "@/components/PlayerFace";
@@ -195,6 +196,8 @@ export default function TacticPage() {
       })}
     </div>
   );
+  // Aktive Spielidee: Vorlage, deren Werte exakt der Taktik entsprechen – sonst individuell
+  const presetKey = Object.entries(data.presets).find(([, v]: [string, any]) => Object.keys(v.style).every((k) => v.style[k] === t.style[k]))?.[0] ?? "custom";
   const openSheet = (k: SheetKey) => {
     const opening = sheet !== k;
     setSheet(opening ? k : null);
@@ -210,18 +213,19 @@ export default function TacticPage() {
           <p>Position anklicken und Spieler in der Liste wählen – oder Rechtsklick (am Handy lange drücken) für Rolle, Ersatz und Standards.</p>
         </div>
         <div className="row-wrap">
-          <div className="field" style={{ minWidth: 120 }}>
+          <div className="field">
             <label>Formation</label>
-            <select className="select" value={t.formation} onChange={(e) => changeFormation(e.target.value)} aria-label="Formation">
-              {Object.keys(data.formations).map((f) => <option key={f}>{f}</option>)}
-            </select>
+            <Select label="Formation" value={t.formation} width={150} menuWidth={220} onChange={(f) => changeFormation(f)}
+              options={Object.keys(data.formations).map((f) => ({ value: f, label: f, icon: <FormationIcon slots={data.formations[f]} />, description: formationText(data.formations[f]) }))} />
           </div>
-          <div className="field" style={{ minWidth: 150 }}>
+          <div className="field">
             <label>Spielidee</label>
-            <select className="select" value="" onChange={(e) => { const v = data.presets[e.target.value]; if (v) update((n) => { n.style = { ...v.style }; }); }} aria-label="Spielidee">
-              <option value="">Vorlage wählen …</option>
-              {Object.entries(data.presets).map(([k, v]: [string, any]) => <option key={k} value={k}>{v.name}</option>)}
-            </select>
+            <Select label="Spielidee" value={presetKey} width={190} menuWidth={290}
+              onChange={(k) => { const v = data.presets[k]; if (v) update((n) => { n.style = { ...v.style }; }); }}
+              options={[
+                ...Object.entries(data.presets).map(([k, v]: [string, any]) => ({ value: k, label: v.name, description: styleText(v.style) })),
+                ...(presetKey === "custom" ? [{ value: "custom", label: "Individuell", description: styleText(t.style) }] : []),
+              ]} />
           </div>
           <div className="row" style={{ alignSelf: "flex-end" }}>
             <button className="btn" onClick={autoPick}>Auto-Aufstellung</button>
@@ -260,23 +264,21 @@ export default function TacticPage() {
         <div className="stack">
           <div className="field">
             <label>Eckbälle</label>
-            <select className="select" value={t.setPieces.corners} onChange={(e) => update((n) => { n.setPieces.corners = e.target.value; })}>
-              {Object.entries(CORNER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
+            <Select label="Eckbälle" value={t.setPieces.corners} onChange={(v) => update((n) => { n.setPieces.corners = v; })}
+              options={Object.entries(CORNER_LABEL).map(([k, v]) => ({ value: k, label: v }))} />
           </div>
           {[["cornerTaker", "Eckenschütze", "corners"], ["freeKickTaker", "Freistossschütze", "freeKicks"], ["penaltyTaker", "Elfmeterschütze", "penalties"]].map(([key, label, attr]) => (
             <div key={key} className="field">
               <label>{label}</label>
-              <select className="select" value={t.setPieces[key] ?? ""} onChange={(e) => update((n) => { n.setPieces[key] = e.target.value ? Number(e.target.value) : null; })}>
-                <option value="">Automatisch</option>
-                {[...lineupPlayers].sort((a: any, b: any) => b.attrs[attr] - a.attrs[attr]).map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.attrs[attr]})</option>)}
-              </select>
+              <Select label={label} value={String(t.setPieces[key] ?? "auto")} onChange={(v) => update((n) => { n.setPieces[key] = v === "auto" ? null : Number(v); })}
+                options={[{ value: "auto", label: "Automatisch", description: "Der beste Schütze auf dem Platz" },
+                  ...[...lineupPlayers].sort((a: any, b: any) => b.attrs[attr] - a.attrs[attr]).map((p: any) => ({ value: String(p.id), label: p.name, description: `${label.replace("schütze", "")}: ${p.attrs[attr]}` }))]} />
             </div>
           ))}
         </div>
       </Sheet>
 
-      <div className="grid grid-tactic" style={{ alignItems: "start" }}>
+      <div className="grid grid-tactic">
         <Panel title={`Formation ${t.formation}`} icon="board" actions={phase === "base" && t.slotOffsets?.some(Boolean) && <button className="btn btn-ghost btn-sm" onClick={() => update((n) => { n.slotOffsets = []; })}>Zurücksetzen</button>}>
           <div className="phase-tabs">
             <Seg value={phase} onChange={(v) => setPhase(v)} options={[
@@ -350,16 +352,14 @@ export default function TacticPage() {
           {selected !== null && (
             <div className="card-soft stack-sm" style={{ marginTop: 12 }}>
               <div className="between"><span className="faint small up">Rolle · {POS_LABEL[formation[selected].position]}</span><button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)}>Fertig</button></div>
-              <select className="select" value={roleOf(selected)} onChange={(e) => update((n) => { n.roles[selected] = e.target.value; })}>
-                {rolesFor(formation[selected].position).map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
-              <small className="dim">{rolesFor(formation[selected].position).find((r: any) => r.id === roleOf(selected))?.description}</small>
+              <Select label="Rolle" value={roleOf(selected)} onChange={(v) => update((n) => { n.roles[selected] = v; })}
+                options={rolesFor(formation[selected].position).map((r: any) => ({ value: r.id, label: `${r.name} (${ROLE_CODE[r.id] ?? ""})`, description: r.description }))} />
             </div>
           )}
         </Panel>
 
-        <Panel title={selPos ? `Kandidaten · ${POS_LABEL[selPos]}` : "Kader"} icon="users" flush actions={<span className="faint small">Bank {t.bench.length}/9</span>}>
-          <div className="cand-wrap">
+        <Panel className="cand-panel" title={selPos ? `Kandidaten · ${POS_LABEL[selPos]}` : "Kader"} icon="users" flush actions={<span className="faint small">Bank {t.bench.length}/9</span>}>
+          <div className="cand-body"><div className="cand-wrap">
             <table className="table cand-table">
               <thead><tr><th>Pkd</th><th className="hide-sm">Pos</th><th>Spieler</th><th>{selPos ? `Eignung ${POS_LABEL[selPos]}` : "Eignung"}</th><th className="c hide-sm">Kond.</th><th className="c hide-sm">Moral</th><th className="r" /></tr></thead>
               <tbody>
@@ -398,10 +398,29 @@ export default function TacticPage() {
                 })}
               </tbody>
             </table>
-          </div>
+          </div></div>
         </Panel>
       </div>
     </>
+  );
+}
+
+const STYLE_SHORT: Record<string, string> = { tempo: "Tempo", passLength: "Pässe", width: "Breite", risk: "Risiko", pressing: "Pressing", defensiveLine: "Linie", hardness: "Härte" };
+function styleText(style: Record<string, number>) {
+  return ["tempo", "passLength", "width", "pressing", "defensiveLine"].map((k) => `${STYLE_SHORT[k]} ${style[k]}`).join(" · ");
+}
+function formationText(slots: { position: string }[]) {
+  const back = slots.filter((s) => ["DC", "DR", "DL"].includes(s.position)).length;
+  const top = slots.filter((s) => s.position === "ST").length;
+  return `${back}er-Kette · ${top === 1 ? "eine Spitze" : `${top} Spitzen`}`;
+}
+function FormationIcon({ slots }: { slots: { x: number; y: number; position: string }[] }) {
+  return (
+    <svg viewBox="0 0 30 40" width="22" height="30" aria-hidden="true" className="formation-icon">
+      <rect x="0.5" y="0.5" width="29" height="39" rx="2" fill="#1d4d3f" stroke="rgba(255,255,255,0.35)" />
+      <line x1="0.5" y1="20" x2="29.5" y2="20" stroke="rgba(255,255,255,0.3)" strokeWidth="0.6" />
+      {slots.map((s, i) => <circle key={i} cx={2 + s.y * 26} cy={38 - s.x * 36} r="1.9" fill={s.position === "GK" ? "#f3c945" : "#fff"} />)}
+    </svg>
   );
 }
 
