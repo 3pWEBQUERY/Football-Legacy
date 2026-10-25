@@ -13,6 +13,7 @@ import type pg from "pg";
 import { windowFor } from "./window";
 import { type Db, query } from "./db";
 import { jobsDaily } from "./jobs";
+import { negotiationsDaily } from "./negotiations";
 import { matchPreview, newsDaily } from "./news";
 import { familiarityTick } from "./tactics";
 import { type CareerRow, type FixtureRow, addInbox, getClub, getClubs, getPlayers, saveCareer, savePlayers } from "./repo";
@@ -99,6 +100,7 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
     return { day, date: iso(day), type, label: DAY_TYPE_LABEL[type], events, inbox, training: null, squad: { fitness: 0, injured: 0, unhappy: 0 }, next: null, outlook };
   }
 
+  await negotiationsDaily(db, career);
   const squad = await getPlayers(db, career.id, [career.club_id]);
   const rng = new Rng(seedFor(career.seed, "day", career.season, day));
 

@@ -1,143 +1,256 @@
 "use client";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { api, useApi } from "@/lib/client/api";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { api, refreshAll, useApi } from "@/lib/client/api";
 import { money } from "@/lib/client/format";
-import { MobileSubnav, useGame } from "@/components/GameShell";
-import { ErrorBox, Icon, Loading, Nat, Pos, Rating, useToast } from "@/components/ui";
-import { PlayerFace } from "@/components/PlayerFace";
+import { useGame } from "@/components/GameShell";
+import { Crest, Empty, ErrorBox, Icon, Loading, Pos, useToast } from "@/components/ui";
+import { Sheet } from "@/components/Sheet";
+import { usePrompt } from "@/components/Dialog";
+import { NegotiationModal, type NegotiationTarget } from "@/components/Negotiation";
 
-const POSITIONS = ["", "GK", "DR", "DC", "DL", "DM", "MR", "MC", "ML", "AMR", "AMC", "AML", "ST"];
-const POS_DE: Record<string, string> = { "": "Alle Positionen", GK: "Torwart", DR: "Rechter Verteidiger", DC: "Innenverteidiger", DL: "Linker Verteidiger", DM: "Defensives Mittelfeld", MR: "Rechtes Mittelfeld", MC: "Zentrales Mittelfeld", ML: "Linkes Mittelfeld", AMR: "Rechtsaussen", AMC: "Offensives Mittelfeld", AML: "Linksaussen", ST: "Stürmer" };
+const STAGE: Record<string, { label: string; cls: string }> = {
+  club: { label: "Verein", cls: "badge-blue" }, contract: { label: "Vertrag", cls: "badge-warn" }, done: { label: "Unterschrieben", cls: "badge-accent" },
+  failed: { label: "Gescheitert", cls: "badge-danger" }, withdrawn: { label: "Abgebrochen", cls: "" }, expired: { label: "Abgelaufen", cls: "" },
+};
+const STATUS: Record<string, string> = { pending: "Antwort ausstehend", countered: "Gegenforderung", rejected: "Abgelehnt", open: "Gespräche laufen", agreed: "Einigung", withdrawn: "Abgebrochen", expired: "Fenster geschlossen" };
 
-export default function Market() {
+export default function TransferHub() {
   const { id } = useGame();
   const router = useRouter();
+  const params = useSearchParams();
   const toast = useToast();
-  const [f, setF] = useState({ q: "", position: "", minAge: "", maxAge: "", maxValue: "", free: false, listed: false, shortlist: false, sort: "rating", page: 0 });
-  const [scoutCountry, setScoutCountry] = useState("");
-  const query = useMemo(() => {
-    const p = new URLSearchParams();
-    if (f.q) p.set("q", f.q);
-    if (f.position) p.set("position", f.position);
-    if (f.minAge) p.set("minAge", f.minAge);
-    if (f.maxAge) p.set("maxAge", f.maxAge);
-    if (f.maxValue) p.set("maxValue", String(Math.round(Number(f.maxValue) * 1_000_000)));
-    if (f.free) p.set("free", "1");
-    if (f.listed) p.set("listed", "1");
-    if (f.shortlist) p.set("shortlist", "1");
-    p.set("sort", f.sort);
-    p.set("page", String(f.page));
-    return p.toString();
-  }, [f]);
-  const { data, error, reload } = useApi<any>(`careers/${id}/market?${query}`);
-  const set = (patch: Partial<typeof f>) => setF((x) => ({ ...x, ...patch, page: patch.page ?? 0 }));
+  const prompt = usePrompt();
+  const { data, error, reload } = useApi<any>(`careers/${id}/transfers`);
+  const [neg, setNeg] = useState<{ target: NegotiationTarget; id: number } | null>(null);
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [wage, setWage] = useState(0);
+  const budgetBtn = useRef<HTMLButtonElement>(null);
 
-  async function activate() {
-    if (!scoutCountry) return;
+  // Aus dem Posteingang direkt in eine Verhandlung springen
+  useEffect(() => {
+    const nid = Number(params.get("neg"));
+    if (!data || !nid || neg) return;
+    const n = data.negotiations.find((x: any) => x.id === nid);
+    if (n) openNeg(n);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, params]);
+
+  if (error) return <ErrorBox message={error} />;
+  if (!data) return <Loading />;
+  const b = data.budget;
+  const w = data.window;
+  const active = data.negotiations.filter((n: any) => n.stage === "club" || n.stage === "contract");
+  const closed = data.negotiations.filter((n: any) => n.stage !== "club" && n.stage !== "contract");
+  const wageShare = b.wage > 0 ? (b.wageBill / b.wage) * 100 : 0;
+
+  function openNeg(n: any) {
+    setNeg({ id: n.id, target: { id: n.playerId, name: n.player, position: n.position, age: n.age, free: !n.from, club: n.from ? { name: n.from.name, colors: n.from.colors } : null, askingPrice: null } });
+  }
+
+  async function respond(o: any, decision: "accept" | "reject" | "counter") {
+    let counterFee: number | undefined;
+    if (decision === "counter") {
+      const v = await prompt({ title: `Gegenforderung für ${o.player}`, message: `${o.club} bietet ${money(o.fee)}. Wie viel verlangst du (in Mio. €)?`, defaultValue: String(Math.round((o.fee * 1.25) / 100_000) / 10), inputMode: "decimal", confirmLabel: "Fordern" });
+      if (v === null) return;
+      counterFee = Math.round(Number(v.replace(",", ".")) * 1_000_000);
+      if (!Number.isFinite(counterFee) || counterFee <= 0) return toast("Ungültiger Betrag", "error");
+    }
     try {
-      const r = await api<any>(`careers/${id}/scouting`, { body: { countryCode: scoutCountry } });
+      const r = await api<any>(`careers/${id}/offers/${o.id}`, { body: { decision, counterFee } });
+      toast(r.message, r.status === "completed" ? "success" : "info");
+      reload();
+      refreshAll();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    }
+  }
+
+  async function saveBudget() {
+    try {
+      const r = await api<any>(`careers/${id}/transfers/budget`, { body: { wageBudget: wage } });
       toast(r.message, "success");
+      setBudgetOpen(false);
       reload();
     } catch (e) {
       toast((e as Error).message, "error");
     }
   }
 
+  const wageDelta = wage - b.wage;
   return (
     <>
-      <MobileSubnav section="market" />
       <div className="page-head">
         <div>
-          <h1>Spielersuche</h1>
-          <p>{data ? <>{data.window.label} · Transferbudget <b>{money(data.club?.transferBudget)}</b> · Kontostand {money(data.club?.balance)}</> : " "}</p>
-        </div>
-      </div>
-      <div className="card stack">
-        <div className="row-wrap">
-          <input className="input" placeholder="Name suchen …" value={f.q} onChange={(e) => set({ q: e.target.value })} style={{ width: 200 }} aria-label="Name" />
-          <select className="select" value={f.position} onChange={(e) => set({ position: e.target.value })} aria-label="Position">
-            {POSITIONS.map((p) => <option key={p} value={p}>{POS_DE[p]}</option>)}
-          </select>
-          <input className="input" type="number" placeholder="Alter von" value={f.minAge} onChange={(e) => set({ minAge: e.target.value })} style={{ width: 100 }} aria-label="Mindestalter" />
-          <input className="input" type="number" placeholder="bis" value={f.maxAge} onChange={(e) => set({ maxAge: e.target.value })} style={{ width: 80 }} aria-label="Höchstalter" />
-          <input className="input" type="number" placeholder="max. Wert (Mio.)" value={f.maxValue} onChange={(e) => set({ maxValue: e.target.value })} style={{ width: 150 }} aria-label="Maximaler Marktwert in Millionen" />
-          <select className="select" value={f.sort} onChange={(e) => set({ sort: e.target.value })} aria-label="Sortierung">
-            <option value="rating">Nach Stärke</option>
-            <option value="potential">Nach Potenzial</option>
-            <option value="value">Nach Marktwert</option>
-            <option value="age">Jüngste zuerst</option>
-          </select>
+          <h1>Transfer-Zentrale</h1>
+          <p>Verhandlungen, Angebote für deine Spieler, Budget und die Transfers der Liga.</p>
         </div>
         <div className="row-wrap">
-          <label className="row small"><input type="checkbox" checked={f.free} onChange={(e) => set({ free: e.target.checked })} /> Nur vereinslose</label>
-          <label className="row small"><input type="checkbox" checked={f.listed} onChange={(e) => set({ listed: e.target.checked })} /> Auf Transferliste</label>
-          <label className="row small"><input type="checkbox" checked={f.shortlist} onChange={(e) => set({ shortlist: e.target.checked })} /> Beobachtungsliste</label>
+          <Link className="btn btn-primary" href={`/c/${id}/market/search`}><Icon name="search" size={15} /> Spielersuche</Link>
+          <Link className="btn" href={`/c/${id}/market/scouting`}><Icon name="eye" size={15} /> Scouting</Link>
         </div>
       </div>
 
-      {error && <ErrorBox message={error} />}
-      {!data && !error && <Loading />}
-      {data && (
-        <div className="grid grid-main" style={{ alignItems: "start" }}>
-          <div className="card card-flush">
-            <div className="table-wrap">
-              <table className="table">
-                <thead><tr><th>Pos</th><th>Name</th><th>Nat</th><th className="c">Alter</th><th className="c">Stärke</th><th>Verein</th><th className="r">Marktwert</th></tr></thead>
-                <tbody>
-                  {data.players.map((p: any) => (
-                    <tr key={p.id} className="clickable" onClick={() => router.push(`/c/${id}/player/${p.id}`)}>
-                      <td><Pos p={p.position} /></td>
-                      <td>
-                        <span className="row" style={{ gap: 6 }}><PlayerFace player={p} kit={p.kit} size={28} /><span className="name">{p.name}</span>{p.shortlisted && <span title="Beobachtet" style={{ color: "var(--accent)", display: "inline-flex" }}><Icon name="eye" size={14} /></span>}{p.listed && <span className="badge badge-blue">Transferliste</span>}</span>
-                      </td>
-                      <td><Nat code={p.nationality} /></td>
-                      <td className="c">{p.age}</td>
-                      <td className="c"><Rating value={p.rating} range={p.ratingRange} /></td>
-                      <td className="small dim truncate" style={{ maxWidth: 220 }}>{p.clubName ?? <span className="badge badge-accent">vereinslos</span>}</td>
-                      <td className="r num">{money(p.value)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {data.players.length === 0 && <div className="empty">Keine Spieler gefunden.</div>}
-            <div className="between" style={{ padding: 12 }}>
-              <button className="btn btn-sm" disabled={f.page === 0} onClick={() => set({ page: f.page - 1 })}>Zurück</button>
-              <span className="faint small">Seite {f.page + 1}</span>
-              <button className="btn btn-sm" disabled={!data.hasMore} onClick={() => set({ page: f.page + 1 })}>Weiter</button>
-            </div>
-          </div>
-          <div className="stack">
-            <div className="card stack">
-              <div className="card-head"><h3>Scouting-Netzwerk</h3></div>
-              <p className="dim small">Auf dem Markt erscheinen Spieler aus Ligen, die detailliert simuliert werden: dein Heimatland und Ligen im Netzwerk. Vereine anderer Ligen kannst du über die Tabellen öffnen.</p>
-              <div className="row-wrap">{data.activeCountries.map((c: string) => <span key={c} className="badge">{data.countries.find((x: any) => x.code === c)?.name}</span>)}</div>
-              {data.scoutingNetwork ? (
-                <div className="row">
-                  <select className="select" value={scoutCountry} onChange={(e) => setScoutCountry(e.target.value)} style={{ flex: 1 }} aria-label="Land">
-                    <option value="">Land hinzufügen …</option>
-                    {data.countries.filter((c: any) => !data.activeCountries.includes(c.code)).sort((a: any, b: any) => b.strength - a.strength).map((c: any) => <option key={c.code} value={c.code}>{c.name}</option>)}
-                  </select>
-                  <button className="btn btn-primary" onClick={activate} disabled={!scoutCountry}>Scouten</button>
-                </div>
-              ) : <span className="badge badge-blue" style={{ whiteSpace: "normal" }}>Freischaltung mit Manager-Level 5</span>}
-            </div>
-            <div className="card stack-sm">
-              <div className="card-head"><h3>Verhandlungen</h3></div>
-              {data.transfers.length === 0 && <p className="faint small">Noch keine Angebote in dieser Saison.</p>}
-              {data.transfers.slice(0, 12).map((t: any) => (
-                <div key={t.id} className="between small">
-                  <span className="truncate row" style={{ gap: 6 }}><span className="faint" style={{ display: "inline-flex" }}><Icon name={t.kind === "offer_in" ? "down" : "up"} size={13} /></span>{t.player_name}</span>
-                  <span className={`badge ${t.status === "completed" ? "badge-accent" : t.status === "rejected" || t.status === "expired" ? "badge-danger" : "badge-warn"}`}>
-                    {({ completed: "abgeschlossen", rejected: "abgelehnt", countered: "Gegenangebot", pending: "offen", expired: "abgelaufen" } as any)[t.status] ?? t.status}
-                  </span>
-                </div>
-              ))}
-            </div>
+      <div className="hub-kpis">
+        <div className={`hub-kpi window ${w.open ? "open" : "closed"}`}>
+          <span className="hub-kpi-label"><Icon name="calendar" size={14} /> Transferfenster</span>
+          <b>{w.open ? "Geöffnet" : "Geschlossen"}</b>
+          <small>{w.open ? (w.daysLeft !== null ? `${w.label} · noch ${w.daysLeft} Tage` : w.label) : w.daysToOpen ? `öffnet in ${w.daysToOpen} Tagen · Vereinslose jederzeit` : "Vereinslose jederzeit verpflichtbar"}</small>
+        </div>
+        <div className="hub-kpi">
+          <span className="hub-kpi-label"><Icon name="euro" size={14} /> Transferbudget</span>
+          <b>{money(b.transfer)}</b>
+          <small>Kontostand {money(b.balance)}</small>
+        </div>
+        <div className="hub-kpi">
+          <span className="hub-kpi-label"><Icon name="contract" size={14} /> Gehaltsbudget / Woche</span>
+          <b>{money(b.wageBill)} <span className="faint">/ {money(b.wage)}</span></b>
+          <div className={`progress ${wageShare > 100 ? "danger" : wageShare > 95 ? "warn" : ""}`}><span style={{ width: `${Math.min(100, wageShare)}%` }} /></div>
+        </div>
+        <div className="hub-kpi action">
+          <span className="hub-kpi-label"><Icon name="swap" size={14} /> Budget</span>
+          <button ref={budgetBtn} className="btn btn-sm" onClick={() => { setWage(b.wage); setBudgetOpen(true); }}>Budget umschichten</button>
+          <small>1 € Wochengehalt = {b.ratio} € Transferbudget</small>
+        </div>
+      </div>
+
+      <Sheet open={budgetOpen} anchor={budgetBtn.current} title="Budget umschichten" onClose={() => setBudgetOpen(false)} width={360}>
+        <div className="stack-sm">
+          <p className="dim small">Verschiebe Mittel zwischen Transfer- und Gehaltsbudget, wie im Gespräch mit dem Vorstand.</p>
+          <input type="range" min={Math.ceil(b.minWage / 100) * 100} max={Math.floor(b.maxWage / 100) * 100} step={100} value={wage} onChange={(e) => setWage(Number(e.target.value))} aria-label="Gehaltsbudget pro Woche" />
+          <dl className="msg-kv">
+            <div><dt>Gehaltsbudget</dt><dd>{money(wage)} / Woche {wageDelta !== 0 && <span className={wageDelta > 0 ? "pos-text" : "neg-text"}>({wageDelta > 0 ? "+" : ""}{money(wageDelta)})</span>}</dd></div>
+            <div><dt>Transferbudget</dt><dd>{money(b.transfer - wageDelta * b.ratio)}</dd></div>
+          </dl>
+          <div className="row" style={{ justifyContent: "flex-end" }}>
+            <button className="btn btn-ghost" onClick={() => setWage(b.wage)}>Zurücksetzen</button>
+            <button className="btn btn-primary" disabled={wageDelta === 0} onClick={saveBudget}>Übernehmen</button>
           </div>
         </div>
-      )}
+      </Sheet>
+
+      <div className="grid grid-main" style={{ alignItems: "start" }}>
+        <div className="stack">
+          <section className="card card-flush">
+            <div className="card-head"><h3><Icon name="transfer" size={15} /> Laufende Verhandlungen {active.length > 0 && <span className="badge badge-blue">{active.length}</span>}</h3></div>
+            {active.length === 0 ? <Empty>Keine laufenden Verhandlungen. Finde Verstärkungen in der <Link href={`/c/${id}/market/search`}>Spielersuche</Link>.</Empty> : (
+              <div className="hub-negs">
+                {active.map((n: any) => (
+                  <button key={n.id} className={`hub-neg ${n.status === "countered" || (n.stage === "contract" && n.status === "open") ? "attention" : ""}`} onClick={() => openNeg(n)}>
+                    {n.from ? <Crest colors={n.from.colors} name={n.from.name} size={30} /> : <span className="neg-free sm"><Icon name="contract" size={15} /></span>}
+                    <span className="hub-neg-main">
+                      <b>{n.player} <Pos p={n.position} /></b>
+                      <small>{n.from?.name ?? "vereinslos"} · {n.offer?.fee ? money(n.offer.fee) : "ablösefrei"}</small>
+                    </span>
+                    <span className="hub-neg-state">
+                      <span className={`badge ${STAGE[n.stage].cls}`}>{STAGE[n.stage].label}</span>
+                      <small>{n.waitingDays > 0 ? `Antwort in ${n.waitingDays} T.` : STATUS[n.status] ?? n.status}</small>
+                    </span>
+                    <Icon name="next" size={14} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="card card-flush">
+            <div className="card-head"><h3><Icon name="down" size={15} /> Angebote für deine Spieler {data.incoming.length > 0 && <span className="badge badge-warn">{data.incoming.length}</span>}</h3></div>
+            {data.incoming.length === 0 ? <Empty>Aktuell liegen keine Angebote vor.</Empty> : (
+              <div className="hub-negs">
+                {data.incoming.map((o: any) => (
+                  <div key={o.id} className="hub-neg static">
+                    <Crest colors={o.colors} name={o.club} size={30} />
+                    <span className="hub-neg-main">
+                      <b><Link href={`/c/${id}/player/${o.playerId}`}>{o.player}</Link></b>
+                      <small>{o.club} bietet <b>{money(o.fee)}</b></small>
+                    </span>
+                    <span className="row-wrap hub-neg-actions">
+                      <button className="btn btn-sm btn-primary" onClick={() => respond(o, "accept")}>Annehmen</button>
+                      <button className="btn btn-sm" onClick={() => respond(o, "counter")}>Mehr fordern</button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => respond(o, "reject")}>Ablehnen</button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="card card-flush">
+            <div className="card-head"><h3><Icon name="trophy" size={15} /> Grösste Transfers der Saison</h3></div>
+            {data.world.length === 0 ? <Empty>Noch keine Transfers in dieser Saison.</Empty> : (
+              <div className="table-wrap">
+                <table className="table">
+                  <thead><tr><th>Spieler</th><th className="hide-sm">Von</th><th>Zu</th><th className="r">Ablöse</th></tr></thead>
+                  <tbody>
+                    {data.world.map((t: any, i: number) => (
+                      <tr key={i}>
+                        <td className="name">{t.player_name}</td>
+                        <td className="small dim hide-sm truncate" style={{ maxWidth: 160 }}>{t.from_name ?? "vereinslos"}</td>
+                        <td className="small"><span className="row" style={{ gap: 6 }}><Crest colors={t.to_colors} name={t.to_name} size={18} /><span className="truncate" style={{ maxWidth: 150 }}>{t.to_name}</span></span></td>
+                        <td className="r num">{t.fee ? money(t.fee) : "ablösefrei"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="stack">
+          <section className="card stack-sm">
+            <div className="card-head"><h3><Icon name="team" size={15} /> Kader</h3></div>
+            <dl className="msg-kv">
+              <div><dt>Spieler im Kader</dt><dd>{data.squad.size} / 32</dd></div>
+              <div><dt>Auf der Transferliste</dt><dd>{data.squad.listed}</dd></div>
+              <div><dt>Vertrag läuft aus</dt><dd className={data.squad.expiring ? "warn-text" : ""}>{data.squad.expiring}</dd></div>
+            </dl>
+            <Link className="btn btn-sm" href={`/c/${id}/market/contracts`}>Verträge verwalten</Link>
+          </section>
+
+          <section className="card card-flush">
+            <div className="card-head"><h3><Icon name="eye" size={15} /> Beobachtungsliste</h3><Link className="btn btn-ghost btn-sm" href={`/c/${id}/market/scouting`}>Alle</Link></div>
+            {data.shortlist.length === 0 ? <Empty>Noch niemand beobachtet.</Empty> : (
+              <div className="hub-list">
+                {data.shortlist.map((p: any) => (
+                  <button key={p.id} className="hub-list-row" onClick={() => router.push(`/c/${id}/player/${p.id}`)}>
+                    <Pos p={p.position} />
+                    <span className="truncate"><b>{p.name}</b><small>{p.club ?? "vereinslos"} · {p.age} J.</small></span>
+                    <span className="num small">{money(p.value)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {data.installments.length > 0 && (
+            <section className="card stack-sm">
+              <div className="card-head"><h3><Icon name="euro" size={15} /> Offene Raten</h3></div>
+              {data.installments.map((r: any, i: number) => (
+                <div key={i} className="between small"><span className="truncate">{r.label}</span><span className="num">{money(r.amount)} <span className="faint">· {r.due_season}/{String(r.due_season + 1).slice(2)}</span></span></div>
+              ))}
+            </section>
+          )}
+
+          {closed.length > 0 && (
+            <section className="card card-flush">
+              <div className="card-head"><h3>Abgeschlossen</h3></div>
+              <div className="hub-list">
+                {closed.slice(0, 8).map((n: any) => (
+                  <button key={n.id} className="hub-list-row" onClick={() => openNeg(n)}>
+                    <Pos p={n.position} />
+                    <span className="truncate"><b>{n.player}</b><small>{n.from?.name ?? "vereinslos"}</small></span>
+                    <span className={`badge ${STAGE[n.stage].cls}`}>{STAGE[n.stage].label}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+
+      {neg && <NegotiationModal careerId={id} target={neg.target} negotiationId={neg.id} onClose={() => { setNeg(null); if (params.get("neg")) router.replace(`/c/${id}/market`); }} onChanged={reload} />}
     </>
   );
 }

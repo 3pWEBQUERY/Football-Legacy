@@ -1,4 +1,5 @@
 /** Aktionen des Nutzers: Taktik, Training, Transfers, Verträge, Scouting, Shop, Jobwechsel. */
+import { paySellOn } from "./negotiations";
 import {
   CARD_PACK, COUNTRY_BY_CODE, FORMATIONS, ROLE_BY_ID, Rng, SKINS, askingPrice, evaluateFee, evaluateTerms, formatMoney,
   isUnlocked, renewalDemand, roundsFor, seedFor, squadRanks, validateTactic,
@@ -272,6 +273,7 @@ export async function respondToOffer(careerId: string, accountId: string, transf
     seller.transfer_budget += Math.round(fee * 0.75);
     buyer.balance -= fee;
     buyer.transfer_budget -= fee;
+    const sellOnShare = await paySellOn(db, career, p, fee, seller, buyer);
     if (seller.tactic) {
       seller.tactic.lineup = seller.tactic.lineup.map((id) => (id === p.id ? null : id));
       seller.tactic.bench = seller.tactic.bench.filter((id) => id !== p.id);
@@ -283,7 +285,7 @@ export async function respondToOffer(careerId: string, accountId: string, transf
     await savePlayers(db, career.id, [p]);
     await query(db, "update transfers set status = 'completed', fee = $2 where id = $1", [t.id, fee]);
     await addFinance(db, career.id, clubId, career.season, career.week, [{ kind: "transfer_in", amount: fee, label: `Verkauf ${p.firstName} ${p.lastName}` }]);
-    return { status: "completed", message: `${p.firstName} ${p.lastName} wechselt für ${formatMoney(fee)} zu ${buyer.name}.` };
+    return { status: "completed", message: `${p.firstName} ${p.lastName} wechselt für ${formatMoney(fee)} zu ${buyer.name}.${sellOnShare ? ` ${formatMoney(sellOnShare)} gehen als Weiterverkaufsbeteiligung an den Ex-Verein.` : ""}` };
   });
 }
 

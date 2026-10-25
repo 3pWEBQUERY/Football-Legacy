@@ -1,4 +1,5 @@
 /** Lesende Sichten für die Oberfläche. */
+import { playerNegotiation } from "./negotiations";
 import { INSTRUCTION_CONFLICTS, INSTRUCTION_LABEL, DUTY_LABEL, MENTALITY_LABEL, tacticIntensity } from "@fl/sim";
 import { MAX_TACTICS, familiarityOf, getTactics, presetName } from "./tactics";
 import { inboxRows } from "./inbox";
@@ -325,6 +326,7 @@ export async function playerDetail(careerId: string, accountId: string, playerId
     budget: userClub?.transfer_budget ?? 0,
     loanParent: p.loan ? (await clubNames(career.id, [p.loan.parentClubId])).get(p.loan.parentClubId) ?? null : null,
     loanedOutByUser: !!p.loan && p.loan.parentClubId === career.club_id,
+    negotiation: career.club_id && p.clubId !== career.club_id ? await playerNegotiation(pool(), career, p.id) : null,
   };
 }
 
@@ -420,9 +422,14 @@ export interface MarketFilter {
   freeOnly?: boolean;
   listedOnly?: boolean;
   shortlistOnly?: boolean;
-  sort?: "rating" | "value" | "age" | "potential";
+  expiring?: boolean;
+  maxWage?: number;
+  sort?: "rating" | "value" | "age" | "potential" | "wage" | "contract";
   page?: number;
 }
+
+/** Halbe Sterne (0,5–5) relativ zur eigenen Stammelf: 3 Sterne ≈ Niveau der eigenen Startelf. */
+const starsRel = (r: number, ref: number) => Math.max(0.5, Math.min(5, Math.round((3 + (r - ref) / 5) * 2) / 2));
 
 export async function marketView(careerId: string, accountId: string, f: MarketFilter) {
   const career = await readCareer(careerId, accountId);
@@ -441,11 +448,14 @@ export async function marketView(careerId: string, accountId: string, f: MarketF
   if (f.freeOnly) where.push("p.club_id is null");
   if (f.listedOnly) where.push("p.listed");
   if (f.shortlistOnly) where.push(`p.id in (select player_id from shortlist where career_id = $1)`);
+  if (f.expiring) add("coalesce((p.data->'contract'->>'untilSeason')::int, 0) <= ?", career.season);
+  if (f.maxWage) add("coalesce((p.data->'contract'->>'wage')::int, 0) <= ?", f.maxWage);
   if (f.q) {
     params.push(`%${f.q}%`);
     where.push(`(p.data->>'lastName' ilike $${params.length} or p.data->>'firstName' ilike $${params.length})`);
   }
-  const order = f.sort === "value" ? "p.value desc" : f.sort === "age" ? "p.age asc" : f.sort === "potential" ? "p.potential desc" : "p.rating desc";
+  const order = f.sort === "value" ? "p.value desc" : f.sort === "age" ? "p.age asc" : f.sort === "potential" ? "p.potential desc"
+    : f.sort === "wage" ? "coalesce((p.data->'contract'->>'wage')::int, 0) desc" : f.sort === "contract" ? "coalesce((p.data->'contract'->>'untilSeason')::int, 0) asc, p.rating desc" : "p.rating desc";
   const page = Math.max(0, f.page ?? 0);
   const rows = await query<{ data: Player; club_id: number | null; club_name: string | null; club_colors: unknown; league_name: string | null; country_code: string | null }>(
     pool(),
@@ -459,6 +469,12 @@ export async function marketView(careerId: string, accountId: string, f: MarketF
   const k = await knowledgeFor(career, players, userClub?.league_id ?? null);
   const transfers = await query(pool(),
     "select * from transfers where career_id = $1 and season = $2 and kind in ('buy','offer_in') order by id desc limit 30", [career.id, career.season]);
+  const negs = await query<{ player_id: number; stage: string; status: string }>(pool(),
+    "select distinct on (player_id) player_id, stage, status from negotiations where career_id = $1 and player_id = any($2::int[]) order by player_id, id desc",
+    [career.id, players.map((p) => p.id)]);
+  const own = userClub ? (await getPlayers(pool(), career.id, [userClub.id])).map((p) => p.rating).sort((a, b) => b - a).slice(0, 11) : [];
+  const ref = own.length ? own.reduce((a, b) => a + b, 0) / own.length : 60;
+  const negOf = new Map(negs.filter((n) => n.stage === "club" || n.stage === "contract").map((n) => [n.player_id, n]));
   return {
     career: careerSummary(career),
     club: userClub ? { ...clubSummary(userClub), balance: userClub.balance, transferBudget: userClub.transfer_budget } : null,
@@ -466,6 +482,10 @@ export async function marketView(careerId: string, accountId: string, f: MarketF
     players: rows.slice(0, 50).map((r, i) => ({
       ...playerView(players[i], k.of(players[i])),
       clubName: r.club_name, kit: r.club_colors ?? null, leagueName: r.league_name, leagueCountry: r.country_code, shortlisted: k.shortlisted.has(players[i].id),
+      negotiation: negOf.get(players[i].id) ?? null,
+      stars: k.of(players[i]) === "exact"
+        ? { current: starsRel(players[i].rating, ref), potential: starsRel(players[i].potential, ref), exact: true }
+        : { current: starsRel(players[i].rating + Math.round(new Rng(seedFor("star-noise", players[i].id)).normal(0, 2)), ref), potential: null, exact: false },
     })),
     hasMore: rows.length > 50,
     page,

@@ -421,4 +421,43 @@ alter table inbox add column if not exists kind text;
 create index if not exists inbox_kind on inbox(career_id, kind, id desc);
 `,
   },
+  {
+    name: "017_negotiations.sql",
+    sql: `
+create table if not exists negotiations (
+  id serial primary key,
+  career_id uuid not null references careers(id) on delete cascade,
+  player_id int not null,
+  player_name text not null,
+  from_club int,
+  to_club int not null,
+  stage text not null,
+  status text not null,
+  offer jsonb,
+  counter jsonb,
+  demand jsonb,
+  terms jsonb,
+  patience int not null default 3,
+  respond_season int,
+  respond_day int,
+  season int not null,
+  day int not null,
+  message text,
+  log jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+create index if not exists negotiations_career on negotiations(career_id, id desc);
+create table if not exists transfer_payments (
+  id serial primary key,
+  career_id uuid not null references careers(id) on delete cascade,
+  from_club int not null,
+  to_club int,
+  amount bigint not null,
+  due_season int not null,
+  label text not null,
+  paid boolean not null default false
+);
+create index if not exists transfer_payments_due on transfer_payments(career_id, due_season) where not paid;
+`,
+  },
 ];

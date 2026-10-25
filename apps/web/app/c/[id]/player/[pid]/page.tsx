@@ -11,6 +11,7 @@ import { Condition, Crest, ErrorBox, Icon, Loading, Modal, Nat, Panel, Pos, mora
 import { PositionMap } from "@/components/PositionMap";
 import { EXPECTED_SHARE, SQUAD_STATUS, SQUAD_STATUS_LABEL, type SquadStatus } from "@fl/sim";
 import { useConfirm } from "@/components/Dialog";
+import { NegotiationModal } from "@/components/Negotiation";
 
 const POS_LONG: Record<string, string> = { GK: "Torwart", DR: "Rechter Verteidiger", DC: "Innenverteidiger", DL: "Linker Verteidiger", DM: "Defensives Mittelfeld", MR: "Rechtes Mittelfeld", MC: "Zentrales Mittelfeld", ML: "Linkes Mittelfeld", AMR: "Rechtsaussen", AMC: "Offensives Mittelfeld", AML: "Linksaussen", ST: "Stürmer" };
 
@@ -22,9 +23,8 @@ export default function PlayerPage() {
   const ask = useConfirm();
   const showNotes = useNotes();
   const { data, error, reload } = useApi<any>(`careers/${id}/players/${pid}`);
-  const [offer, setOffer] = useState<{ fee: number; wage: number; years: number } | null>(null);
+  const [negOpen, setNegOpen] = useState(false);
   const [renew, setRenew] = useState<{ wage: number; years: number; demand: number } | null>(null);
-  const [msg, setMsg] = useState<any | null>(null);
   const [loan, setLoan] = useState<{ share: number; msg: any | null } | null>(null);
   const [talk, setTalk] = useState<{ result: any | null } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -43,27 +43,6 @@ export default function PlayerPage() {
     } catch (e) {
       toast((e as Error).message, "error");
       return null;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function sendOffer() {
-    if (!offer) return;
-    setBusy(true);
-    try {
-      const r = await api<any>(`careers/${id}/offers`, { body: { playerId: p.id, ...offer } });
-      setMsg(r);
-      if (r.status === "completed") {
-        showNotes(r.notes);
-        toast(r.message, "success");
-        setOffer(null);
-        reload();
-        refreshAll();
-      }
-      if (r.status === "countered") setOffer({ ...offer, fee: r.counterFee ?? offer.fee, wage: r.counterWage ?? offer.wage });
-    } catch (e) {
-      toast((e as Error).message, "error");
     } finally {
       setBusy(false);
     }
@@ -120,10 +99,8 @@ export default function PlayerPage() {
 
   const season = data.career.season;
   const isGk = p.position === "GK";
-  const startOffer = () => {
-    setMsg(null);
-    setOffer({ fee: p.clubId === null ? 0 : data.askingPrice ?? p.value, wage: Math.max(500, Math.round(((p.contract?.wage ?? 1000) * 1.1) / 100) * 100), years: 3 });
-  };
+  const activeNeg = data.negotiation && ["club", "contract"].includes(data.negotiation.stage) ? data.negotiation : null;
+  const startOffer = () => setNegOpen(true);
 
   return (
     <>
@@ -192,8 +169,8 @@ export default function PlayerPage() {
                 <Icon name="eye" size={15} /> {data.shortlisted ? "Beobachtet" : "Beobachten"}
               </button>
               <button className="btn" disabled={busy || data.report?.pending} onClick={async () => { const r = await action("scout"); if (r) { toast("Der Scout beobachtet den Spieler. Der Bericht kommt in den Posteingang.", "success"); reload(); } }}><Icon name="search" size={15} /> {data.report?.pending ? "Scout unterwegs" : "Scouten"}</button>
-              <button className="btn btn-primary" disabled={busy || (!data.window.open && p.clubId !== null)} onClick={startOffer} title={!data.window.open && p.clubId !== null ? "Transferfenster geschlossen" : ""}>
-                {p.clubId === null ? "Vertrag anbieten" : "Angebot abgeben"}
+              <button className="btn btn-primary" disabled={busy || (!data.window.open && p.clubId !== null && !activeNeg) || (!!p.loan && !activeNeg)} onClick={startOffer} title={!data.window.open && p.clubId !== null ? "Transferfenster geschlossen" : ""}>
+                <Icon name={activeNeg ? "transfer" : p.clubId === null ? "contract" : "transfer"} size={15} /> {activeNeg ? "Zur Verhandlung" : p.clubId === null ? "Vertrag anbieten" : "Angebot abgeben"}
               </button>
               {p.clubId !== null && !p.loan && (
                 <button className="btn" disabled={busy || !data.window.open} onClick={() => setLoan({ share: 75, msg: null })} title={!data.window.open ? "Transferfenster geschlossen" : "Bis Saisonende ausleihen"}>Ausleihen</button>
@@ -271,35 +248,10 @@ export default function PlayerPage() {
         </div>
       </div>
 
-      <Modal open={!!offer} onClose={() => setOffer(null)}>
-        {offer && (
-          <div className="stack">
-            <h2>{p.clubId === null ? "Vertragsangebot" : "Transferangebot"}: {p.name}</h2>
-            {p.clubId !== null && (
-              <div className="field">
-                <label>Ablöse (€) – Forderung ca. {money(data.askingPrice)}</label>
-                <input className="input" type="number" min={0} step={50000} value={offer.fee} onChange={(e) => setOffer({ ...offer, fee: Number(e.target.value) })} />
-              </div>
-            )}
-            <div className="field">
-              <label>Gehalt pro Woche (€) – aktuell {money(p.contract?.wage)}</label>
-              <input className="input" type="number" min={0} step={100} value={offer.wage} onChange={(e) => setOffer({ ...offer, wage: Number(e.target.value) })} />
-            </div>
-            <div className="field">
-              <label>Vertragslaufzeit: {offer.years} {offer.years === 1 ? "Jahr" : "Jahre"}</label>
-              <input type="range" min={1} max={5} value={offer.years} onChange={(e) => setOffer({ ...offer, years: Number(e.target.value) })} />
-            </div>
-            <div className="card-soft small dim">Dein Transferbudget: <b>{money(data.budget)}</b> · Gehalt über die Laufzeit: {money(offer.wage * 52 * offer.years)}</div>
-            {msg && msg.status !== "completed" && (
-              <div className={`badge ${msg.status === "rejected" ? "badge-danger" : "badge-warn"}`} style={{ whiteSpace: "normal", padding: "8px 10px" }}>{msg.message}</div>
-            )}
-            <div className="row" style={{ justifyContent: "flex-end" }}>
-              <button className="btn btn-ghost" onClick={() => setOffer(null)}>Abbrechen</button>
-              <button className="btn btn-primary" disabled={busy} onClick={sendOffer}>{msg?.status === "countered" ? "Gegenangebot annehmen" : "Angebot senden"}</button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {negOpen && (
+        <NegotiationModal careerId={id} negotiationId={activeNeg?.id ?? null} onClose={() => { setNegOpen(false); reload(); }} onChanged={reload}
+          target={{ id: p.id, name: p.name, position: p.position, age: p.age, free: p.clubId === null, club: data.club ? { name: data.club.name, colors: data.club.colors } : null, askingPrice: data.askingPrice, value: p.value }} />
+      )}
 
       <Modal open={!!talk} onClose={() => setTalk(null)}>
         {talk && (

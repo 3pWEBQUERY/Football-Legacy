@@ -1,6 +1,6 @@
 /** Karriere anlegen, Ligen aktivieren, Saison planen, Vorstandsziele. */
 import {
-  COUNTRY_BY_CODE, DEFAULT_TRAINING, Rng, STYLE_PRESETS, createSchedule, dailyMissions, defaultTactic, expectedPosition,
+  COUNTRIES, COUNTRY_BY_CODE, DEFAULT_TRAINING, POSITIONS, generatePlayer, Rng, STYLE_PRESETS, createSchedule, dailyMissions, defaultTactic, expectedPosition,
   buildCalendar, cupName, cupRoundName, cupWeekPositions, drawCupRound, financeProfile, generateSquad, generateWorld, initialBudget, newManagerProfile, planCup, roundsFor, seedFor, teamRating, wageBill,
   type Player, type SlotKind,
 } from "@fl/sim";
@@ -87,6 +87,28 @@ export async function activateClubs(db: Db, career: CareerRow, clubs: ClubRow[],
   await saveClubs(db, career.id, todo);
   await query(db, "update careers set next_player_id = $2 where id = $1", [career.id, nextId]);
   return created;
+}
+
+/** Vereinslose Spieler zum Start: erfahrene und junge Spieler ohne Vertrag, die jederzeit verpflichtet werden können. */
+async function seedFreeAgents(db: Db, career: CareerRow, homeClubs: ClubRow[]) {
+  const rng = new Rng(seedFor(career.seed, "free-agents"));
+  const ratings = homeClubs.map((c) => c.rating).sort((a, b) => b - a);
+  const mid = ratings[Math.floor(ratings.length / 3)] ?? 60;
+  const nations = [career.country_code, ...COUNTRIES.filter((c) => c.code !== career.country_code).map((c) => c.code)];
+  const created: Player[] = [];
+  let nextId = career.next_player_id;
+  for (let i = 0; i < 48; i++) {
+    const nationality = rng.chance(0.4) ? career.country_code : rng.pick(nations);
+    const position = i % 12 === 0 ? "GK" : rng.pick(POSITIONS.filter((x) => x !== "GK"));
+    const p = generatePlayer(rng, { id: nextId++, clubId: null, nationality, position, targetRating: Math.max(30, mid + rng.int(-16, 3)), age: rng.int(20, 34), season: career.season });
+    p.clubId = null;
+    p.contract = null;
+    p.listed = false;
+    created.push(p);
+  }
+  career.next_player_id = nextId;
+  await insertPlayers(db, career.id, created);
+  await query(db, "update careers set next_player_id = $2 where id = $1", [career.id, nextId]);
 }
 
 /** Aktiviert eine ganze Liga für die Detailsimulation. */
@@ -310,6 +332,7 @@ export async function createCareer(accountId: string, input: CreateCareerInput):
     const leagues = new Map((await getLeagues(db, career.id)).map((l) => [l.id, l]));
     const homeClubs = await getClubs(db, career.id, "country_code = $2", [country.code]);
     await activateClubs(db, career, homeClubs, leagues);
+    await seedFreeAgents(db, career, homeClubs);
 
     const userLeague = leagues.get(userClubRow.league_id)!;
     career.club_id = userClubRow.id;

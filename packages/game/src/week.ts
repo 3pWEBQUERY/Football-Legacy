@@ -27,6 +27,7 @@ import { academyWeek } from "./academy";
 import { facilitiesOf } from "./facilities";
 import { endSeason, type SeasonSummary } from "./season-end";
 import { jobsSeasonEnd, jobsWeek } from "./jobs";
+import { negotiationsDaily, paymentsSeasonStart } from "./negotiations";
 import { matchAnalysis, milestones, newsWeekly, send, staffSender } from "./news";
 import { familiarityTick, userFamiliarity } from "./tactics";
 import { type WorldState, loadWorld, squadOf } from "./world-state";
@@ -363,6 +364,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   if (userClubId && !midweek) await leagueRoundup(db, career, w.clubs.get(userClubId)!.league_id, week);
   await announceNotes(db, career, notes);
 
+  if (userClubId) await negotiationsDaily(db, career);
   if (!midweek) await jobsWeek(db, career);
   if (!midweek && userClubId) await newsWeekly(db, career, week);
   if (userFixture) await familiarityTick(db, career, "match");
@@ -372,6 +374,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     const clubBefore = career.club_id;
     await nationalTournament(db, career);
     seasonEnd = await endSeason(db, career);
+    await paymentsSeasonStart(db, career);
     await jobsSeasonEnd(db, career, seasonEnd.dismissed, clubBefore);
     await nationalNewSeason(db, career);
     await staffSeasonEnd(db, career);

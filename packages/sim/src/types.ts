@@ -125,6 +125,8 @@ export interface Player {
   transferRequest?: boolean;
   /** Saison des Wechsels zum aktuellen Verein */
   joined?: { season: number } | null;
+  /** Weiterverkaufsbeteiligung des abgebenden Vereins */
+  sellOn?: { clubId: number; pct: number } | null;
   /** Auszeichnungen (z. B. Spieler des Monats) */
   awards?: { season: number; month: number; kind: string; league: string }[];
 }

@@ -192,7 +192,7 @@ route("GET", career("market"), async (c) => {
   return game.marketView(c.params.id, acc(c), {
     q: q.get("q") ?? undefined, position: q.get("position") ?? undefined, minAge: n("minAge"), maxAge: n("maxAge"),
     maxValue: n("maxValue"), country: q.get("country") ?? undefined, freeOnly: q.get("free") === "1",
-    listedOnly: q.get("listed") === "1", shortlistOnly: q.get("shortlist") === "1",
+    listedOnly: q.get("listed") === "1", shortlistOnly: q.get("shortlist") === "1", expiring: q.get("expiring") === "1", maxWage: n("maxWage"),
     sort: (q.get("sort") as never) ?? undefined, page: n("page"),
   });
 });
@@ -200,6 +200,21 @@ route("POST", career("offers"), async (c) => game.makeOffer(c.params.id, acc(c),
   playerId: num(c.body.playerId), fee: num(c.body.fee ?? 0), wage: num(c.body.wage ?? 0), years: num(c.body.years ?? 3),
   releaseClause: c.body.releaseClause ? num(c.body.releaseClause) : null,
 }));
+route("GET", career("transfers"), async (c) => game.transferHub(c.params.id, acc(c)));
+route("POST", career("transfers/budget"), async (c) => game.setWageBudget(c.params.id, acc(c), num(c.body.wageBudget)));
+const clubOffer = (b: Record<string, unknown>) => ({ fee: num(b.fee ?? 0), upfrontPct: num(b.upfrontPct ?? 100), installmentYears: num(b.installmentYears ?? 0), sellOn: num(b.sellOn ?? 0) });
+route("POST", career("negotiations"), async (c) => game.startNegotiation(c.params.id, acc(c), { playerId: num(c.body.playerId), offer: clubOffer(c.body) }));
+route("GET", career("negotiations/:nid"), async (c) => game.negotiationView(c.params.id, acc(c), num(c.params.nid)));
+route("POST", career("negotiations/:nid"), async (c) => {
+  const nid = num(c.params.nid);
+  switch (str(c.body.action)) {
+    case "offer": return game.reviseClubOffer(c.params.id, acc(c), nid, clubOffer(c.body));
+    case "accept": return game.acceptClubCounter(c.params.id, acc(c), nid);
+    case "contract": return game.offerContract(c.params.id, acc(c), nid, c.body as never);
+    case "withdraw": return game.withdrawNegotiation(c.params.id, acc(c), nid);
+    default: throw new game.GameError("Unbekannte Aktion");
+  }
+});
 route("POST", career("offers/:tid"), async (c) => game.respondToOffer(
   c.params.id, acc(c), num(c.params.tid), str(c.body.decision) as never, c.body.counterFee ? num(c.body.counterFee) : undefined,
 ));

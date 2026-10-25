@@ -65,7 +65,8 @@ export function Select<T extends string>({ value, options, onChange, label, plac
       return;
     }
     if (!open) return;
-    if (e.key === "Escape" || e.key === "Tab") setOpen(false);
+    if (e.key === "Escape") { e.stopPropagation(); setOpen(false); }
+    else if (e.key === "Tab") setOpen(false);
     else if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(options.length - 1, a + 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(0, a - 1)); }
     else if (e.key === "Home") { e.preventDefault(); setActive(0); }

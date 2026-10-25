@@ -180,6 +180,7 @@ export default function Office() {
                 {m.action?.type === "awards" && <Link className="btn" href={`${base}/competition/awards`}>Zu den Auszeichnungen</Link>}
                 {m.action?.type === "tactic" && <Link className="btn" href={`${base}/team/tactic`}>Zur Taktik</Link>}
                 {m.action?.type === "national" && <><Link className="btn" href={`${base}/national`}>Zum Nationalteam</Link><Link className="btn btn-ghost" href={`${base}/national/squad`}>Kader nominieren</Link></>}
+                {m.action?.type === "negotiation" && <Link className="btn btn-primary" href={`${base}/market?neg=${m.action.negotiationId}`}>Zur Verhandlung</Link>}
                 {m.action?.type === "player" && <Link className="btn" href={`${base}/player/${m.action.playerId}`}>Spielerprofil öffnen</Link>}
                 {m.category === "medical" && m.action?.type !== "tactic" && <Link className="btn btn-ghost" href={`${base}/team/medical`}>Zur Medizin</Link>}
                 {offer && (
