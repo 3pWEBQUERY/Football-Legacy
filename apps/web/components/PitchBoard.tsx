@@ -27,13 +27,15 @@ export interface BoardSlot {
  * darunter eine Rollenkarte. Klick wählt, Ziehen verschiebt, Rechtsklick
  * (oder langer Druck) öffnet das Kontextmenü der Position.
  */
-export function PitchBoard({ slots, selected, onSelect, onMove, onContext, toolbar }: {
+export function PitchBoard({ slots, selected, onSelect, onMove, onContext, toolbar, ghosts }: {
   slots: BoardSlot[];
   selected: number | null;
   onSelect: (i: number) => void;
   onMove?: (i: number, x: number, y: number) => void;
   onContext?: (i: number, clientX: number, clientY: number) => void;
   toolbar?: ReactNode;
+  /** Zweite Position je Slot (z. B. gegen den Ball), als Punkt mit Laufweg */
+  ghosts?: { x: number; y: number }[] | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<{ i: number; moved: boolean; x0: number; y0: number; timer: ReturnType<typeof setTimeout> | null; opened: boolean } | null>(null);
@@ -48,7 +50,10 @@ export function PitchBoard({ slots, selected, onSelect, onMove, onContext, toolb
   function end() {
     if (drag.current?.timer) clearTimeout(drag.current.timer);
     drag.current = null;
+    if (ref.current) delete ref.current.dataset.dragging;
   }
+  const left = (y: number) => Math.max(0.12, Math.min(0.88, y)) * 100;
+  const top = (x: number) => Math.max(0.08, Math.min(0.9, 1 - x)) * 100;
 
   return (
     <div
@@ -60,6 +65,7 @@ export function PitchBoard({ slots, selected, onSelect, onMove, onContext, toolb
         if (!drag.current.moved && Math.hypot(e.clientX - drag.current.x0, e.clientY - drag.current.y0) < 6) return;
         if (drag.current.timer) clearTimeout(drag.current.timer);
         drag.current.moved = true;
+        if (ref.current) ref.current.dataset.dragging = "1";
         const p = pos(e);
         onMove(drag.current.i, p.x, p.y);
       }}
@@ -85,12 +91,22 @@ export function PitchBoard({ slots, selected, onSelect, onMove, onContext, toolb
           <path d="M 27.5 82.8 A 8.7 8.7 0 0 1 40.5 82.8" />
         </g>
       </svg>
+      {ghosts && (
+        <svg className="pitch-ghosts" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          {ghosts.map((g, i) => slots[i] && (
+            <line key={i} x1={left(slots[i].y)} y1={top(slots[i].x) + 3} x2={left(g.y)} y2={top(g.x) + 3} />
+          ))}
+        </svg>
+      )}
+      {ghosts?.map((g, i) => slots[i] && (
+        <span key={i} className={`pitch-ghost g-${slots[i].group}`} style={{ left: `${left(g.y)}%`, top: `${top(g.x) + 3}%` }} title={`${slots[i].roleName} gegen den Ball`} />
+      ))}
       {toolbar && <div className="pitch-toolbar" onPointerDown={(e) => e.stopPropagation()}>{toolbar}</div>}
       {slots.map((s, i) => (
         <div
           key={i}
           className={`fm-slot ${selected === i ? "selected" : ""} ${s.name ? "" : "empty"}`}
-          style={{ left: `${Math.max(0.12, Math.min(0.88, s.y)) * 100}%`, top: `${Math.max(0.08, Math.min(0.9, 1 - s.x)) * 100}%` }}
+          style={{ left: `${left(s.y)}%`, top: `${top(s.x)}%`, cursor: onMove ? undefined : "pointer" }}
           onPointerDown={(e) => {
             if (e.button !== 0) return;
             e.currentTarget.setPointerCapture?.(e.pointerId);

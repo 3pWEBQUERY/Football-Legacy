@@ -267,3 +267,32 @@ export function teamRating(players: Player[]): number {
   });
   return n ? Math.round(sum / n) : 0;
 }
+
+export type ShapePhase = "base" | "attack" | "defend";
+
+/**
+ * Wo stehen die Spieler mit bzw. gegen den Ball? Gleiche Formeln wie die
+ * Laufwege der Engine (moveTeams), mit dem Ball im Mittelfeld als Bezug.
+ * Koordinaten wie die Formations-Slots: x 0 = eigenes Tor → 1 gegnerisches Tor, y 0 links → 1 rechts.
+ */
+export function shapePositions(
+  slots: { position: Position; x: number; y: number }[],
+  roles: string[],
+  style: TacticStyle,
+  phase: ShapePhase,
+): { x: number; y: number }[] {
+  if (phase === "base") return slots.map((s) => ({ x: s.x, y: s.y }));
+  const attack = phase === "attack";
+  const ballA = attack ? 0.55 : 0.45;
+  const widthF = attack ? 0.72 + (style.width / 100) * 0.5 : 0.55 + (style.width / 100) * 0.15;
+  const lineAdj = ((style.defensiveLine - 50) / 100) * 0.12;
+  return slots.map((s, i) => {
+    if (s.position === "GK") return { x: 0.03 + ballA * 0.1, y: 0.5 };
+    const mod = (ROLE_BY_ID[roles[i]] ?? ROLE_BY_ID[defaultRole(s.position)]).mod;
+    const x = attack
+      ? s.x * 0.75 + ballA * 0.42 - 0.02 + mod.forward + lineAdj * 0.5 + ((style.risk - 50) / 100) * 0.04 * s.x
+      : s.x * 0.6 + ballA * 0.38 - 0.06 + lineAdj;
+    const y = 0.5 + (s.y - 0.5) * widthF;
+    return { x: Math.max(0.02, Math.min(0.96, x)), y: Math.max(0.03, Math.min(0.97, y)) };
+  });
+}

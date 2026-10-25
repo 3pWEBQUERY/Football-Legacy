@@ -4,7 +4,7 @@ import {
   ACHIEVEMENTS, ALL_ATTRS, CARD_PACK, COUNTRIES, COUNTRY_BY_CODE, FINANCE_LABEL, FORMATIONS, LEVEL_TITLES, MISSIONS, ROLES,
   Rng, SKINS, STYLE_LABEL, STYLE_PRESETS, UNLOCKS, askingPrice, computeStandings, defaultTactic, flagEmoji, formatMoney, isUnlocked,
   EXPECTED_SHARE, defaultStatuses, statusOf, type SquadStatus,
-  ratingAt, seedFor, squadRanks, streakReward, titleForLevel, trainingAverage, validateTactic, wageBill, xpForLevel,
+  ratingAt, ratingForSlot, seedFor, squadRanks, streakReward, titleForLevel, trainingAverage, validateTactic, wageBill, xpForLevel,
   type Player, type Position,
 } from "@fl/sim";
 import { one, pool, query } from "./db";
@@ -261,7 +261,7 @@ export async function tacticView(careerId: string, accountId: string) {
     tactic,
     players: players.map((p) => ({
       ...playerView(p, "exact"),
-      ratings: Object.fromEntries(ORDER.map((pos) => [pos, ratingAt(p.attrs, pos)])),
+      ratings: Object.fromEntries(ORDER.map((pos) => [pos, ratingForSlot(p, pos)])),
     })),
     formations: Object.fromEntries(Object.entries(FORMATIONS).map(([k, v]) => [k, v])),
     roles: ROLES,

@@ -4,8 +4,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, useApi } from "@/lib/client/api";
 import { POS_LABEL } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
+import { shapePositions } from "@fl/sim";
 import { PitchBoard, Stars, type BoardSlot, type SlotGroup } from "@/components/PitchBoard";
-import { Condition, ErrorBox, Icon, Loading, Panel, Pos, Rating, moraleLabel, useNotes, useToast } from "@/components/ui";
+import { Sheet } from "@/components/Sheet";
+import { Condition, ErrorBox, Icon, Loading, Panel, Seg, moraleLabel, useNotes, useToast } from "@/components/ui";
 import { PlayerFace } from "@/components/PlayerFace";
 
 export default function TacticPage() {
@@ -20,6 +22,9 @@ export default function TacticPage() {
   const [view, setView] = useState<ViewMode>("eignung");
   const [viewOpen, setViewOpen] = useState(false);
   const [menu, setMenu] = useState<{ slot: number; x: number; y: number } | null>(null);
+  const [phase, setPhase] = useState<Phase>("base");
+  const [sheet, setSheet] = useState<SheetKey | null>(null);
+  const anchors = useRef<Record<SheetKey, HTMLButtonElement | null>>({ attack: null, defend: null, set: null });
 
   useEffect(() => {
     if (data) {
@@ -45,8 +50,12 @@ export default function TacticPage() {
 
   const kit = data.club.colors;
   const roleOf = (i: number) => t.roles[i] || rolesFor(formation[i].position)[0]?.id;
+  // Grundordnung (inkl. verschobener Positionen) und daraus die Laufwege mit/gegen den Ball
+  const base = formation.map((s, i) => ({ position: s.position as any, x: t.slotOffsets?.[i]?.x ?? s.x, y: t.slotOffsets?.[i]?.y ?? s.y }));
+  const roleIds = formation.map((_, i) => roleOf(i));
+  const shown = phase === "base" ? base : shapePositions(base, roleIds, t.style, phase === "defend" ? "defend" : "attack");
+  const ghosts = phase === "both" ? shapePositions(base, roleIds, t.style, "defend") : null;
   const slots: BoardSlot[] = formation.map((s, i) => {
-    const off = t.slotOffsets?.[i];
     const p = t.lineup[i] != null ? byId.get(t.lineup[i]) : null;
     const role = data.roles.find((r: any) => r.id === roleOf(i));
     const r = p ? p.ratings[s.position] : null;
@@ -56,8 +65,8 @@ export default function TacticPage() {
     if (p && view === "staerke") meter = { value: r!, label: `Stärke ${r}`, tone: r! >= p.rating - 2 ? "pos" : r! >= p.rating - 8 ? "warn" : "neg" };
     return {
       position: s.position,
-      x: off?.x ?? s.x,
-      y: off?.y ?? s.y,
+      x: shown[i].x,
+      y: shown[i].y,
       role: ROLE_CODE[role?.id] ?? POS_LABEL[s.position] ?? s.position,
       roleName: role?.name ?? POS_LABEL[s.position],
       group: GROUP[s.position] ?? "mid",
@@ -150,17 +159,55 @@ export default function TacticPage() {
 
   const selPos = selected !== null ? formation[selected].position : null;
   const inLineup = new Set(t.lineup.filter((x: any) => x != null));
-  const sortedPlayers = [...players].sort((a: any, b: any) =>
-    selPos ? b.ratings[selPos] - a.ratings[selPos] : b.rating - a.rating,
-  );
   const lineupPlayers = t.lineup.map((pid: number | null) => (pid != null ? byId.get(pid) : null)).filter(Boolean);
+  // Pkd wie im Manager-Spiel: Position in der Elf, S1–S9 auf der Bank
+  const picked = (pid: number): { label: string; group: SlotGroup | "sub"; order: number } | null => {
+    const at = t.lineup.indexOf(pid);
+    if (at >= 0) return { label: POS_LABEL[formation[at].position] ?? formation[at].position, group: GROUP[formation[at].position] ?? "mid", order: at };
+    const b = t.bench.indexOf(pid);
+    return b >= 0 ? { label: `S${b + 1}`, group: "sub", order: 20 + b } : null;
+  };
+  const fitFor = (p: any) => {
+    if (selPos) return p.ratings[selPos];
+    const at = t.lineup.indexOf(p.id);
+    return at >= 0 ? p.ratings[formation[at].position] : p.rating;
+  };
+  const out = (p: any) => p.injuryWeeks > 0 || p.suspendedWeeks > 0;
+  const sortedPlayers = [...players].sort((a: any, b: any) => {
+    if (selPos) return Number(out(a)) - Number(out(b)) || b.ratings[selPos] - a.ratings[selPos] || b.fitness - a.fitness;
+    return (picked(a.id)?.order ?? 99) - (picked(b.id)?.order ?? 99) || b.rating - a.rating;
+  });
+  const styleSummary = (keys: string[]) => keys.map((k) => `${data.styleLabels[k][0]} ${t.style[k]}`).slice(0, 3).join(" · ");
+  const sliders = (keys: string[]) => (
+    <div className="stack">
+      {keys.map((k) => {
+        const [label, lo, hi] = data.styleLabels[k];
+        return (
+          <div key={k}>
+            <div className="slider">
+              <label htmlFor={`s-${k}`} className="small" style={{ fontWeight: 600 }}>{label}</label>
+              <input id={`s-${k}`} type="range" min={0} max={100} step={5} value={t.style[k]} onChange={(e) => update((n) => { n.style[k] = Number(e.target.value); })} />
+              <span className="cond" style={{ textAlign: "right", fontWeight: 700, fontSize: 15 }}>{t.style[k]}</span>
+            </div>
+            <div className="slider"><span /><div className="ends"><span>{lo}</span><span>{hi}</span></div></div>
+          </div>
+        );
+      })}
+    </div>
+  );
+  const openSheet = (k: SheetKey) => {
+    const opening = sheet !== k;
+    setSheet(opening ? k : null);
+    // Die Tafel zeigt gleich die passende Phase, damit Regleränderungen sichtbar werden
+    if (opening && k !== "set") setPhase(k);
+  };
 
   return (
     <>
       <div className="page-head">
         <div>
           <h1>Taktik</h1>
-          <p>Position anklicken und Spieler in der Liste wählen – oder Rechtsklick (am Handy lange drücken) für Rolle, Ersatz und Standards. Positionen lassen sich verschieben.</p>
+          <p>Position anklicken und Spieler in der Liste wählen – oder Rechtsklick (am Handy lange drücken) für Rolle, Ersatz und Standards.</p>
         </div>
         <div className="row-wrap">
           <div className="field" style={{ minWidth: 120 }}>
@@ -182,17 +229,78 @@ export default function TacticPage() {
           </div>
         </div>
       </div>
+
+      <div className="tactic-bar">
+        {([
+          ["attack", "ball", "Mit Ball", ATTACK_KEYS],
+          ["defend", "shield", "Gegen den Ball", DEFEND_KEYS],
+        ] as [SheetKey, string, string, string[]][]).map(([k, icon, label, keys]) => (
+          <button key={k} ref={(el) => { anchors.current[k] = el; }} className={`tactic-pill ${sheet === k ? "open" : ""}`} onClick={() => openSheet(k)} aria-expanded={sheet === k}>
+            <Icon name={icon} size={16} />
+            <span><b>{label}</b><small>{styleSummary(keys)}</small></span>
+            <Icon name="down" size={13} />
+          </button>
+        ))}
+        <button ref={(el) => { anchors.current.set = el; }} className={`tactic-pill ${sheet === "set" ? "open" : ""}`} onClick={() => openSheet("set")} aria-expanded={sheet === "set"}>
+          <Icon name="flag" size={16} />
+          <span><b>Standards</b><small>{CORNER_LABEL[t.setPieces.corners]}</small></span>
+          <Icon name="down" size={13} />
+        </button>
+      </div>
+
+      <Sheet open={sheet === "attack"} anchor={anchors.current.attack} title="Anweisungen mit Ball" onClose={() => setSheet(null)}>
+        {sliders(ATTACK_KEYS)}
+        <p className="faint small" style={{ marginBottom: 0 }}>Breite und Risiko verändern die Laufwege – sieh dir die Wirkung in der Ansicht „Mit Ball“ an.</p>
+      </Sheet>
+      <Sheet open={sheet === "defend"} anchor={anchors.current.defend} title="Anweisungen gegen den Ball" onClose={() => setSheet(null)}>
+        {sliders(DEFEND_KEYS)}
+        <p className="faint small" style={{ marginBottom: 0 }}>Die Abwehrlinie schiebt die ganze Mannschaft – sichtbar in der Ansicht „Gegen den Ball“.</p>
+      </Sheet>
+      <Sheet open={sheet === "set"} anchor={anchors.current.set} title="Standards" onClose={() => setSheet(null)}>
+        <div className="stack">
+          <div className="field">
+            <label>Eckbälle</label>
+            <select className="select" value={t.setPieces.corners} onChange={(e) => update((n) => { n.setPieces.corners = e.target.value; })}>
+              {Object.entries(CORNER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          {[["cornerTaker", "Eckenschütze", "corners"], ["freeKickTaker", "Freistossschütze", "freeKicks"], ["penaltyTaker", "Elfmeterschütze", "penalties"]].map(([key, label, attr]) => (
+            <div key={key} className="field">
+              <label>{label}</label>
+              <select className="select" value={t.setPieces[key] ?? ""} onChange={(e) => update((n) => { n.setPieces[key] = e.target.value ? Number(e.target.value) : null; })}>
+                <option value="">Automatisch</option>
+                {[...lineupPlayers].sort((a: any, b: any) => b.attrs[attr] - a.attrs[attr]).map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.attrs[attr]})</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
+      </Sheet>
+
       <div className="grid grid-tactic" style={{ alignItems: "start" }}>
-        <Panel title={`Formation ${t.formation}`} icon="board" actions={t.slotOffsets?.some(Boolean) && <button className="btn btn-ghost btn-sm" onClick={() => update((n) => { n.slotOffsets = []; })}>Zurücksetzen</button>}>
+        <Panel title={`Formation ${t.formation}`} icon="board" actions={phase === "base" && t.slotOffsets?.some(Boolean) && <button className="btn btn-ghost btn-sm" onClick={() => update((n) => { n.slotOffsets = []; })}>Zurücksetzen</button>}>
+          <div className="phase-tabs">
+            <Seg value={phase} onChange={(v) => setPhase(v)} options={[
+              { value: "base", label: "Grundordnung" },
+              { value: "attack", label: "Mit Ball" },
+              { value: "defend", label: "Gegen den Ball" },
+              { value: "both", label: "Beide" },
+            ]} />
+            {phase !== "base" && (
+              <button className="btn btn-ghost btn-sm" onClick={() => openSheet(phase === "defend" ? "defend" : "attack")} ref={undefined}>
+                <Icon name={phase === "defend" ? "shield" : "ball"} size={14} /> Anweisungen
+              </button>
+            )}
+          </div>
           <PitchBoard
             slots={slots}
             selected={selected}
+            ghosts={ghosts}
             onSelect={(i) => { setMenu(null); setSelected(selected === i ? null : i); }}
-            onMove={(i, x, y) => update((n) => {
+            onMove={phase === "base" ? (i, x, y) => update((n) => {
               n.slotOffsets = n.slotOffsets ?? [];
               while (n.slotOffsets.length < 11) n.slotOffsets.push(null);
               n.slotOffsets[i] = { x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100 };
-            })}
+            }) : undefined}
             onContext={(i, x, y) => { setSelected(i); setMenu({ slot: i, x, y }); }}
             toolbar={(
               <div className="pitch-view">
@@ -211,6 +319,7 @@ export default function TacticPage() {
               </div>
             )}
           />
+          <p className="faint small" style={{ margin: "10px 2px 0" }}>{PHASE_HINT[phase]}</p>
           {menu && (
             <SlotMenu
               key={`${menu.slot}-${menu.x}-${menu.y}`}
@@ -219,7 +328,7 @@ export default function TacticPage() {
               player={t.lineup[menu.slot] != null ? byId.get(t.lineup[menu.slot]) : null}
               roles={rolesFor(formation[menu.slot].position)}
               role={roleOf(menu.slot)}
-              candidates={[...players].filter((p: any) => p.id !== t.lineup[menu.slot]).sort((a: any, b: any) => b.ratings[formation[menu.slot].position] - a.ratings[formation[menu.slot].position]).slice(0, 10)}
+              candidates={[...players].filter((p: any) => p.id !== t.lineup[menu.slot]).sort((a: any, b: any) => Number(out(a)) - Number(out(b)) || b.ratings[formation[menu.slot].position] - a.ratings[formation[menu.slot].position] || b.fitness - a.fitness).slice(0, 12)}
               status={(pid: number) => (t.lineup.includes(pid) ? "Elf" : t.bench.includes(pid) ? "Bank" : "")}
               setPieces={t.setPieces}
               moved={!!t.slotOffsets?.[menu.slot]}
@@ -241,36 +350,42 @@ export default function TacticPage() {
           {selected !== null && (
             <div className="card-soft stack-sm" style={{ marginTop: 12 }}>
               <div className="between"><span className="faint small up">Rolle · {POS_LABEL[formation[selected].position]}</span><button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)}>Fertig</button></div>
-              <select className="select" value={t.roles[selected] || rolesFor(formation[selected].position)[0]?.id} onChange={(e) => update((n) => { n.roles[selected] = e.target.value; })}>
+              <select className="select" value={roleOf(selected)} onChange={(e) => update((n) => { n.roles[selected] = e.target.value; })}>
                 {rolesFor(formation[selected].position).map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
-              <small className="dim">{rolesFor(formation[selected].position).find((r: any) => r.id === (t.roles[selected] || rolesFor(formation[selected].position)[0]?.id))?.description}</small>
+              <small className="dim">{rolesFor(formation[selected].position).find((r: any) => r.id === roleOf(selected))?.description}</small>
             </div>
           )}
         </Panel>
 
         <Panel title={selPos ? `Kandidaten · ${POS_LABEL[selPos]}` : "Kader"} icon="users" flush actions={<span className="faint small">Bank {t.bench.length}/9</span>}>
-          <div style={{ maxHeight: 720, overflowY: "auto" }}>
-            <table className="table">
-              <thead><tr><th>Pos</th><th>Name</th><th className="c">Kond.</th><th className="c">{selPos ? "Eignung" : "Stärke"}</th><th className="r">Status</th></tr></thead>
+          <div className="cand-wrap">
+            <table className="table cand-table">
+              <thead><tr><th>Pkd</th><th className="hide-sm">Pos</th><th>Spieler</th><th>{selPos ? `Eignung ${POS_LABEL[selPos]}` : "Eignung"}</th><th className="c hide-sm">Kond.</th><th className="c hide-sm">Moral</th><th className="r" /></tr></thead>
               <tbody>
                 {sortedPlayers.map((p: any) => {
-                  const unavailable = p.injuryWeeks > 0 || p.suspendedWeeks > 0;
+                  const unavailable = out(p);
+                  const pk = picked(p.id);
                   const status = inLineup.has(p.id) ? "Elf" : t.bench.includes(p.id) ? "Bank" : "";
+                  const fit = fitFor(p);
+                  const mor = moraleLabel(p.morale);
                   return (
                     <tr key={p.id} className={`clickable ${status === "Elf" ? "highlight" : ""}`} style={{ opacity: unavailable ? 0.45 : 1 }} onClick={() => !unavailable && assign(p.id)}>
-                      <td><Pos p={p.position} /></td>
+                      <td>{pk ? <span className={`pkd ${pk.group === "sub" ? "sub" : `g-${pk.group}`}`}>{pk.label}</span> : <span className="pkd none">–</span>}</td>
+                      <td className="hide-sm"><span className="faint small cond">{POS_LABEL[p.position] ?? p.position}</span></td>
                       <td>
                         <div className="face-card" style={{ gap: 8 }}>
+                          <span className="cand-num">{numbers.get(p.id)}</span>
                           <PlayerFace player={p} kit={data.club?.colors} size={26} />
                           <div style={{ minWidth: 0 }}>
-                            <div className="truncate name" style={{ maxWidth: 140 }}>{p.name}</div>
+                            <div className="truncate name" style={{ maxWidth: 150 }}>{p.name}</div>
                             {unavailable && <div className="small neg-txt">{p.injuryWeeks > 0 ? `Verletzt · ${p.injuryWeeks} W` : "Gesperrt"}</div>}
                           </div>
                         </div>
                       </td>
-                      <td className="c"><Condition value={p.fitness} /></td>
-                      <td className="c"><Rating value={selPos ? p.ratings[selPos] : p.rating} /></td>
+                      <td><span className="cand-stars" title={`Eignung ${fit}`}><Stars value={starsFor(fit)} /><b>{fit}</b></span></td>
+                      <td className="c hide-sm"><Condition value={p.fitness} /></td>
+                      <td className="c hide-sm"><span className="mor-dot" style={{ background: mor.color }} title={mor.text} /></td>
                       <td className="r">
                         {status === "Elf" ? <span className="badge badge-blue">Startelf</span> : (
                           <button className={`btn btn-sm ${status === "Bank" ? "" : "btn-ghost"}`} disabled={unavailable} onClick={(e) => { e.stopPropagation(); toggleBench(p.id); }}>
@@ -285,56 +400,22 @@ export default function TacticPage() {
             </table>
           </div>
         </Panel>
-
-        <div className="stack">
-          {[
-            { title: "Mit Ball", icon: "ball", keys: ["tempo", "passLength", "width", "risk"] },
-            { title: "Gegen den Ball", icon: "shield", keys: ["pressing", "defensiveLine", "hardness"] },
-          ].map((g) => (
-            <Panel key={g.title} title={g.title} icon={g.icon}>
-              <div className="stack">
-                {g.keys.map((k) => {
-                  const [label, lo, hi] = data.styleLabels[k];
-                  return (
-                    <div key={k}>
-                      <div className="slider">
-                        <label htmlFor={`s-${k}`} className="small" style={{ fontWeight: 600 }}>{label}</label>
-                        <input id={`s-${k}`} type="range" min={0} max={100} step={5} value={t.style[k]} onChange={(e) => update((n) => { n.style[k] = Number(e.target.value); })} />
-                        <span className="cond" style={{ textAlign: "right", fontWeight: 700, fontSize: 15 }}>{t.style[k]}</span>
-                      </div>
-                      <div className="slider"><span /><div className="ends"><span>{lo}</span><span>{hi}</span></div></div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Panel>
-          ))}
-          <Panel title="Standards" icon="flag">
-            <div className="stack">
-              <div className="field">
-                <label>Eckbälle</label>
-                <select className="select" value={t.setPieces.corners} onChange={(e) => update((n) => { n.setPieces.corners = e.target.value; })}>
-                  <option value="far">Hoch an den zweiten Pfosten</option>
-                  <option value="near">Scharf an den ersten Pfosten</option>
-                  <option value="short">Kurz ausführen</option>
-                </select>
-              </div>
-              {[["cornerTaker", "Eckenschütze", "corners"], ["freeKickTaker", "Freistossschütze", "freeKicks"], ["penaltyTaker", "Elfmeterschütze", "penalties"]].map(([key, label, attr]) => (
-                <div key={key} className="field">
-                  <label>{label}</label>
-                  <select className="select" value={t.setPieces[key] ?? ""} onChange={(e) => update((n) => { n.setPieces[key] = e.target.value ? Number(e.target.value) : null; })}>
-                    <option value="">Automatisch</option>
-                    {lineupPlayers.sort((a: any, b: any) => b.attrs[attr] - a.attrs[attr]).map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.attrs[attr]})</option>)}
-                  </select>
-                </div>
-              ))}
-            </div>
-          </Panel>
-        </div>
       </div>
     </>
   );
 }
+
+type Phase = "base" | "attack" | "defend" | "both";
+type SheetKey = "attack" | "defend" | "set";
+const ATTACK_KEYS = ["tempo", "passLength", "width", "risk"];
+const DEFEND_KEYS = ["pressing", "defensiveLine", "hardness"];
+const CORNER_LABEL: Record<string, string> = { far: "Hoch an den zweiten Pfosten", near: "Scharf an den ersten Pfosten", short: "Kurz ausführen" };
+const PHASE_HINT: Record<Phase, string> = {
+  base: "Grundordnung: Positionen lassen sich per Ziehen verschieben.",
+  attack: "Mit Ball: So rücken die Spieler bei eigenem Ballbesitz auf – abhängig von Rolle, Breite, Risiko und Abwehrlinie.",
+  defend: "Gegen den Ball: So formiert sich die Mannschaft ohne Ball – abhängig von Breite und Abwehrlinie.",
+  both: "Beide: Karten zeigen die Position mit Ball, die Punkte den Platz gegen den Ball.",
+};
 
 type ViewMode = "eignung" | "kondition" | "moral" | "staerke";
 const VIEW_LABEL: Record<ViewMode, string> = { eignung: "Eignung", kondition: "Kondition", moral: "Moral", staerke: "Stärke" };
