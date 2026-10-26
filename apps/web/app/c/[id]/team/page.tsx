@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { useApi } from "@/lib/client/api";
 import { matchRatingColor, money, posGroup } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
-import { Condition, ErrorBox, EventIcon, Icon, Loading, Nat, Pos, Rating, Seg, SortTable, moraleLabel, type Column } from "@/components/ui";
+import { StatusIcons, playerStatus } from "@/components/PlayerStatus";
+import { Condition, ErrorBox, Icon, Loading, Nat, Pos, Rating, Seg, SortTable, moraleLabel, type Column } from "@/components/ui";
 import { FaceName, PlayerFace } from "@/components/PlayerFace";
 
 type Group = "ALL" | "GK" | "DEF" | "MID" | "ATT";
@@ -33,8 +34,7 @@ export default function Squad() {
     ), sort: (p) => p.lastName },
     { key: "status", label: "", render: (p) => (
       <span className="row" style={{ gap: 4 }}>
-        {p.injuryWeeks > 0 && <span title={`Verletzt (${p.injuryWeeks} Wochen)`}><EventIcon type="injury" /></span>}
-        {p.suspendedWeeks > 0 && <span title="Gesperrt"><EventIcon type="red" /></span>}
+        <StatusIcons badges={playerStatus(p)} />
         {p.contract?.untilSeason <= season && <span title="Vertrag läuft aus" style={{ color: "var(--warn)", display: "inline-flex" }}><Icon name="contract" size={14} /></span>}
       </span>
     ) },

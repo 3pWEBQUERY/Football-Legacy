@@ -122,7 +122,7 @@ export async function tacticSlotAction(careerId: string, accountId: string, inpu
       if (!st.slots[i]) throw new GameError("Unbekannte Taktik");
       st.slots[i].name = name;
     } else throw new GameError("Unbekannte Aktion");
-    const chosen = validateTactic(st.slots[st.active].tactic, squad);
+    const chosen = validateTactic(st.slots[st.active].tactic, squad, { keepUnavailable: true });
     if (!FORMATIONS[chosen.formation as Formation]) throw new GameError("Unbekannte Formation");
     club.tactic = chosen;
     st.slots[st.active].tactic = chosen;

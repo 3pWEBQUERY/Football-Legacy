@@ -81,7 +81,7 @@ export async function saveTactic(careerId: string, accountId: string, input: Tac
     const notes: RewardNote[] = [];
     completeMission(career, "set_tactic", notes);
     await saveCareer(db, career);
-    return { tactic: validateTactic(clean, squad), notes };
+    return { tactic: validateTactic(clean, squad, { keepUnavailable: true }), notes };
   });
 }
 

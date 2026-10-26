@@ -1,6 +1,7 @@
 "use client";
 import { type ReactNode, useRef } from "react";
 import { POS_LABEL } from "@/lib/client/format";
+import { StatusIcons, type StatusBadge } from "./PlayerStatus";
 
 export type SlotGroup = "gk" | "def" | "mid" | "att";
 
@@ -20,6 +21,10 @@ export interface BoardSlot {
   meter?: { value: number; label: string; tone: "pos" | "warn" | "neg" } | null;
   kit: { primary: string; secondary: string };
   warn?: string | null;
+  /** Verletzung, Sperre, Karten … als Symbole neben dem Trikot */
+  badges?: StatusBadge[];
+  /** Nicht einsatzfähig (verletzt, gesperrt, Länderspiel) */
+  out?: boolean;
 }
 
 /**
@@ -105,7 +110,7 @@ export function PitchBoard({ slots, selected, onSelect, onMove, onContext, toolb
       {slots.map((s, i) => (
         <div
           key={i}
-          className={`fm-slot ${selected === i ? "selected" : ""} ${s.name ? "" : "empty"}`}
+          className={`fm-slot ${selected === i ? "selected" : ""} ${s.name ? "" : "empty"} ${s.out ? "out" : ""}`}
           style={{ left: `${left(s.y)}%`, top: `${top(s.x)}%`, cursor: onMove ? undefined : "pointer" }}
           onPointerDown={(e) => {
             if (e.button !== 0) return;
@@ -148,7 +153,9 @@ export function PitchBoard({ slots, selected, onSelect, onMove, onContext, toolb
                 <div className={`fm-meter tone-${s.meter.tone}`} title={s.meter.label}><i style={{ width: `${Math.max(4, Math.min(100, s.meter.value))}%` }} /><span>{s.meter.label}</span></div>
               ) : s.stars !== null ? <Stars value={s.stars} /> : <div className="fm-stars faint">–</div>}
               <div className="fm-name">
-                <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5.5" r="3" /><path d="M2.5 15c.6-3.4 2.8-5 5.5-5s4.9 1.6 5.5 5z" /></svg>
+                {s.badges?.length ? <span className="fm-status"><StatusIcons badges={s.badges} max={2} /></span> : (
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5.5" r="3" /><path d="M2.5 15c.6-3.4 2.8-5 5.5-5s4.9 1.6 5.5 5z" /></svg>
+                )}
                 <span>{s.name ?? "Frei"}</span>
               </div>
             </div>

@@ -37,7 +37,7 @@ export async function tacticView(careerId: string, accountId: string) {
   if (!career.club_id) throw new GameError("Kein Verein");
   const club = (await getClub(pool(), career.id, career.club_id))!;
   const players = await getPlayers(pool(), career.id, [club.id]);
-  const tactic = validateTactic(club.tactic ?? defaultTactic(players, "4-4-2", STYLE_PRESETS.balanced.style), players);
+  const tactic = validateTactic(club.tactic ?? defaultTactic(players, "4-4-2", STYLE_PRESETS.balanced.style), players, { keepUnavailable: true });
   const tst = await getTactics(pool(), career, club);
   return {
     career: careerSummary(career),

@@ -267,13 +267,19 @@ export function defaultTactic(players: Player[], formation: Formation = "4-4-2",
  * Prüft eine gespeicherte Taktik gegen den aktuellen Kader und füllt Lücken
  * (verletzte, gesperrte oder verkaufte Spieler) automatisch auf.
  */
-export function validateTactic(tactic: Tactic, players: Player[]): Tactic {
+/**
+ * Bereinigt eine Taktik gegen den aktuellen Kader. Standard (für Spiele): verletzte
+ * und gesperrte Spieler werden ersetzt. Mit keepUnavailable (Taktik-Ansicht) bleiben
+ * sie stehen, damit sie mit Status angezeigt werden – ersetzt wird erst am Spieltag.
+ */
+export function validateTactic(tactic: Tactic, players: Player[], opts: { keepUnavailable?: boolean } = {}): Tactic {
+  const keep = (p: Player) => !!opts.keepUnavailable || isAvailable(p);
   const byId = new Map(players.map((p) => [p.id, p]));
   const slots = FORMATIONS[tactic.formation];
   const lineup = slots.map((_, i) => {
     const id = tactic.lineup[i];
     const p = id != null ? byId.get(id) : undefined;
-    return p && isAvailable(p) ? p.id : null;
+    return p && keep(p) ? p.id : null;
   });
   const used = new Set(lineup.filter((x): x is number => x !== null));
   if (used.size < slots.length) {
@@ -293,7 +299,7 @@ export function validateTactic(tactic: Tactic, players: Player[]): Tactic {
   const wanted = Math.min(9, (tactic.bench ?? []).length);
   let bench = (tactic.bench ?? []).filter((id, i, all) => {
     const p = byId.get(id);
-    return p && isAvailable(p) && !used.has(id) && all.indexOf(id) === i;
+    return p && keep(p) && !used.has(id) && all.indexOf(id) === i;
   });
   if (bench.length < wanted) {
     const extra = players

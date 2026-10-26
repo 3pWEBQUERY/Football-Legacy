@@ -112,3 +112,22 @@ describe("Mentalität, Pflichten, Vertrautheit", () => {
     expect(result(state).players.length).toBeGreaterThanOrEqual(22);
   });
 });
+
+describe("Aufstellung prüfen", () => {
+  it("ersetzt verletzte und gesperrte Spieler für Spiele, behält sie für die Taktik-Ansicht", async () => {
+    const { validateTactic } = await import("../src/index");
+    const tm = team(5, 66);
+    const players = tm.players.map((p) => ({ ...p }));
+    const tactic = tm.tactic;
+    const [hurt, banned] = tactic.lineup.slice(0, 2) as number[];
+    players.find((p) => p.id === hurt)!.injuryWeeks = 3;
+    players.find((p) => p.id === banned)!.suspendedWeeks = 1;
+    const strict = validateTactic(tactic, players);
+    expect(strict.lineup).not.toContain(hurt);
+    expect(strict.lineup).not.toContain(banned);
+    expect(strict.lineup.filter((x) => x !== null).length).toBe(11);
+    const view = validateTactic(tactic, players, { keepUnavailable: true });
+    expect(view.lineup[0]).toBe(hurt);
+    expect(view.lineup[1]).toBe(banned);
+  });
+});

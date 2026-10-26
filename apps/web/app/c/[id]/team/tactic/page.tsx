@@ -5,12 +5,16 @@ import { useConfirm, usePrompt } from "@/components/Dialog";
 import { useGame } from "@/components/GameShell";
 import { PitchBoard, Stars, type BoardSlot, type SlotGroup } from "@/components/PitchBoard";
 import { PlayerFace } from "@/components/PlayerFace";
+import { StatusIcons, playerStatus } from "@/components/PlayerStatus";
 import { Select } from "@/components/Select";
 import { Sheet } from "@/components/Sheet";
 import { Condition, ErrorBox, Icon, Loading, Panel, Seg, moraleLabel, useNotes, useToast } from "@/components/ui";
 import { api, useApi } from "@/lib/client/api";
 import { POS_LABEL } from "@/lib/client/format";
 import { ATTACK_KEYS, CORNER_LABEL, DEFEND_KEYS, FormationIcon, GROUP, MENTALITY_TEXT, MentalityIcon, Meter, PHASE_HINT, ROLE_CODE, SlotMenu, VIEW_LABEL, fill, formationText, squadNumbers, starsFor, styleText, type Phase, type SheetKey, type ViewMode } from "@/components/TacticParts";
+
+/** Nicht einsatzfähig: verletzt oder gesperrt. */
+const out = (p: any) => p.injuryWeeks > 0 || p.suspendedWeeks > 0;
 
 export default function TacticPage() {
   const { id } = useGame();
@@ -80,9 +84,14 @@ export default function TacticPage() {
       stars: r !== null ? starsFor(r) : null,
       meter,
       kit,
-      warn: p && (p.injuryWeeks > 0 || p.suspendedWeeks > 0) ? (p.injuryWeeks > 0 ? "Verletzt" : "Gesperrt") : p && r! < p.rating - 10 ? "Ungewohnte Position" : null,
+      warn: p && !out(p) && r! < p.rating - 10 ? "Ungewohnte Position" : null,
+      badges: playerStatus(p),
+      out: !!p && out(p),
     };
   });
+
+  const absentXI = t.lineup.map((pid: number | null) => (pid != null ? byId.get(pid) : null)).filter((p: any) => p && out(p));
+  const absentBench = t.bench.map((pid: number) => byId.get(pid)).filter((p: any) => p && out(p));
 
   function assign(playerId: number, slot: number | null = selected) {
     if (slot === null) {
@@ -150,6 +159,25 @@ export default function TacticPage() {
     });
   }
 
+  /** Verletzte und gesperrte Spieler durch die besten verfügbaren ersetzen (Bank zuerst). */
+  function replaceAbsent() {
+    update((n) => {
+      const slotsF = data.formations[n.formation] as { position: string }[];
+      const taken = new Set<number>(n.lineup.filter((x: number | null) => x != null && !out(byId.get(x))));
+      n.lineup = n.lineup.map((pid: number | null, i: number) => {
+        if (pid != null && !out(byId.get(pid))) return pid;
+        const pos = slotsF[i].position;
+        const best = players.filter((p: any) => !out(p) && !taken.has(p.id))
+          .sort((a: any, b: any) => (b.ratings[pos] + (n.bench.includes(b.id) ? 2 : 0)) - (a.ratings[pos] + (n.bench.includes(a.id) ? 2 : 0)))[0];
+        if (best) taken.add(best.id);
+        return best?.id ?? null;
+      });
+      n.bench = n.bench.filter((b: number) => !taken.has(b) && !out(byId.get(b)));
+      const rest = players.filter((p: any) => !out(p) && !taken.has(p.id) && !n.bench.includes(p.id)).sort((a: any, b: any) => b.rating - a.rating);
+      while (n.bench.length < 9 && rest.length) n.bench.push(rest.shift().id);
+    });
+  }
+
   async function save() {
     setSaving(true);
     try {
@@ -179,7 +207,6 @@ export default function TacticPage() {
     const at = t.lineup.indexOf(p.id);
     return at >= 0 ? p.ratings[formation[at].position] : p.rating;
   };
-  const out = (p: any) => p.injuryWeeks > 0 || p.suspendedWeeks > 0;
   const sortedPlayers = [...players].sort((a: any, b: any) => {
     if (selPos) return Number(out(a)) - Number(out(b)) || b.ratings[selPos] - a.ratings[selPos] || b.fitness - a.fitness;
     return (picked(a.id)?.order ?? 99) - (picked(b.id)?.order ?? 99) || b.rating - a.rating;
@@ -320,6 +347,16 @@ export default function TacticPage() {
 
       <div className="grid grid-tactic">
         <Panel title={`Formation ${t.formation}`} icon="board" actions={phase === "base" && t.slotOffsets?.some(Boolean) && <button className="btn btn-ghost btn-sm" onClick={() => update((n) => { n.slotOffsets = []; })}>Zurücksetzen</button>}>
+          {absentXI.length + absentBench.length > 0 && (
+            <div className="lineup-alert" role="status">
+              <StatusIcons badges={playerStatus(absentXI[0] ?? absentBench[0]).filter((b) => b.kind === "injury" || b.kind === "susp")} />
+              <span>
+                <b>{absentXI.length ? `${absentXI.length} ${absentXI.length === 1 ? "Ausfall" : "Ausfälle"} in der Startelf` : `${absentBench.length} auf der Bank nicht einsatzfähig`}:</b>{" "}
+                {[...absentXI, ...absentBench].map((p: any) => `${p.lastName} (${p.injuryWeeks > 0 ? "verletzt" : "gesperrt"})`).join(", ")}. Am Spieltag wird automatisch ersetzt.
+              </span>
+              <button className="btn btn-sm" onClick={replaceAbsent}>Ausfälle ersetzen</button>
+            </div>
+          )}
           <div className="phase-tabs">
             <Seg value={phase} onChange={(v) => setPhase(v)} options={[
               { value: "base", label: "Grundordnung" },
@@ -434,8 +471,8 @@ export default function TacticPage() {
                           <span className="cand-num">{numbers.get(p.id)}</span>
                           <PlayerFace player={p} kit={data.club?.colors} size={26} />
                           <div style={{ minWidth: 0 }}>
-                            <div className="truncate name" style={{ maxWidth: 150 }}>{p.name}</div>
-                            {unavailable && <div className="small neg-txt">{p.injuryWeeks > 0 ? `Verletzt · ${p.injuryWeeks} W` : "Gesperrt"}</div>}
+                            <div className="cand-name"><span className="truncate name">{p.name}</span><StatusIcons badges={playerStatus(p)} /></div>
+                            {unavailable && <div className="small neg-txt">{p.injuryWeeks > 0 ? `${p.injury?.name ?? "Verletzt"} · ${p.injuryWeeks} W` : `Gesperrt · ${p.suspendedWeeks} ${p.suspendedWeeks === 1 ? "Spiel" : "Spiele"}`}</div>}
                           </div>
                         </div>
                       </td>

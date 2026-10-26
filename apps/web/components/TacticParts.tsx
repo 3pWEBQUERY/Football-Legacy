@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Stars, type SlotGroup } from "@/components/PitchBoard";
+import { StatusIcons, playerStatus } from "@/components/PlayerStatus";
 import { Icon } from "@/components/ui";
 import { POS_LABEL } from "@/lib/client/format";
 
@@ -151,8 +152,8 @@ export function SlotMenu(props: {
           <button key={c.id} role="menuitem" className="ctx-item ctx-player" disabled={out} onClick={() => act(() => props.onReplace(c.id))}>
             <span className="ctx-num">{props.numbers.get(c.id) ?? ""}</span>
             <span style={{ minWidth: 0, flex: 1 }}>
-              <b className="truncate" style={{ display: "block" }}>{c.name}</b>
-              <small>{POS_LABEL[c.position] ?? c.position}{st ? ` · ${st === "Elf" ? "Startelf (Tausch)" : "Bank"}` : ""}{out ? ` · ${c.injuryWeeks > 0 ? "verletzt" : "gesperrt"}` : ` · Kondition ${c.fitness}%`}</small>
+              <span className="ctx-pname"><b className="truncate">{c.name}</b><StatusIcons badges={playerStatus(c)} max={3} /></span>
+              <small>{POS_LABEL[c.position] ?? c.position}{st ? ` · ${st === "Elf" ? "Startelf (Tausch)" : "Bank"}` : ""}{out ? ` · ${c.injuryWeeks > 0 ? `verletzt (${c.injuryWeeks} W)` : `gesperrt (${c.suspendedWeeks} Sp.)`}` : ` · Kondition ${c.fitness}%`}</small>
             </span>
             <Stars value={starsFor(c.ratings[position])} />
           </button>
@@ -187,7 +188,7 @@ export function SlotMenu(props: {
           <div className="ctx-head">
             <span className={`fm-role g-${GROUP[position] ?? "mid"}`}>{ROLE_CODE[role] ?? POS_LABEL[position]}</span>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <b className="truncate" style={{ display: "block" }}>{p ? p.name : "Position frei"}</b>
+              <span className="ctx-pname"><b className="truncate">{p ? p.name : "Position frei"}</b>{p && <StatusIcons badges={playerStatus(p)} max={3} />}</span>
               <small>{POS_LABEL[position] ?? position}{p ? ` · Eignung ${p.ratings[position]}` : ""}</small>
             </div>
             {p && <Stars value={starsFor(p.ratings[position])} />}
