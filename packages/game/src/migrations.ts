@@ -467,4 +467,57 @@ alter table negotiations add column if not exists kind text not null default 'bu
 create index if not exists negotiations_active on negotiations(career_id, kind) where stage in ('club', 'contract');
 `,
   },
+  {
+    name: "019_history.sql",
+    sql: `
+create table if not exists club_seasons (
+  career_id uuid not null references careers(id) on delete cascade,
+  season int not null,
+  club_id int not null,
+  league_id int not null,
+  league_name text not null,
+  tier int not null,
+  position int not null,
+  played int not null,
+  won int not null,
+  drawn int not null,
+  lost int not null,
+  gf int not null,
+  ga int not null,
+  points int not null,
+  champion boolean not null default false,
+  promoted boolean not null default false,
+  relegated boolean not null default false,
+  cup text,
+  continental text,
+  manager text,
+  user_managed boolean not null default false,
+  top_scorer jsonb,
+  best_win jsonb,
+  worst_loss jsonb,
+  primary key (career_id, club_id, season)
+);
+create index if not exists club_seasons_season on club_seasons(career_id, season);
+create table if not exists player_careers (
+  career_id uuid not null references careers(id) on delete cascade,
+  player_id int not null,
+  club_id int not null,
+  name text not null,
+  position text not null,
+  nationality text not null,
+  seasons int not null default 0,
+  apps int not null default 0,
+  goals int not null default 0,
+  assists int not null default 0,
+  rating_sum real not null default 0,
+  first_season int not null,
+  last_season int not null,
+  peak_rating int not null default 0,
+  retired_season int,
+  primary key (career_id, player_id, club_id)
+);
+create index if not exists player_careers_club on player_careers(career_id, club_id);
+`,
+  },
 ];
+

@@ -8,7 +8,8 @@ import type pg from "pg";
 import { query } from "./db";
 import { readCareer, withCareer } from "./career";
 import { GameError } from "./errors";
-import { type CareerRow, type ClubRow, addFinance, addInbox, getClub, saveCareer, saveClubs } from "./repo";
+import { type CareerRow, type ClubRow, addFinance, addInbox, getClub, getLeague, saveCareer, saveClubs } from "./repo";
+import { visionFor, visionPayload } from "./history/vision";
 import { pool } from "./db";
 
 export type ProjectKind = "training" | "youth" | "stadium";
@@ -114,13 +115,30 @@ function offers(career: CareerRow, club: ClubRow): Offer[] {
   return list;
 }
 
+/** Ältere Karrieren und neue Vereine erhalten ihre Vision beim ersten Besuch. */
+async function ensureVision(careerId: string, accountId: string) {
+  await withCareer(careerId, accountId, async (db, career) => {
+    const club = career.club_id ? await getClub(db, career.id, career.club_id) : null;
+    const league = club ? await getLeague(db, career.id, club.league_id) : null;
+    if (!club || !league) return;
+    career.board.vision = await visionFor(db, career, club, league, career.board.expectedPosition);
+    await saveCareer(db, career);
+  });
+}
+
 export async function boardView(careerId: string, accountId: string) {
-  const career = await readCareer(careerId, accountId);
+  let career = await readCareer(careerId, accountId);
   if (!career.club_id) throw new GameError("Kein Verein");
-  const club = (await getClub(pool(), career.id, career.club_id))!;
+  if (career.board.vision?.clubId !== career.club_id) {
+    await ensureVision(careerId, accountId);
+    career = await readCareer(careerId, accountId);
+  }
+  const club = (await getClub(pool(), career.id, career.club_id!))!;
   const fac = facilitiesOf(career);
   return {
     board: career.board,
+    vision: career.board.vision ? visionPayload(career.board.vision, career.season) : null,
+    visionHistory: [...(career.board.visionHistory ?? [])].reverse(),
     club: { name: club.name, balance: club.balance, transferBudget: club.transfer_budget, capacity: club.capacity, reputation: club.reputation },
     facilities: {
       training: { level: fac.training, label: LEVEL_TEXT.training[fac.training - 1] },

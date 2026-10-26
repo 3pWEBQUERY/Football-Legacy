@@ -1,0 +1,71 @@
+/* Vereinsgeschichte, Ruhmeshalle und Vorstandsvision */
+.hist-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; }
+.hist-kpi { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hist-kpi .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); }
+.hist-kpi .value { font-family: var(--font-cond); font-size: 26px; font-weight: 700; line-height: 1.1; }
+
+.trophy-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.trophy { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2); min-width: 0; }
+.trophy-icon { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 50%; }
+.trophy-text { display: flex; flex-direction: column; min-width: 0; }
+.trophy-text b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trophy-text small { color: var(--text-3); font-size: 11.5px; }
+.trophy.t-gold .trophy-icon { background: var(--gold-soft); color: var(--gold); }
+.trophy.t-silver .trophy-icon { background: rgba(160, 170, 185, 0.16); color: #a6b0bf; }
+.trophy.t-bronze .trophy-icon { background: rgba(205, 127, 50, 0.15); color: #cd7f32; }
+.trophy.t-gold { border-color: color-mix(in srgb, var(--gold) 40%, var(--line)); }
+
+.record-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+.record-list { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; }
+.record-head { padding: 8px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); border-bottom: 1px solid var(--line); background: var(--panel-2); }
+.record-list ol { list-style: none; margin: 0; padding: 0; }
+.record-list li { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--line); min-width: 0; font-size: 13px; }
+.record-list li:last-child { border-bottom: 0; }
+.record-list li:first-child .rank { color: var(--gold); }
+.record-list .rank { width: 18px; text-align: right; color: var(--text-3); font-weight: 700; flex: none; }
+.record-list .name { flex: 1; min-width: 0; }
+.record-list .val { margin-left: auto; white-space: nowrap; font-size: 15px; }
+.record-list .val small { font-size: 11px; color: var(--text-3); font-weight: 500; }
+.record-list .score { width: 40px; font-size: 16px; font-weight: 700; flex: none; }
+
+.legend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.legend-card { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); color: inherit; text-decoration: none; min-width: 0; }
+.legend-card:hover { border-color: var(--gold); }
+.legend-star { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--gold-soft); color: var(--gold); }
+.legend-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.legend-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-2, var(--text-3)); margin-top: 2px; }
+.legend-stats b { color: var(--text); font-family: var(--font-cond); font-size: 14px; }
+
+.legacy-card { display: flex; gap: 18px; align-items: flex-start; }
+.legacy-medal { width: 64px; height: 64px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--line); color: var(--text-3); background: var(--panel-2); }
+.legacy-medal[data-level="1"] { border-color: var(--accent); color: var(--accent); }
+.legacy-medal[data-level="2"] { border-color: #cd7f32; color: #cd7f32; }
+.legacy-medal[data-level="3"] { border-color: #a6b0bf; color: #a6b0bf; }
+.legacy-medal[data-level="4"], .legacy-medal[data-level="5"] { border-color: var(--gold); color: var(--gold); background: var(--gold-soft); }
+.legacy-points { font-size: 28px; }
+.legacy-points small { font-size: 13px; color: var(--text-3); font-weight: 500; }
+.legacy-ladder { display: flex; flex-wrap: wrap; gap: 6px; }
+.legacy-ladder span { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--text-3); }
+.legacy-ladder span.on { border-color: var(--gold); color: var(--gold); background: var(--gold-soft); }
+.station { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.station:last-child { border-bottom: 0; }
+
+.vision-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.vision-title { font-size: 17px; }
+.vision-years { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 12px; }
+.vision-years span { height: 5px; border-radius: 3px; background: var(--line); }
+.vision-years span.done { background: var(--accent); }
+.vision-years span.now { background: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.vision-goals { display: flex; flex-direction: column; gap: 10px; }
+.vision-goal { display: flex; gap: 10px; align-items: flex-start; }
+.vision-icon { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--line); color: var(--text-3); }
+.vision-goal.met .vision-icon { background: var(--pos-soft); border-color: transparent; color: var(--pos); }
+.vision-goal .progress { margin-top: 4px; }
+.vision-reviews { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+
+@media (max-width: 640px) {
+  .legacy-card { gap: 12px; }
+  .legacy-medal { width: 48px; height: 48px; }
+  .hist-kpi .value { font-size: 22px; }
+  .record-grid { grid-template-columns: 1fr; }
+}

@@ -8,6 +8,7 @@ import type pg from "pg";
 import { type Db, lockCareer, one, pool, query, tx } from "./db";
 import { GameError } from "./errors";
 import { insertContinental, planContinental } from "./continental";
+import { visionFor } from "./history/vision";
 import {
   type Board, type CareerRow, type ClubRow, type LeagueRow, addInbox, getCareer, getClubs, getLeagues, getPlayers,
   insertFixtures, insertPlayers, saveCareer, saveClubs,
@@ -233,6 +234,7 @@ export async function boardObjectives(db: Db, career: CareerRow, club: ClubRow, 
     startBalance: club.balance,
     youthTarget: 5,
     youthApps: 0,
+    vision: await visionFor(db, career, club, league, expected),
   };
 }
 

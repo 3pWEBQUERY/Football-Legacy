@@ -12,6 +12,7 @@ import "./suites/taktik-nachrichten";
 import "./suites/transfermarkt";
 import "./suites/verkauf";
 import "./suites/spieltag";
+import "./suites/geschichte";
 
 beforeAll(async () => {
   await pool().query("drop schema public cascade; create schema public;");

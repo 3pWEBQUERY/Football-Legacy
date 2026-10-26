@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/lib/client/api";
 import { money } from "@/lib/client/format";
@@ -16,7 +17,7 @@ export default function ClubPage() {
   const c = data.club;
   return (
     <>
-      <div className="row"><button className="btn btn-ghost btn-sm" onClick={() => router.back()}><Icon name="back" size={16} /> Zurück</button></div>
+      <div className="between"><button className="btn btn-ghost btn-sm" onClick={() => router.back()}><Icon name="back" size={16} /> Zurück</button><Link className="btn btn-sm" href={`/c/${id}/history?club=${c.id}`}><Icon name="trophy" size={15} /> Vereinsgeschichte</Link></div>
       <div className="card row" style={{ gap: 18, flexWrap: "wrap" }}>
         <Crest colors={c.colors} name={c.name} size={64} />
         <div className="stack-sm" style={{ flex: 1 }}>

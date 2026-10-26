@@ -42,6 +42,10 @@ export interface Board {
   startBalance: number;
   youthTarget: number;
   youthApps: number;
+  /** Mehrjährige Vorstandsvision */
+  vision?: import("./history/vision").Vision;
+  /** Abgeschlossene Visionen */
+  visionHistory?: import("./history/vision").VisionResult[];
 }
 
 export interface Staff {

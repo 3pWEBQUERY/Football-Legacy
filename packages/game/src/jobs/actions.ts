@@ -89,8 +89,10 @@ export async function acceptJob(careerId: string, accountId: string, clubId: num
       await query(db, "delete from cups where career_id = $1 and season = $2", [career.id, career.season]);
       await scheduleSeason(db, career);
     }
+    const visionHistory = career.board?.visionHistory ?? [];
     career.board = await boardObjectives(db, career, freshClub, league);
     career.board.confidence = 60;
+    career.board.visionHistory = visionHistory;
     // Anlagen und Trainerstab gehören zum Verein
     const level = Math.max(1, Math.min(5, Math.round(freshClub.reputation / 22)));
     career.facilities = { training: level, youth: level, projects: [], requests: {} } as never;

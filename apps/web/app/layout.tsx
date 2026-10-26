@@ -13,6 +13,7 @@ import "./styles/tactic.css";
 import "./styles/inbox.css";
 import "./styles/market.css";
 import "./styles/matchday.css";
+import "./styles/history.css";
 import { ToastProvider } from "@/components/ui";
 import { DialogProvider } from "@/components/Dialog";
 

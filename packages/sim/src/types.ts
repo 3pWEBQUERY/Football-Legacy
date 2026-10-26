@@ -100,8 +100,10 @@ export interface Player {
   devProgress: number;
   /** Abgeschlossene Saisons. */
   history?: PlayerSeason[];
-  /** Leihe: clubId ist der aufnehmende Verein, parentClubId der Stammverein. */
-  /** Leihe bis Saisonende; optional mit Kaufoption (optionFee) oder Kaufpflicht (obligation). */
+  /**
+   * Leihe bis Saisonende: clubId ist der aufnehmende Verein, parentClubId der Stammverein;
+   * optional mit Kaufoption (optionFee) oder Kaufpflicht (obligation).
+   */
   loan?: { parentClubId: number; untilSeason: number; wageShare: number; optionFee?: number | null; obligation?: boolean } | null;
   /** Letztes Gespräch mit dem Trainer (Saison, Tag) */
   talk?: { season: number; day: number } | null;

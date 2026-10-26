@@ -175,6 +175,8 @@ route("POST", career("academy/:pid"), async (c) => {
   throw new game.GameError("Unbekannte Aktion");
 });
 route("GET", career("boardroom"), async (c) => game.boardView(c.params.id, acc(c)));
+route("GET", career("history"), async (c) => game.clubHistoryView(c.params.id, acc(c), c.query.get("club") ? num(c.query.get("club")) : undefined));
+route("GET", career("hall-of-fame"), async (c) => game.hallOfFameView(c.params.id, acc(c)));
 route("POST", career("boardroom"), async (c) => game.boardRequest(c.params.id, acc(c), String(c.body.kind) as never));
 route("GET", career("scouting"), async (c) => game.scoutingView(c.params.id, acc(c)));
 route("POST", career("scouting"), async (c) => game.startAssignment(c.params.id, acc(c), {

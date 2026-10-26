@@ -1,17 +1,19 @@
 /** Saisonende: Abschlusstabellen, Auf- und Abstieg, Alterung, Verträge, neue Saison. */
 import {
-  Rng, computeStandings, emptyStats, formatMoney, generateYouthIntake, prizeMoney, retirementChance, roundsFor, seasonAging,
-  seedFor, squadRanks, teamRating, type Player,
+  Rng, computeStandings, emptyStats, formatMoney, generateYouthIntake, prizeMoney, retirementChance, seasonAging,
+  seedFor, squadRanks, teamRating, type Player, type StandingRow,
 } from "@fl/sim";
 import type pg from "pg";
 import { query } from "./db";
 import { boardObjectives, scheduleSeason } from "./career";
-import { type CareerRow, type FixtureRow, type JobOffer, type LeagueRow, addFinance, addInbox } from "./repo";
+import { type CareerRow, type FixtureRow, type JobOffer, addFinance, addInbox } from "./repo";
 import { type RewardNote, announceNotes, awardCard, grantXp, unlockAchievement } from "./rewards";
 import { type WorldState, loadWorld, movePlayer, removePlayer, squadOf } from "./world-state";
 import { persistWorld } from "./week";
 import { buildReview, saveReview, type SeasonReview } from "./review";
 import { academySeasonEnd } from "./academy";
+import { movements, recordRetirements, recordSeason } from "./history/record";
+import { reviewVision, type VisionReview } from "./history/vision";
 
 export interface SeasonSummary {
   season: number;
@@ -35,6 +37,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
 
   // Abschlusstabellen
   const tables = new Map<number, number[]>(); // leagueId → clubIds in Tabellenreihenfolge
+  const standings = new Map<number, StandingRow[]>();
   const pointsOf = new Map<number, { points: number; played: number }>();
   for (const league of w.leagues.values()) {
     const clubIds = [...w.clubs.values()].filter((c) => c.league_id === league.id).map((c) => c.id);
@@ -42,6 +45,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
       homeId: f.home_id, awayId: f.away_id, homeGoals: f.home_goals, awayGoals: f.away_goals, round: f.round,
     })));
     tables.set(league.id, table.map((r) => r.clubId));
+    standings.set(league.id, table);
     for (const r of table) pointsOf.set(r.clubId, { points: r.points, played: r.played });
   }
 
@@ -85,6 +89,10 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
     }
   }
 
+  // Vereinsgeschichte: Saison archivieren, solange Ligen und Statistiken stehen
+  await recordSeason(db, career, w, standings, fixtures);
+  const moves = movements(w, tables);
+
   // Meister der aktiven Ligen für die News
   const champions = [...w.leagues.values()]
     .filter((l) => l.active && l.tier === 1)
@@ -116,19 +124,9 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   if (career.club_id) await addFinance(db, career.id, career.club_id, career.season, career.week, prizeEntries);
 
   // Auf- und Abstieg je Land
-  const byCountry = new Map<string, LeagueRow[]>();
-  for (const l of w.leagues.values()) byCountry.set(l.country_code, [...(byCountry.get(l.country_code) ?? []), l]);
-  for (const leagues of byCountry.values()) {
-    leagues.sort((a, b) => a.tier - b.tier);
-    for (let i = 0; i < leagues.length - 1; i++) {
-      const upper = leagues[i];
-      const lower = leagues[i + 1];
-      const n = Math.min(upper.relegation, lower.promotion);
-      const down = tables.get(upper.id)!.slice(-n);
-      const up = tables.get(lower.id)!.slice(0, n);
-      for (const id of down) w.clubs.get(id)!.league_id = lower.id;
-      for (const id of up) w.clubs.get(id)!.league_id = upper.id;
-    }
+  for (const m of moves.moves) {
+    for (const id of m.down) w.clubs.get(id)!.league_id = m.lower.id;
+    for (const id of m.up) w.clubs.get(id)!.league_id = m.upper.id;
   }
 
   // Saisonrekord des Managers
@@ -139,6 +137,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   const pts = userClub ? pointsOf.get(userClub.id) : undefined;
   let objectiveMet = false;
   let dismissed = false;
+  let visionReview: VisionReview | null = null;
   // Abschneiden im Pokal
   let cupResult: string | undefined;
   const cupRow = await query<{ id: number; rounds: { round: number; name: string }[]; winner_club_id: number | null }>(db, "select id, rounds, winner_club_id from cups where career_id = $1 and season = $2 and kind = 'national'", [career.id, career.season]);
@@ -178,12 +177,23 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
     const gap = position - career.board.targetPosition;
     career.board.confidence = Math.max(0, Math.min(100, career.board.confidence + (positionOk ? 15 : -gap * 6) + (userClub.balance >= career.board.financeTarget ? 5 : -10)));
     m.reputation = Math.max(1, Math.min(100, m.reputation + (positionOk ? 4 : -3) + (champion ? 6 : 0) + (promoted ? 5 : 0) - (relegated ? 6 : 0)));
+    // Mehrjährige Vision des Vorstands
+    const vision = career.board.vision;
+    if (vision && vision.clubId === userClub.id) {
+      visionReview = reviewVision(vision, {
+        season: career.season, position, champion, cup: cupResult === "Pokalsieger" ? "Sieger" : cupResult ?? null,
+        nextTier: userLeague.tier + (moves.down.has(userClub.id) ? 1 : 0) - (moves.up.has(userClub.id) ? 1 : 0),
+        youthRegulars: squadOf(w, userClub.id).filter((p) => p.youth && p.stats.apps >= 10).length,
+        balance: userClub.balance, reputation: userClub.reputation,
+      });
+      career.board.confidence = Math.max(0, Math.min(100, career.board.confidence + visionReview.delta));
+    }
     dismissed = career.board.confidence < 20;
   }
 
   // Spieler: Saisonbilanz, Alterung, Rücktritte, Verträge
   const newSeason = career.season + 1;
-  const retired: string[] = [];
+  const retiredAll: { player: Player; clubId: number | null }[] = [];
   const loansEnded: string[] = [];
   const loansBought: string[] = [];
   const loanFinance: { kind: string; amount: number; label: string }[] = [];
@@ -204,7 +214,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
     p.suspendedWeeks = 0;
     w.dirtyPlayers.add(p.id);
     if (rng.chance(retirementChance(p))) {
-      if (p.clubId === career.club_id) retired.push(`${p.firstName} ${p.lastName} (${p.age})`);
+      retiredAll.push({ player: p, clubId: p.clubId });
       removePlayer(w, p);
       continue;
     }
@@ -272,8 +282,12 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
 
   // Freie Spieler ohne Verein länger als eine Saison und älter als 32 hören auf
   for (const p of [...w.freeAgents]) {
-    if (p.age >= 33 || (p.rating < 40 && rng.chance(0.4))) removePlayer(w, p);
+    if (p.age >= 33 || (p.rating < 40 && rng.chance(0.4))) {
+      retiredAll.push({ player: p, clubId: null });
+      removePlayer(w, p);
+    }
   }
+  const retired = await recordRetirements(db, career, w, retiredAll);
 
   // Stärke neu berechnen
   for (const club of w.clubs.values()) {
@@ -306,9 +320,14 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   const newUserLeague = newUserClub ? w.leagues.get(newUserClub.league_id) : undefined;
   await scheduleSeason(db, career);
   if (newUserClub && newUserLeague && !dismissed) {
-    const conf = career.board.confidence;
+    const old = career.board;
     career.board = await boardObjectives(db, career, newUserClub, newUserLeague);
-    career.board.confidence = conf;
+    career.board.confidence = old.confidence;
+    career.board.visionHistory = old.visionHistory ?? [];
+    const v = old.vision;
+    if (v && visionReview && visionReview.season >= v.endSeason) {
+      career.board.visionHistory = [...career.board.visionHistory, { clubId: v.clubId, startSeason: v.startSeason, endSeason: v.endSeason, headline: v.headline, met: visionReview.met, total: visionReview.total, text: visionReview.text }].slice(-10);
+    }
   }
 
   // Posteingang
@@ -317,8 +336,10 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
     db, career.id, newSeason, 0, "board", title,
     `Abschlussplatz: ${position} mit ${pts?.points ?? 0} Punkten.\n` +
       `Saisonziel ${objectiveMet ? "erfüllt" : "verfehlt"} – Vertrauen des Vorstands: ${career.board.confidence}/100.\n` +
+      (visionReview ? `Vorstandsvision: ${visionReview.text}\n` : "") +
       (dismissed ? "\nDer Vorstand hat sich von dir getrennt. Unter Karriere → Freie Stellen findest du Angebote und offene Trainerposten in aller Welt." :
-        `\nNeues Saisonziel: ${career.board.objective}`) +
+        `\nNeues Saisonziel: ${career.board.objective}` +
+          (career.board.vision?.startSeason === newSeason ? `\nNeue Vision bis ${career.board.vision.endSeason}: „${career.board.vision.headline}“ – ${career.board.vision.goals.map((g) => g.text).join("; ")}.` : "")) +
       `\n\nMeister der Topligen: ${champions.slice(0, 8).map((c) => `${c.clubName} (${c.leagueName})`).join(", ")}`,
   );
   if (review) {
