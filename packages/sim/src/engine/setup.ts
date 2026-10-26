@@ -3,7 +3,6 @@ import { shortName } from "../player";
 import { clamp } from "../rng";
 import { FORMATIONS, defaultRole, mentalityStyle } from "../tactics";
 import type { Player } from "../types";
-import { tick } from "./flow";
 import { EnginePlayer, EnginePlayerStats, EngineTeam, EngineTeamStats, MatchSetup, MatchState, PITCH_H, PITCH_W, Side, TeamSetup } from "./types";
 import { basePosition, kickoff, pushEvent } from "./util";
 

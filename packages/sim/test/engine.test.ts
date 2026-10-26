@@ -131,3 +131,51 @@ describe("Aufstellung prüfen", () => {
     expect(view.lineup[1]).toBe(banned);
   });
 });
+
+describe("Seitenlinie und Schüsse", () => {
+  it("erfasst jeden Torschuss mit xG, Ort und Ergebnis", () => {
+    const r = playMatch({ seed: 11, home: team(1, 68), away: team(2, 62) });
+    const shots = r.shots!;
+    expect(shots.length).toBe(r.stats[0].shots + r.stats[1].shots);
+    expect(shots.filter((s) => s.outcome === "goal" && s.side === 0).length).toBe(r.homeGoals - r.events.filter((e) => e.type === "own_goal" && e.side === "home").length);
+    for (const s of shots) {
+      expect(s.x).toBeGreaterThan(0.4);
+      expect(s.y).toBeGreaterThanOrEqual(0);
+      expect(s.xg).toBeGreaterThan(0);
+    }
+  });
+
+  it("Zuruf: Wirkung je nach Spielstand, Abklingzeit, Ereignis im Ticker", async () => {
+    const { shout, SHOUT_COOLDOWN } = await import("../src/index");
+    const s = createMatch({ seed: 5, home: team(1, 65), away: team(2, 65) });
+    simulate(s, 120);
+    s.teams[0].goals = 0; s.teams[1].goals = 1;
+    const a = shout(s, 0, "encourage");
+    expect(a.ok).toBe(true);
+    expect(a.boost).toBeGreaterThan(0.02);
+    expect(shout(s, 0, "praise").ok).toBe(false);
+    simulate(s, 120 + SHOUT_COOLDOWN);
+    const b = shout(s, 0, "praise");
+    expect(b.ok).toBe(true);
+    expect(b.boost).toBeLessThan(0);
+    expect(s.events.some((e) => e.text.includes("Zuruf"))).toBe(true);
+  });
+
+  it("Halbzeitansprache nur in der Pause, einmalig, wirkt auf die zweite Halbzeit", async () => {
+    const { halftimeTalk } = await import("../src/index");
+    const s = createMatch({ seed: 8, home: team(1, 65), away: team(2, 65) });
+    simulate(s, 100);
+    expect(halftimeTalk(s, 1, "praise").ok).toBe(false);
+    simulate(s, 270);
+    s.teams[1].goals = 2; s.teams[0].goals = 0;
+    const r = halftimeTalk(s, 1, "praise");
+    expect(r.ok).toBe(true);
+    expect(s.teams[1].spirit).toBeGreaterThan(0);
+    expect(halftimeTalk(s, 1, "calm").ok).toBe(false);
+    // Spielstand bleibt speicherbar
+    const copy = JSON.parse(JSON.stringify(s));
+    simulate(s, TICKS);
+    simulate(copy, TICKS);
+    expect(result(copy).homeGoals).toBe(result(s).homeGoals);
+  });
+});

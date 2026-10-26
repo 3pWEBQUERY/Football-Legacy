@@ -1,6 +1,6 @@
 /** KI-Transfermarkt: Vereine handeln untereinander (Angebote für deine Spieler: negotiations/sales). */
 import {
-  Rng, askingPrice, evaluateFee, evaluateTerms, formatMoney, roundMoney, squadNeed, squadRanks, wageDemand, type Player,
+  Rng, askingPrice, evaluateFee, evaluateTerms, formatMoney, squadNeed, squadRanks, wageDemand, type Player,
 } from "@fl/sim";
 import type { Db } from "./db";
 import { query } from "./db";

@@ -274,6 +274,10 @@ route("POST", career("match/step"), async (c) => game.stepMatch(c.params.id, acc
   change: (c.body.change ?? undefined) as never,
   until: c.body.until !== undefined ? num(c.body.until) : undefined,
 }));
+route("POST", career("match/shout"), async (c) => game.matchShout(c.params.id, acc(c), str(c.body.kind) as never));
+route("POST", career("match/halftime"), async (c) => game.halftimeAddress(c.params.id, acc(c), str(c.body.tone) as never));
+route("GET", career("match/post-talk"), async (c) => ({ talk: await game.postMatchState(game.pool(), await game.readCareer(c.params.id, acc(c))) }));
+route("POST", career("match/post-talk"), async (c) => game.postMatchTalk(c.params.id, acc(c), str(c.body.tone) as never));
 route("POST", career("match/quick"), async (c) => game.quickMatch(c.params.id, acc(c)));
 
 // ---------------------------------------------------------------- Dispatcher

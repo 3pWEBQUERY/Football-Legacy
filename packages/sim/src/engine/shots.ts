@@ -12,6 +12,14 @@ export function bestOnPitch(team: EngineTeam, key: AttrKey): number {
 
 type ShotKind = "open" | "header" | "freekick" | "corner";
 
+/** Schuss für Schusskarte und xG-Verlauf festhalten (Position in Angriffsrichtung). */
+function recordShot(state: MatchState, side: Side, shooter: EnginePlayer, xg: number, kind: ShotKind | "penalty", outcome: "goal" | "saved" | "off", at?: { x: number; y: number }) {
+  (state.shots ??= []).push({
+    tick: state.tick, side, playerId: shooter.id, xg: round2(xg), kind, outcome,
+    x: round2(ax(side, (at ?? shooter).x)), y: round2(ay(side, (at ?? shooter).y)),
+  });
+}
+
 export function shoot(
   state: MatchState, rng: Rng, side: Side, shooter: EnginePlayer, goalDist: number, cB: number, pressureD: number, kind: ShotKind,
 ) {
@@ -64,6 +72,7 @@ export function shoot(
   const where = kind === "header" ? "per Kopf" : kind === "freekick" ? "per Freistoss" : goalDist > 20 ? "aus der Distanz" : "";
 
   if (r < xg) {
+    recordShot(state, side, shooter, xg, kind, "goal");
     team.goals++;
     team.stats.onTarget++;
     shooter.st.goals++;
@@ -89,6 +98,7 @@ export function shoot(
     return;
   }
   if (r < xg + pOnTargetMiss * (1 - xg)) {
+    recordShot(state, side, shooter, xg, kind, "saved");
     team.stats.onTarget++;
     shooter.st.onTarget++;
     shooter.st.rating += 0.08;
@@ -106,6 +116,7 @@ export function shoot(
       return;
     }
   } else {
+    recordShot(state, side, shooter, xg, kind, "off");
     if (xg > 0.15) {
       pushEvent(state, "miss", side, `${shooter.short} vergibt${where ? ` ${where}` : ""} – knapp vorbei.`, {
         playerId: shooter.id, playerName: shooter.name, xg: round2(xg),
@@ -268,6 +279,7 @@ export function penalty(state: MatchState, rng: Rng, side: Side) {
   team.stats.xg += 0.76;
   taker.st.shots++;
   if (rng.chance(p)) {
+    recordShot(state, side, taker, 0.76, "penalty", "goal", pos);
     team.goals++;
     team.stats.onTarget++;
     taker.st.goals++;
@@ -278,6 +290,7 @@ export function penalty(state: MatchState, rng: Rng, side: Side) {
     });
     kickoff(state, oppSide);
   } else {
+    recordShot(state, side, taker, 0.76, "penalty", "saved", pos);
     taker.st.rating -= 0.6;
     if (keeper) {
       keeper.st.rating += 0.8;

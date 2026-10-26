@@ -1,7 +1,5 @@
 /** Matchengine: Konstanten und Datentypen (Spieler, Teams, Spielstand, Frames). */
-import { shortName } from "../player";
 import type { AttrKey, ClubColors, Duty, Formation, MatchEvent, Player, PlayerInstruction, Position, Tactic, TacticStyle } from "../types";
-import { tick } from "./flow";
 
 export const PITCH_W = 105;
 export const PITCH_H = 68;
@@ -88,6 +86,24 @@ export interface EngineTeam {
   autoSubs: boolean;
   goals: number;
   stats: EngineTeamStats;
+  /** Einstellung der Mannschaft aus der Halbzeitansprache (−0,04 … +0,04, wirkt auf alle Aktionen) */
+  spirit?: number;
+  /** Aktueller Zuruf von der Seitenlinie: Wirkung bis zum Tick `until` */
+  shout?: { kind: string; until: number; boost: number } | null;
+  /** Frühester Tick für den nächsten Zuruf */
+  shoutReady?: number;
+}
+
+/** Ein Torschuss für Schusskarte und xG-Verlauf (x: 0 eigene Torlinie → 1 gegnerische, y: 0 links → 1 rechts). */
+export interface ShotRecord {
+  tick: number;
+  side: Side;
+  playerId: number;
+  xg: number;
+  x: number;
+  y: number;
+  kind: "open" | "header" | "freekick" | "corner" | "penalty";
+  outcome: "goal" | "saved" | "off";
 }
 
 export interface MatchState {
@@ -104,6 +120,7 @@ export interface MatchState {
   finished: boolean;
   lastPasser: number | null;
   pendingPenalty: boolean;
+  shots?: ShotRecord[];
   lineupHistory: { tick: number; side: Side; slot: number; playerId: number }[];
 }
 

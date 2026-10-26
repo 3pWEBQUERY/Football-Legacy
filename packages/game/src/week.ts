@@ -70,7 +70,7 @@ async function saveReport(db: pg.PoolClient, careerId: string, fixtureId: number
   await query(
     db,
     "insert into match_reports(fixture_id, career_id, data) values ($1,$2,$3) on conflict (fixture_id) do update set data = excluded.data",
-    [fixtureId, careerId, JSON.stringify({ events, stats: r.stats, players: r.players, motm: r.motm, ...extra })],
+    [fixtureId, careerId, JSON.stringify({ events, stats: r.stats, players: r.players, motm: r.motm, shots: r.shots ?? [], ...extra })],
   );
 }
 

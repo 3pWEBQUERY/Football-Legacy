@@ -5,7 +5,7 @@ import type { Duty, Formation, MatchEvent, PlayerInstruction, Tactic, TacticStyl
 import { dribble, pass } from "./actions";
 import { createMatch } from "./setup";
 import { clearance, cross, penalty, shoot } from "./shots";
-import { EnginePlayer, EngineTeam, EngineTeamStats, Frame, HALF_TICK, MatchSetup, MatchState, PITCH_H, PITCH_W, Side, TICKS } from "./types";
+import { EnginePlayer, EngineTeam, ShotRecord, EngineTeamStats, Frame, HALF_TICK, MatchSetup, MatchState, PITCH_H, PITCH_W, Side, TICKS } from "./types";
 import { ax, ay, dist, eff, fromA, giveBall, kickoff, minuteOf, moveTeams, nearestOf, nearestOpponent, onPitch, pushEvent, roleMod, slotDef } from "./util";
 
 // ---------------------------------------------------------------- Ein Tick: Entscheidung des Ballführenden
@@ -326,6 +326,8 @@ export interface MatchResult {
   stats: [EngineTeamStats, EngineTeamStats];
   players: PlayerMatchLine[];
   motm: number | null;
+  /** Alle Torschüsse (Schusskarte, xG-Verlauf) */
+  shots?: ShotRecord[];
 }
 
 export function result(state: MatchState): MatchResult {
@@ -359,6 +361,7 @@ export function result(state: MatchState): MatchResult {
     stats: [state.teams[0].stats, state.teams[1].stats],
     players,
     motm,
+    shots: state.shots ?? [],
   };
 }
 

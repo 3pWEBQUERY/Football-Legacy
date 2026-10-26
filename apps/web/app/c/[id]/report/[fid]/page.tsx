@@ -3,6 +3,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/lib/client/api";
 import { useGame } from "@/components/GameShell";
 import { RatingList, StatRows } from "@/components/MatchStats";
+import { ShotMap, ShotTable, XgTimeline, teamColors } from "@/components/MatchCharts";
 import { Crest, Empty, ErrorBox, EventIcon, Icon, Loading, Panel } from "@/components/ui";
 
 export default function Report() {
@@ -14,6 +15,10 @@ export default function Report() {
   if (!data) return <Loading />;
   const f = data.fixture;
   const r = data.report;
+  const colors = teamColors(data.home.colors, data.away.colors);
+  const teams: [any, any] = [{ name: data.home.name, short: data.home.short, color: colors[0] }, { name: data.away.name, short: data.away.short, color: colors[1] }];
+  const names = new Map<number, string>((r?.players ?? []).map((p: any) => [p.playerId, p.name]));
+  const shots = r?.shots ?? [];
   return (
     <>
       <div className="row"><button className="btn btn-ghost btn-sm" onClick={() => router.back()}><Icon name="back" size={16} /> Zurück</button></div>
@@ -25,6 +30,12 @@ export default function Report() {
         </div>
         <div className="faint small up" style={{ textAlign: "center", padding: "6px 0", borderTop: "1px solid var(--line)" }}>{f.cup_id ? "Pokal" : `${f.round}. Spieltag`} · Abpfiff{f.pen_home !== null ? ` · ${f.pen_home}:${f.pen_away} im Elfmeterschiessen` : ""}</div>
       </div>
+      {r && shots.length > 0 && (
+        <div className="grid grid-2" style={{ alignItems: "start" }}>
+          <Panel title="xG-Verlauf" icon="chart"><XgTimeline shots={shots} teams={teams} /></Panel>
+          <Panel title="Torschüsse" icon="target"><ShotMap shots={shots} teams={teams} names={names} /></Panel>
+        </div>
+      )}
       {!r ? (
         <div className="card"><Empty>Für dieses Spiel gibt es keinen detaillierten Bericht.</Empty></div>
       ) : (
@@ -44,6 +55,9 @@ export default function Report() {
             <RatingList players={r.players} side={1} title={data.away.name} motm={r.motm} />
           </Panel>
         </div>
+      )}
+      {r && shots.length > 0 && (
+        <Panel title={`Alle Torschüsse (${shots.length})`} icon="target" flush><ShotTable shots={shots} teams={teams} names={names} /></Panel>
       )}
     </>
   );

@@ -25,6 +25,8 @@ export interface ManagerProfile {
   streakRewardDay?: string;
   pressDone?: number;
   teamTalkDone?: number;
+  /** Spiel, nach dem die Schlussansprache gehalten wurde */
+  postTalkDone?: number;
   /** Nachrichtenkategorien, bei denen "Weiter" anhält */
   stopOn?: Record<string, boolean>;
 }

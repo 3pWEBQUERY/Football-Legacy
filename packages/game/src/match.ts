@@ -111,6 +111,9 @@ function presentation(state: MatchState) {
       subsUsed: t.subsUsed,
       goals: t.goals,
       stats: t.stats,
+      shout: t.shout && t.shout.until > state.tick ? t.shout : null,
+      shoutReady: t.shoutReady ?? 0,
+      spirit: t.spirit ?? null,
       players: t.players.map((p) => ({
         id: p.id, name: p.name, short: p.short, position: p.position, slot: p.slot, stamina: Math.round(p.stamina),
         rating: p.st.rating, goals: p.st.goals, yellow: p.yellow, red: p.red, injured: p.injured,

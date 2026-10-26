@@ -33,3 +33,4 @@ export { tacticSlotAction } from "./tactics";
 export { archiveInbox, inboxView } from "./inbox";
 export { acceptClubCounter, negotiationView, offerContract, respondSale, reviseClubOffer, setWageBudget, startNegotiation, startRenewal, transferHub, withdrawNegotiation } from "./negotiations";
 export { exerciseLoanOption, loanIn, loanOut } from "./loans";
+export { POST_TONES, halftimeAddress, matchShout, postMatchState, postMatchTalk } from "./matchtalk";

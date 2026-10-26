@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { HalftimeTalk, PostMatchTalk, ShoutBar } from "@/components/Touchline";
 import { SKINS } from "@fl/sim";
 import { api, refreshAll } from "@/lib/client/api";
 import { POS_LABEL, dayIso, fmtDate, matchRatingColor } from "@/lib/client/format";
@@ -57,6 +58,15 @@ export default function MatchDay() {
 
   function resetChange(team: any) {
     setChange({ style: { ...team.style }, subs: [], autoSubs: change.autoSubs ?? shell?.career?.autoSubs ?? true });
+  }
+
+  /** Zuruf oder Halbzeitansprache: Ticker und Teamzustand aktualisieren. */
+  function touchline(r: any) {
+    setEvents(r.events);
+    setM((old: any) => ({
+      ...old,
+      teams: old.teams.map((t: any, i: number) => (i === old.side ? { ...t, ...(r.shout !== undefined ? { shout: r.shout, shoutReady: r.shoutReady } : {}), ...(r.spirit !== undefined ? { spirit: r.spirit } : {}) } : t)),
+    }));
   }
 
   /** Übernimmt eine Server-Antwort in den Puffer. */
@@ -296,7 +306,7 @@ export default function MatchDay() {
   if (final?.quick) {
     return (
       <div className="match-shell"><div className="content" style={{ maxWidth: 900 }}>
-        <div className="card"><WeekSummaryView summary={final.summary} base={base} onClose={() => {}} /></div>
+        <div className="card stack"><PostMatchTalk careerId={id} /><WeekSummaryView summary={final.summary} base={base} onClose={() => {}} /></div>
         <div><Link className="btn btn-primary btn-lg" href={base}>Zurück ins Büro</Link></div>
       </div></div>
     );
@@ -367,6 +377,8 @@ export default function MatchDay() {
             </div>
           )}
 
+          {phase === "live" && !talk && <ShoutBar careerId={id} team={mine} serverTick={m.tick} onResult={touchline} />}
+
           {(phase === "halftime" || talk) && (
             <section className="card card-flush">
               <div className="card-head">
@@ -378,6 +390,7 @@ export default function MatchDay() {
                     : <button className="btn btn-primary" onClick={applyLive}><Icon name="check" size={15} /> Übernehmen</button>}
                 </div>
               </div>
+              {phase === "halftime" && <div style={{ padding: "14px 14px 0" }}><HalftimeTalk careerId={id} spirit={mine.spirit ?? null} onResult={touchline} /></div>}
               <div className="grid grid-2" style={{ alignItems: "start", padding: 14 }}>
                 <div className="stack">
                   <div className="field">
@@ -439,6 +452,7 @@ export default function MatchDay() {
               {final.summary.notes?.length > 0 && (
                 <div className="row-wrap" style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{final.summary.notes.map((n: any, i: number) => <span key={i} className={`badge ${n.kind === "xp" ? "" : "badge-blue"}`}>{n.text}</span>)}</div>
               )}
+              <div style={{ padding: "14px 14px 0" }}><PostMatchTalk careerId={id} /></div>
               <div className="grid grid-2" style={{ gap: 0, alignItems: "start" }}>
                 <RatingList players={final.result.players} side={0} title={home.name} motm={final.result.motm} mine={side === 0} />
                 <RatingList players={final.result.players} side={1} title={away.name} motm={final.result.motm} mine={side === 1} />

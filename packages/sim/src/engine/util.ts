@@ -2,7 +2,6 @@
 import { Rng, clamp } from "../rng";
 import { FORMATIONS, familiarityFactor, slotMod } from "../tactics";
 import type { AttrKey, MatchEvent, MatchEventType } from "../types";
-import { tick } from "./flow";
 import { EnginePlayer, EngineTeam, MatchState, PITCH_H, PITCH_W, SIDE_NAME, SPREAD, Side, TICKS_PER_MINUTE } from "./types";
 
 // ---------------------------------------------------------------- Hilfsfunktionen
@@ -49,7 +48,11 @@ export function onPitch(team: EngineTeam): number[] {
 export function eff(state: MatchState, side: Side, p: EnginePlayer, key: AttrKey): number {
   const condition = (0.7 + 0.3 * (p.stamina / 100)) * (0.95 + (p.form / 10) * 0.1) * (0.97 + (p.morale / 100) * 0.06);
   // Unterschiede werden um das Spielniveau gestaucht, damit Favoriten gewinnen, aber nicht immer
-  const raw = p.attrs[key] * condition * (side === 0 ? state.homeAdvantage : 1) * familiarityFactor(state.teams[side].familiarity);
+  let raw = p.attrs[key] * condition * (side === 0 ? state.homeAdvantage : 1) * familiarityFactor(state.teams[side].familiarity);
+  // Ansprache und Zurufe von der Seitenlinie
+  const team = state.teams[side];
+  const boost = (team.spirit ?? 0) + (team.shout && state.tick < team.shout.until ? team.shout.boost : 0);
+  if (boost) raw *= 1 + boost;
   return 12 + (raw - state.level) * SPREAD;
 }
 

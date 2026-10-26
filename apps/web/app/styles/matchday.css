@@ -1,0 +1,41 @@
+/* Spieltag: Zurufe von der Seitenlinie, Halbzeit- und Schlussansprache, Spielbericht (xG, Schusskarte). */
+
+.shout-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; }
+.shout-title { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-cond); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 12.5px; color: var(--text-2); }
+.shout-buttons { display: flex; flex-wrap: wrap; gap: 4px; }
+.shout-buttons .btn.active { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.shout-state { font-size: 12px; font-weight: 600; margin-left: auto; }
+.t-pos { color: var(--pos); }
+.t-ok { color: var(--accent); }
+.t-flat { color: var(--text-3); }
+.t-neg { color: var(--neg); }
+
+.talk-box { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel-2); }
+.talk-box-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.talk-box-head b { font-family: var(--font-cond); text-transform: uppercase; letter-spacing: 0.05em; }
+.talk-tones { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.talk-tone { display: flex; flex-direction: column; gap: 3px; padding: 9px 11px; text-align: left; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--panel); color: var(--text); font: inherit; cursor: pointer; }
+.talk-tone:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.talk-tone b { font-size: 13.5px; }
+.talk-tone small { font-size: 12px; color: var(--text-2); font-style: italic; }
+.talk-reaction { padding: 8px 10px; border-radius: var(--r-sm); background: var(--panel); font-weight: 600; font-size: 13.5px; }
+
+/* Spielbericht-Grafiken */
+.chart { position: relative; display: flex; flex-direction: column; gap: 8px; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-2); align-items: center; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend i { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+.chart-legend b { color: var(--text); font-variant-numeric: tabular-nums; }
+.chart-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart-grid { stroke: var(--line); stroke-width: 1; }
+.chart-axis { fill: var(--text-3); font-size: 11px; font-family: var(--font-body, inherit); }
+.chart-half { stroke: var(--line-2); stroke-dasharray: 3 4; }
+.chart-cross { stroke: var(--text-3); stroke-width: 1; }
+.chart-ring { stroke: var(--panel); stroke-width: 2; }
+.chart-tip { position: absolute; top: 28px; transform: translateX(-50%); pointer-events: none; display: flex; flex-direction: column; gap: 2px; padding: 6px 9px; border-radius: var(--r-sm); background: var(--panel); border: 1px solid var(--line-2); box-shadow: 0 6px 18px rgba(0,0,0,0.25); font-size: 12px; white-space: nowrap; z-index: 2; }
+.chart-tip span { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); }
+.chart-tip i { width: 10px; height: 3px; border-radius: 2px; }
+.shotmap .sm-pitch { fill: color-mix(in srgb, var(--pos) 10%, var(--panel-2)); stroke: var(--line-2); }
+.shotmap .sm-line { stroke: var(--line-2); stroke-width: 1.5; fill: none; }
+.shotmap .sm-shot { cursor: pointer; }
+.shot-swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }

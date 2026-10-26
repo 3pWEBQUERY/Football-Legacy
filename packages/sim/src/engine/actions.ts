@@ -1,6 +1,5 @@
 /** Matchengine: Pässe, Dribblings, Konter, Fouls, Platzverweise, Freistösse. */
 import { Rng, clamp } from "../rng";
-import { tick } from "./flow";
 import { bestOnPitch, shoot } from "./shots";
 import { EnginePlayer, MatchState, PITCH_H, PITCH_W, Side } from "./types";
 import { ax, ay, dist, eff, fromA, giveBall, minuteOf, nearestOf, nearestOpponent, onPitch, pushEvent, roleMod, slotDef } from "./util";
