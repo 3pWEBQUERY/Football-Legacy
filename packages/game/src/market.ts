@@ -1,10 +1,10 @@
-/** KI-Transfermarkt: Vereine handeln untereinander und bieten für deine Spieler. */
+/** KI-Transfermarkt: Vereine handeln untereinander (Angebote für deine Spieler: negotiations/sales). */
 import {
   Rng, askingPrice, evaluateFee, evaluateTerms, formatMoney, roundMoney, squadNeed, squadRanks, wageDemand, type Player,
 } from "@fl/sim";
 import type { Db } from "./db";
 import { query } from "./db";
-import { addInbox } from "./repo";
+import { addFinance, addInbox } from "./repo";
 import { type WorldState, movePlayer, squadOf } from "./world-state";
 
 export interface MarketNews {
@@ -75,7 +75,21 @@ export async function aiMarketRound(db: Db, w: WorldState, rng: Rng): Promise<Ma
       sellerClub.balance += fee;
       sellerClub.transfer_budget += Math.round(fee * 0.6);
       w.dirtyClubs.add(sellerClub.id);
+      // Weiterverkaufsbeteiligung an einen früheren Verein (z. B. deinen)
+      const former = target.sellOn ? w.clubs.get(target.sellOn.clubId) : undefined;
+      if (target.sellOn && former && fee > 0) {
+        const share = Math.round((fee * target.sellOn.pct) / 100);
+        sellerClub.balance -= share;
+        former.balance += share;
+        w.dirtyClubs.add(former.id);
+        if (former.id === userClubId) {
+          await addFinance(db, w.career.id, former.id, w.career.season, w.career.week, [{ kind: "transfer_in", amount: share, label: `Weiterverkaufsbeteiligung ${target.firstName} ${target.lastName}` }]);
+          await addInbox(db, w.career.id, w.career.season, w.career.week, "transfer", `Weiterverkauf: ${formatMoney(share)} für ${target.firstName} ${target.lastName}`,
+            `${sellerClub.name} hat ${target.firstName} ${target.lastName} für ${formatMoney(fee)} an ${club.name} verkauft. Deine Beteiligung von ${target.sellOn.pct} % bringt ${formatMoney(share)}.`);
+        }
+      }
     }
+    target.sellOn = null;
     club.balance -= fee;
     club.transfer_budget -= fee;
     w.dirtyClubs.add(club.id);
@@ -100,40 +114,4 @@ export async function aiMarketRound(db: Db, w: WorldState, rng: Rng): Promise<Ma
     }
   }
   return news;
-}
-
-/** KI-Vereine bieten für Spieler des Nutzers. */
-export async function aiBidsForUser(db: Db, w: WorldState, rng: Rng) {
-  const userClubId = w.career.club_id;
-  if (!userClubId) return;
-  const squad = squadOf(w, userClubId);
-  const pending = await query<{ n: number }>(
-    db, "select count(*)::int as n from transfers where career_id = $1 and kind = 'offer_in' and status = 'pending'", [w.career.id],
-  );
-  if ((pending[0]?.n ?? 0) >= 2) return;
-  const listedBoost = squad.some((p) => p.listed) ? 0.45 : 0;
-  if (!rng.chance(0.18 + listedBoost)) return;
-  const pool = squad.filter((p) => !p.loan && (p.listed || rng.chance(0.25)));
-  if (!pool.length) return;
-  const target = pool[rng.weighted(pool.map((p) => (p.listed ? 6 : 1) * Math.sqrt(p.value)))];
-  const userClub = w.clubs.get(userClubId)!;
-  const bidders = [...w.clubs.values()].filter(
-    (c) => c.players_generated && c.id !== userClubId && c.transfer_budget > target.value * 0.8 && Math.abs(c.rating - target.rating) <= 10,
-  );
-  if (!bidders.length) return;
-  const bidder = rng.pick(bidders);
-  const fee = roundMoney(Math.min(bidder.transfer_budget, target.value * rng.range(0.8, 1.35)));
-  const name = `${target.firstName} ${target.lastName}`;
-  const rows = await query<{ id: number }>(
-    db,
-    `insert into transfers(career_id, player_id, player_name, from_club, to_club, fee, wage, years, kind, status, season, week, message)
-     values ($1,$2,$3,$4,$5,$6,0,0,'offer_in','pending',$7,$8,$9) returning id`,
-    [w.career.id, target.id, name, userClubId, bidder.id, fee, w.career.season, w.career.week, `Angebot von ${bidder.name}`],
-  );
-  await addInbox(
-    db, w.career.id, w.career.season, w.career.week, "transfer", `Angebot für ${name}`,
-    `${bidder.name} bietet ${formatMoney(fee)} für ${name} (Marktwert ${formatMoney(target.value)}).\n` +
-      `Dein Kontostand: ${formatMoney(userClub.balance)}. Du kannst annehmen, ablehnen oder eine höhere Ablöse fordern.`,
-    { type: "transfer_offer", transferId: rows[0].id },
-  );
 }

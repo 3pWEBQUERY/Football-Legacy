@@ -111,6 +111,7 @@ export function careerSummary(career: CareerRow) {
 }
 
 
+/** Laufende Beobachtungen zeigen nur das Datum des Berichts, keine Werte. */
 export function scoutReport(career: CareerRow, r: unknown) {
   const rep = r as { pending?: boolean; due?: number } | null | undefined;
   if (!rep) return null;

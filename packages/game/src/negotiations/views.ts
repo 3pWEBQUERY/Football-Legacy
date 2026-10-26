@@ -27,14 +27,22 @@ async function budgetOf(db: Db, career: CareerRow) {
 async function negPayload(db: Db, career: CareerRow, n: NegRow, full = false) {
   const p = await getPlayer(db, career.id, n.player_id);
   const seller = n.from_club ? await getClub(db, career.id, n.from_club) : null;
+  const buyer = n.kind === "sell" ? await getClub(db, career.id, n.to_club) : null;
+  const waiting = (n.stage === "club" && n.status === "pending") || (n.kind === "sell" && ["pending", "player", "offered"].includes(n.status));
   const base = {
-    id: n.id, playerId: n.player_id, player: n.player_name, position: p?.position, age: p?.age, stage: n.stage, status: n.status,
-    from: seller ? { id: seller.id, name: seller.name, colors: seller.colors } : null, offer: n.offer, counter: n.counter, demand: n.demand, terms: n.terms,
+    id: n.id, kind: n.kind, playerId: n.player_id, player: n.player_name, position: p?.position, age: p?.age, stage: n.stage, status: n.status,
+    from: seller ? { id: seller.id, name: seller.name, colors: seller.colors } : null,
+    to: buyer ? { id: buyer.id, name: buyer.name, colors: buyer.colors, reputation: buyer.reputation } : null,
+    offer: n.offer, counter: n.counter, demand: n.demand, terms: n.terms,
     patience: n.patience, message: n.message, day: n.day, season: n.season,
-    waitingDays: n.stage === "club" && n.status === "pending" ? Math.max(0, (n.respond_day ?? career.day) - career.day) : 0,
+    waitingDays: waiting ? Math.max(0, (n.respond_day ?? career.day) - career.day) : 0,
+    clause: n.kind === "sell" && n.log.some((l) => l.text.startsWith("Ausstiegsklausel")),
   };
   if (!full) return base;
-  return { ...base, log: n.log, roles: SQUAD_STATUS_LABEL, value: p?.value ?? 0, currentWage: p?.contract?.wage ?? 0, budget: await budgetOf(db, career), attempts: n.offer?.attempts ?? 1 };
+  return {
+    ...base, log: n.log, roles: SQUAD_STATUS_LABEL, value: p?.value ?? 0, currentWage: p?.contract?.wage ?? 0, budget: await budgetOf(db, career),
+    attempts: n.offer?.attempts ?? 1, releaseClause: p?.contract?.releaseClause ?? null, contractUntil: p?.contract?.untilSeason ?? null,
+  };
 }
 
 export async function playerNegotiation(db: Db, career: CareerRow, playerId: number) {
@@ -56,7 +64,9 @@ export async function transferHub(careerId: string, accountId: string) {
   const club = (await getClub(db, career.id, career.club_id))!;
   const squad = await getPlayers(db, career.id, [club.id]);
   const w = windowFor(career);
-  const negs = await query<NegRow>(db, "select * from negotiations where career_id = $1 and (stage = any($2::text[]) or (season = $3 and day > $4)) order by id desc limit 30", [career.id, ACTIVE, career.season, career.day - 30]);
+  const all = await query<NegRow>(db, "select * from negotiations where career_id = $1 and (stage = any($2::text[]) or (season = $3 and day > $4)) order by id desc limit 40", [career.id, ACTIVE, career.season, career.day - 30]);
+  const negs = all.filter((n) => n.kind !== "sell");
+  const sales = all.filter((n) => n.kind === "sell");
   const incoming = await query<{ id: number; player_id: number; player_name: string; to_club: number; fee: number; status: string; club_name: string; colors: unknown }>(db,
     `select t.id, t.player_id, t.player_name, t.to_club, t.fee, t.status, c.name as club_name, c.colors from transfers t join clubs c on c.id = t.to_club
       where t.career_id = $1 and t.kind = 'offer_in' and t.status = 'pending' order by t.id desc`, [career.id]);
@@ -73,6 +83,8 @@ export async function transferHub(careerId: string, accountId: string) {
     window: { ...w, daysLeft: w.open && w.closes ? Math.max(0, w.closes - career.day) : null, daysToOpen: !w.open && w.opens ? Math.max(0, w.opens - career.day) : null },
     budget: { transfer: club.transfer_budget, wage: club.wage_budget, wageBill: bill, balance: club.balance, ratio: BUDGET_RATIO, minWage: Math.round(bill * 0.9), maxWage: club.wage_budget + Math.floor(club.transfer_budget / BUDGET_RATIO) },
     negotiations: await Promise.all(negs.map((n) => negPayload(db, career, n))),
+    sales: await Promise.all(sales.map((n) => negPayload(db, career, n))),
+    deadline: w.open && w.closes !== null && w.closes <= career.day,
     incoming: incoming.map((o) => ({ id: o.id, playerId: o.player_id, player: o.player_name, club: o.club_name, colors: o.colors, fee: o.fee })),
     shortlist: shortlist.map((r) => ({ id: r.data.id, name: `${r.data.firstName} ${r.data.lastName}`, position: r.data.position, age: r.data.age, value: r.data.value, club: r.club_name, colors: r.colors, contractUntil: r.data.contract?.untilSeason ?? null })),
     world: world.map((t) => ({ ...t })),

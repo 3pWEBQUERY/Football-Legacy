@@ -6,6 +6,9 @@ import { addArticle } from "../media";
 import { addInbox, getPlayersByIds, type CareerRow } from "../repo";
 import { SQUAD_SIZE, autoSquad, createQualification, fmtDay, getNational, groupTable, insertMatch, nation, nationPool, playUserMatch, qualMatches, quickNational, reportUserMatch, saveNational, scheduleFriendlies, scoreText, storeResult, tournamentName, windowsOf, winnerOf, type NationalMatch, type NationalState } from "./core";
 
+/* ---------- Tageslauf ---------- */
+
+/** Täglich: Erinnerung, Nominierung, Spiele und Auswertung der Länderspielpausen. */
 export async function nationalDay(db: pg.PoolClient, career: CareerRow, clubSquad: Player[]): Promise<string[]> {
   const st = await getNational(db, career.id);
   if (!st) return [];

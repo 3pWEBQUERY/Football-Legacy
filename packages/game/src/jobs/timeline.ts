@@ -6,6 +6,7 @@ import { addArticle } from "../media";
 import { addInbox, getLeagues, type CareerRow } from "../repo";
 import { OFFER_DAYS, absDay, addOffer, assess, expectationText, fill, getMarket, liteClubs, makeOffer, pruneOffers, resolveApplications, saveMarket, standings, vacate, type JobMarket } from "./core";
 
+/** Täglich: Bewerbungen beantworten, freie Stellen neu besetzen, Angebote verfallen lassen. */
 export async function jobsDaily(db: pg.PoolClient, career: CareerRow): Promise<string[]> {
   const m = await getMarket(db, career.id);
   const rng = new Rng(seedFor(career.seed, "jobs-day", career.season, career.day));

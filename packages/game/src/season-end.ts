@@ -185,6 +185,8 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   const newSeason = career.season + 1;
   const retired: string[] = [];
   const loansEnded: string[] = [];
+  const loansBought: string[] = [];
+  const loanFinance: { kind: string; amount: number; label: string }[] = [];
   const released: string[] = [];
   for (const p of [...w.players.values()]) {
     const club = p.clubId !== null ? w.clubs.get(p.clubId) : undefined;
@@ -208,10 +210,25 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
     }
     // Leihen enden mit der Saison: zurück zum Stammverein
     if (p.loan && p.loan.untilSeason <= career.season) {
-      const parentId = p.loan.parentClubId;
-      if (p.clubId === career.club_id || parentId === career.club_id) loansEnded.push(`${p.firstName} ${p.lastName}`);
-      p.loan = null;
-      movePlayer(w, p, w.clubs.has(parentId) ? parentId : null);
+      const { parentClubId: parentId, optionFee, obligation } = p.loan;
+      const holder = club;
+      const parent = w.clubs.get(parentId);
+      // Kaufpflicht wird vollzogen; eine Kaufoption ziehen KI-Vereine oft, du entscheidest selbst während der Leihe
+      const buys = !!optionFee && !!holder && (obligation || (holder.id !== career.club_id && rng.chance(0.5)));
+      if (buys && holder && optionFee) {
+        holder.balance -= optionFee;
+        holder.transfer_budget = Math.max(0, holder.transfer_budget - optionFee);
+        w.dirtyClubs.add(holder.id);
+        if (parent) { parent.balance += optionFee; w.dirtyClubs.add(parent.id); }
+        if (holder.id === career.club_id) loanFinance.push({ kind: "transfer_out", amount: -optionFee, label: `Kaufpflicht ${p.firstName} ${p.lastName}` });
+        if (parentId === career.club_id) loanFinance.push({ kind: "transfer_in", amount: optionFee, label: `Kaufoption gezogen: ${p.firstName} ${p.lastName}` });
+        if (holder.id === career.club_id || parentId === career.club_id) loansBought.push(`${p.firstName} ${p.lastName} wechselt fest zu ${holder.name} (${formatMoney(optionFee)})`);
+        p.loan = null;
+      } else {
+        if (p.clubId === career.club_id || parentId === career.club_id) loansEnded.push(`${p.firstName} ${p.lastName}`);
+        p.loan = null;
+        movePlayer(w, p, w.clubs.has(parentId) ? parentId : null);
+      }
     }
     if (p.contract && p.contract.untilSeason < newSeason && p.clubId !== null) {
       if (p.clubId === career.club_id) {
@@ -310,6 +327,11 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
       review.awards.map((a) => `${a.title}: ${a.entry ? `${a.entry.name} (${a.entry.clubName}, ${a.entry.value})` : "–"}`).join("\n") +
         (own.length ? `\n\nGlückwunsch: ${own.length} Auszeichnung(en) gehen an deine Spieler.` : "") +
         "\n\nDen ganzen Rückblick findest du unter Karriere → Saisonrückblick.");
+  }
+  if (loanFinance.length && career.club_id) await addFinance(db, career.id, career.club_id, career.season, career.week, loanFinance);
+  if (loansBought.length) {
+    await addInbox(db, career.id, newSeason, 0, "transfer", "Kaufoptionen und Kaufpflichten",
+      `Zum Saisonende wurden diese Leihen in feste Transfers umgewandelt:\n${loansBought.map((n) => `• ${n}`).join("\n")}`);
   }
   if (loansEnded.length) {
     await addInbox(db, career.id, newSeason, 0, "transfer", "Leihgeschäfte beendet",

@@ -10,7 +10,7 @@ import {
 import type pg from "pg";
 import { windowFor } from "./window";
 import { query } from "./db";
-import { aiBidsForUser, aiMarketRound } from "./market";
+import { aiMarketRound } from "./market";
 import {
   type CareerRow, type FixtureRow, addFinance, addInbox, deletePlayers, insertPlayers, saveCareer, saveClubs,
   saveFixtureResults, savePlayers,
@@ -27,7 +27,7 @@ import { academyWeek } from "./academy";
 import { facilitiesOf } from "./facilities";
 import { endSeason, type SeasonSummary } from "./season-end";
 import { jobsSeasonEnd, jobsWeek } from "./jobs";
-import { negotiationsDaily, paymentsSeasonStart } from "./negotiations";
+import { aiSaleOffers, negotiationsDaily, paymentsSeasonStart, transferDeadline } from "./negotiations";
 import { matchAnalysis, milestones, newsWeekly, send, staffSender } from "./news";
 import { familiarityTick, userFamiliarity } from "./tactics";
 import { type WorldState, loadWorld, squadOf } from "./world-state";
@@ -319,7 +319,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     const marketNews = await aiMarketRound(db, w, rng);
     news.push(...marketNews.map((n) => n.text));
     await transferArticles(db, career, marketNews.filter((n) => n.important).map((n) => ({ text: n.text })));
-    await aiBidsForUser(db, w, rng);
+    if (userClubId) await aiSaleOffers(db, career, rng);
   }
   // Abgelaufene Angebote verfallen
   await query(
@@ -364,7 +364,10 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   if (userClubId && !midweek) await leagueRoundup(db, career, w.clubs.get(userClubId)!.league_id, week);
   await announceNotes(db, career, notes);
 
-  if (userClubId) await negotiationsDaily(db, career);
+  if (userClubId) {
+    await negotiationsDaily(db, career);
+    await transferDeadline(db, career);
+  }
   if (!midweek) await jobsWeek(db, career);
   if (!midweek && userClubId) await newsWeekly(db, career, week);
   if (userFixture) await familiarityTick(db, career, "match");

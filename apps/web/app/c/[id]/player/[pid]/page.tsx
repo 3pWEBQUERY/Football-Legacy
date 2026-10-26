@@ -12,6 +12,7 @@ import { PositionMap } from "@/components/PositionMap";
 import { EXPECTED_SHARE, SQUAD_STATUS, SQUAD_STATUS_LABEL, type SquadStatus } from "@fl/sim";
 import { useConfirm } from "@/components/Dialog";
 import { NegotiationModal } from "@/components/Negotiation";
+import { SaleModal } from "@/components/SaleNegotiation";
 
 const POS_LONG: Record<string, string> = { GK: "Torwart", DR: "Rechter Verteidiger", DC: "Innenverteidiger", DL: "Linker Verteidiger", DM: "Defensives Mittelfeld", MR: "Rechtes Mittelfeld", MC: "Zentrales Mittelfeld", ML: "Linkes Mittelfeld", AMR: "Rechtsaussen", AMC: "Offensives Mittelfeld", AML: "Linksaussen", ST: "Stürmer" };
 
@@ -24,8 +25,9 @@ export default function PlayerPage() {
   const showNotes = useNotes();
   const { data, error, reload } = useApi<any>(`careers/${id}/players/${pid}`);
   const [negOpen, setNegOpen] = useState(false);
-  const [renew, setRenew] = useState<{ wage: number; years: number; demand: number } | null>(null);
-  const [loan, setLoan] = useState<{ share: number; msg: any | null } | null>(null);
+  const [renewId, setRenewId] = useState<number | null>(null);
+  const [saleId, setSaleId] = useState<number | null>(null);
+  const [loan, setLoan] = useState<{ share: number; option: "none" | "option" | "obligation"; fee: number; msg: any | null } | null>(null);
   const [talk, setTalk] = useState<{ result: any | null } | null>(null);
   const [busy, setBusy] = useState(false);
   if (error) return <ErrorBox message={error} />;
@@ -49,27 +51,20 @@ export default function PlayerPage() {
   }
 
   async function openRenew() {
-    const d = await action("demand");
-    if (d) setRenew({ wage: d.wage, years: d.years, demand: d.wage });
-  }
-
-  async function sendRenew() {
-    if (!renew) return;
-    const r = await action("renew", { wage: renew.wage, years: renew.years });
-    if (!r) return;
-    if (r.status === "completed") {
-      toast(r.message, "success");
-      setRenew(null);
-      reload();
-    } else {
-      toast(r.message, "info");
-      if (r.counterWage) setRenew({ ...renew, wage: r.counterWage });
+    setBusy(true);
+    try {
+      const r = await api<any>(`careers/${id}/negotiations/renew`, { body: { playerId: p.id } });
+      setRenewId(r.id);
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setBusy(false);
     }
   }
 
   async function sendLoan() {
     if (!loan) return;
-    const r = await action("loan_in", { wageShare: loan.share / 100 });
+    const r = await action("loan_in", { wageShare: loan.share / 100, ...(loan.option !== "none" ? { optionFee: loan.fee, obligation: loan.option === "obligation" } : {}) });
     if (!r) return;
     if (r.status === "completed") {
       toast(r.message, "success");
@@ -77,7 +72,7 @@ export default function PlayerPage() {
       reload();
       refreshAll();
     } else {
-      setLoan({ share: r.minShare ? Math.round(r.minShare * 100) : loan.share, msg: r });
+      setLoan({ ...loan, share: r.minShare ? Math.round(r.minShare * 100) : loan.share, fee: r.minOptionFee ?? loan.fee, msg: r });
     }
   }
 
@@ -146,13 +141,23 @@ export default function PlayerPage() {
         </div>
         <div className="row-wrap" style={{ padding: "10px 16px", borderTop: "1px solid var(--line)", background: "var(--panel-2)" }}>
           {data.own && p.loan ? (
-            <span className="dim small">Leihspieler von <b>{data.loanParent}</b> – kehrt zum Saisonende zurück. Du zahlst {Math.round(p.loan.wageShare * 100)} % des Gehalts ({money((p.contract?.wage ?? 0) * p.loan.wageShare)} pro Woche).</span>
+            <>
+              <span className="dim small">Leihspieler von <b>{data.loanParent}</b> – {p.loan.obligation ? <>Kaufpflicht über <b>{money(p.loan.optionFee)}</b> zum Saisonende</> : "kehrt zum Saisonende zurück"}. Du zahlst {Math.round(p.loan.wageShare * 100)} % des Gehalts ({money((p.contract?.wage ?? 0) * p.loan.wageShare)} pro Woche).</span>
+              {p.loan.optionFee && !p.loan.obligation && (
+                <button className="btn btn-primary ml-auto" disabled={busy} onClick={async () => {
+                  if (!(await ask({ title: `Kaufoption für ${p.name} ziehen?`, message: `${money(p.loan.optionFee)} gehen an ${data.loanParent}. Der Spieler gehört danach fest zu deinem Verein.`, confirmLabel: "Kaufoption ziehen" }))) return;
+                  const r = await action("loan_option");
+                  if (r) { toast(r.message, "success"); reload(); refreshAll(); }
+                }}><Icon name="contract" size={15} /> Kaufoption ziehen ({money(p.loan.optionFee)})</button>
+              )}
+            </>
           ) : data.loanedOutByUser ? (
-            <span className="dim small">An <b>{data.club?.name}</b> verliehen – kehrt zum Saisonende zurück. {data.club?.name} zahlt {Math.round(p.loan.wageShare * 100)} % des Gehalts.</span>
+            <span className="dim small">An <b>{data.club?.name}</b> verliehen – {p.loan.optionFee ? <>{p.loan.obligation ? "Kaufpflicht" : "Kaufoption"} über <b>{money(p.loan.optionFee)}</b>, sonst Rückkehr zum Saisonende</> : "kehrt zum Saisonende zurück"}. {data.club?.name} zahlt {Math.round(p.loan.wageShare * 100)} % des Gehalts.</span>
           ) : data.own ? (
             <>
               <button className="btn" disabled={busy} onClick={() => setTalk({ result: null })}><Icon name="mail" size={15} /> Gespräch</button>
-              <button className="btn" disabled={busy} onClick={openRenew}><Icon name="contract" size={15} /> Vertrag verlängern</button>
+              <button className="btn" disabled={busy} onClick={() => (activeNeg?.kind === "renew" ? setRenewId(activeNeg.id) : openRenew())}><Icon name="contract" size={15} /> Vertrag verlängern</button>
+              {activeNeg?.kind === "sell" && <button className="btn btn-primary" onClick={() => setSaleId(activeNeg.id)}><Icon name="transfer" size={15} /> Angebot von {activeNeg.to?.name}</button>}
               <button className="btn" disabled={busy} onClick={async () => { const r = await action("list"); if (r) { toast(r.listed ? "Auf die Transferliste gesetzt" : "Von der Transferliste genommen"); reload(); } }}>
                 <Icon name="transfer" size={15} /> {p.listed ? "Von Transferliste nehmen" : "Auf Transferliste"}
               </button>
@@ -173,9 +178,9 @@ export default function PlayerPage() {
                 <Icon name={activeNeg ? "transfer" : p.clubId === null ? "contract" : "transfer"} size={15} /> {activeNeg ? "Zur Verhandlung" : p.clubId === null ? "Vertrag anbieten" : "Angebot abgeben"}
               </button>
               {p.clubId !== null && !p.loan && (
-                <button className="btn" disabled={busy || !data.window.open} onClick={() => setLoan({ share: 75, msg: null })} title={!data.window.open ? "Transferfenster geschlossen" : "Bis Saisonende ausleihen"}>Ausleihen</button>
+                <button className="btn" disabled={busy || !data.window.open} onClick={() => setLoan({ share: 75, option: "none", fee: Math.round(((data.askingPrice ?? p.value) * 1.05) / 50_000) * 50_000, msg: null })} title={!data.window.open ? "Transferfenster geschlossen" : "Bis Saisonende ausleihen"}>Ausleihen</button>
               )}
-              {data.askingPrice && <span className="faint small ml-auto">Ablöseforderung ca. <b style={{ color: "var(--text)" }}>{money(data.askingPrice)}</b></span>}
+              {data.askingPrice && <span className="faint small ml-auto">Ablöseforderung ca. <b style={{ color: "var(--text)" }}>{money(data.askingPrice)}</b>{p.contract?.releaseClause ? <> · Ausstiegsklausel <b style={{ color: "var(--pos)" }}>{money(p.contract.releaseClause)}</b></> : null}</span>}
             </>
           )}
         </div>
@@ -250,7 +255,7 @@ export default function PlayerPage() {
 
       {negOpen && (
         <NegotiationModal careerId={id} negotiationId={activeNeg?.id ?? null} onClose={() => { setNegOpen(false); reload(); }} onChanged={reload}
-          target={{ id: p.id, name: p.name, position: p.position, age: p.age, free: p.clubId === null, club: data.club ? { name: data.club.name, colors: data.club.colors } : null, askingPrice: data.askingPrice, value: p.value }} />
+          target={{ id: p.id, name: p.name, position: p.position, age: p.age, free: p.clubId === null, club: data.club ? { name: data.club.name, colors: data.club.colors } : null, askingPrice: data.askingPrice, value: p.value, releaseClause: p.contract?.releaseClause ?? null }} />
       )}
 
       <Modal open={!!talk} onClose={() => setTalk(null)}>
@@ -292,11 +297,26 @@ export default function PlayerPage() {
         {loan && (
           <div className="stack">
             <h2>Leihanfrage: {p.name}</h2>
-            <p className="dim">Leihe bis zum Saisonende ohne Ablöse. {data.club?.name} gibt in der Regel nur Ergänzungsspieler und junge Spieler ab.</p>
+            <p className="dim">Leihe bis zum Saisonende ohne Leihgebühr. {data.club?.name} gibt ohne Kaufpflicht in der Regel nur Ergänzungsspieler und junge Spieler ab.</p>
             <div className="field">
               <label>Dein Gehaltsanteil: {loan.share} % ({money((p.contract?.wage ?? 0) * loan.share / 100)} pro Woche)</label>
               <input type="range" min={0} max={100} step={5} value={loan.share} onChange={(e) => setLoan({ ...loan, share: Number(e.target.value) })} />
             </div>
+            <div className="field">
+              <label>Kaufoption</label>
+              <div className="seg" role="radiogroup" aria-label="Kaufoption">
+                {([["none", "Keine"], ["option", "Kaufoption"], ["obligation", "Kaufpflicht"]] as const).map(([v, l]) => (
+                  <button key={v} type="button" role="radio" aria-checked={loan.option === v} className={loan.option === v ? "active" : ""} onClick={() => setLoan({ ...loan, option: v, msg: null })}>{l}</button>
+                ))}
+              </div>
+              <small className="faint">{loan.option === "none" ? "Der Spieler kehrt zum Saisonende zurück." : loan.option === "option" ? "Du kannst den Spieler während der Leihe jederzeit fest verpflichten." : "Der Kauf erfolgt zum Saisonende automatisch – dafür gibt der Verein auch Stammspieler ab und verlangt weniger Gehaltsanteil."}</small>
+            </div>
+            {loan.option !== "none" && (
+              <div className="field">
+                <label>Ablöse bei Kauf: {money(loan.fee)}</label>
+                <input className="input" type="number" step={50_000} value={loan.fee} onChange={(e) => setLoan({ ...loan, fee: Number(e.target.value) || 0 })} aria-label="Ablöse für die Kaufoption" />
+              </div>
+            )}
             {loan.msg && <div className={`badge ${loan.msg.status === "rejected" ? "badge-danger" : "badge-warn"}`} style={{ whiteSpace: "normal", padding: "8px 10px" }}>{loan.msg.message}</div>}
             <div className="row" style={{ justifyContent: "flex-end" }}>
               <button className="btn btn-ghost" onClick={() => setLoan(null)}>Abbrechen</button>
@@ -306,26 +326,11 @@ export default function PlayerPage() {
         )}
       </Modal>
 
-      <Modal open={!!renew} onClose={() => setRenew(null)}>
-        {renew && (
-          <div className="stack">
-            <h2>Vertragsverlängerung: {p.name}</h2>
-            <p className="dim">Forderung des Spielers: <b>{money(renew.demand)}</b> pro Woche. Aktuell: {money(p.contract?.wage)}.</p>
-            <div className="field">
-              <label>Gehalt pro Woche (€)</label>
-              <input className="input" type="number" step={100} value={renew.wage} onChange={(e) => setRenew({ ...renew, wage: Number(e.target.value) })} />
-            </div>
-            <div className="field">
-              <label>Verlängern um {renew.years} {renew.years === 1 ? "Jahr" : "Jahre"} (bis {season + renew.years})</label>
-              <input type="range" min={1} max={5} value={renew.years} onChange={(e) => setRenew({ ...renew, years: Number(e.target.value) })} />
-            </div>
-            <div className="row" style={{ justifyContent: "flex-end" }}>
-              <button className="btn btn-ghost" onClick={() => setRenew(null)}>Abbrechen</button>
-              <button className="btn btn-primary" disabled={busy} onClick={sendRenew}>Angebot machen</button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {renewId && (
+        <NegotiationModal careerId={id} negotiationId={renewId} onClose={() => { setRenewId(null); reload(); }} onChanged={reload}
+          target={{ id: p.id, name: p.name, position: p.position, age: p.age, free: false, renew: true, club: data.club ? { name: data.club.name, colors: data.club.colors } : null, value: p.value }} />
+      )}
+      {saleId && <SaleModal careerId={id} negotiationId={saleId} onClose={() => { setSaleId(null); reload(); }} onChanged={reload} />}
     </>
   );
 }

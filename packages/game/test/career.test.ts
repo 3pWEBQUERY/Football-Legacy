@@ -10,6 +10,7 @@ import "./suites/verein";
 import "./suites/stellenmarkt";
 import "./suites/taktik-nachrichten";
 import "./suites/transfermarkt";
+import "./suites/verkauf";
 
 beforeAll(async () => {
   await pool().query("drop schema public cascade; create schema public;");

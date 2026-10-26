@@ -460,4 +460,11 @@ create table if not exists transfer_payments (
 create index if not exists transfer_payments_due on transfer_payments(career_id, due_season) where not paid;
 `,
   },
+  {
+    name: "018_negotiation_kinds.sql",
+    sql: `
+alter table negotiations add column if not exists kind text not null default 'buy';
+create index if not exists negotiations_active on negotiations(career_id, kind) where stage in ('club', 'contract');
+`,
+  },
 ];

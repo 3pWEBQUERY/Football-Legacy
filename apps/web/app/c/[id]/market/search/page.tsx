@@ -79,7 +79,7 @@ export default function MarketSearch() {
     try {
       const d = await api<any>(`careers/${id}/players/${p.id}`);
       const active = d.negotiation && ["club", "contract"].includes(d.negotiation.stage) ? d.negotiation.id : null;
-      setNeg({ id: active, target: { id: p.id, name: p.name, position: p.position, age: p.age, free: p.clubId === null, club: d.club ? { name: d.club.name, colors: d.club.colors } : null, askingPrice: d.askingPrice, value: p.value } });
+      setNeg({ id: active, target: { id: p.id, name: p.name, position: p.position, age: p.age, free: p.clubId === null, club: d.club ? { name: d.club.name, colors: d.club.colors } : null, askingPrice: d.askingPrice, value: p.value, releaseClause: p.contract?.releaseClause ?? null } });
     } catch {
       open(p);
     }

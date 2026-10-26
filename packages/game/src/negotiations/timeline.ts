@@ -1,13 +1,14 @@
 /** Transferverhandlungen: tägliche Antworten der Vereine, fällige Raten, Weiterverkauf, Budget. */
-import { Rng, evaluateFee, formatMoney, seedFor, wageBill, type Player } from "@fl/sim";
+import { formatMoney, wageBill } from "@fl/sim";
 import { withCareer } from "../career";
 import { query, type Db } from "../db";
 import { GameError } from "../errors";
 import { clubSender, send } from "../news";
-import { addFinance, getClub, getPlayer, getPlayers, saveClubs, type CareerRow, type ClubRow } from "../repo";
+import { addFinance, getClub, getPlayers, saveClubs, type CareerRow, type ClubRow } from "../repo";
 import { windowFor } from "../window";
-import { toContractStage } from "./actions";
-import { ACTIVE, describeOffer, log, nominalFor, offerValue, requireClub, saveNeg, sellerCtx, type NegRow } from "./core";
+import { answerClubOffer } from "./answer";
+import { ACTIVE, log, requireClub, saveNeg, type NegRow } from "./core";
+import { saleDaily } from "./sales";
 
 // ------------------------------------------------------------ Zeitablauf
 
@@ -18,7 +19,7 @@ export async function negotiationsDaily(db: Db, career: CareerRow) {
   if (!rows.length) return;
   const window = windowFor(career);
   for (const n of rows) {
-    if (n.from_club && !window.open) {
+    if (n.kind !== "renew" && n.from_club && !window.open) {
       n.stage = "expired";
       n.status = "expired";
       n.message = "Das Transferfenster hat geschlossen – die Verhandlung ist beendet.";
@@ -26,49 +27,10 @@ export async function negotiationsDaily(db: Db, career: CareerRow) {
       await saveNeg(db, n);
       continue;
     }
+    if (n.kind === "sell") { await saleDaily(db, career, n); continue; }
     if (n.stage !== "club" || n.status !== "pending") continue;
     if ((n.respond_season ?? 0) > career.season || ((n.respond_season ?? 0) === career.season && (n.respond_day ?? 0) > career.day)) continue;
-    const p = await getPlayer(db, career.id, n.player_id);
-    if (!p || p.clubId !== n.from_club) {
-      n.stage = "failed"; n.status = "rejected"; n.message = "Der Spieler ist nicht mehr verfügbar."; await saveNeg(db, n); continue;
-    }
-    const { ctx, club: seller } = await sellerCtx(db, career, p);
-    const o = n.offer!;
-    const rng = new Rng(seedFor(career.seed, "neg-answer", n.id, o.attempts ?? 1));
-    const verdict = evaluateFee(p, offerValue(p, o), ctx, rng);
-    const buyer = (await getClub(db, career.id, n.to_club))!;
-    let title: string;
-    let text: string;
-    if (verdict.kind === "accept") {
-      await toContractStage(db, career, n, buyer);
-      title = `${seller!.name} akzeptiert dein Angebot für ${n.player_name}`;
-      text = (n.stage as string) === "failed" ? n.message! : "Wir sind mit den Konditionen einverstanden. Sie dürfen mit dem Spieler und seinem Berater sprechen.";
-      log(n, career, "verein", "Angebot angenommen.");
-    } else if (verdict.kind === "counter" && (o.attempts ?? 1) < 4) {
-      const fee = nominalFor(p, verdict.fee, o);
-      n.counter = { ...o, fee };
-      n.status = "countered";
-      n.message = `${seller!.name} fordert ${describeOffer(n.counter)}.`;
-      title = `Gegenangebot von ${seller!.name}`;
-      text = `${verdict.message} Für ${n.player_name} verlangen wir ${describeOffer(n.counter)}.`;
-      log(n, career, "verein", `Gegenangebot: ${describeOffer(n.counter)}`);
-    } else {
-      n.status = "rejected";
-      if ((o.attempts ?? 1) >= 4 || verdict.message.includes("unverkäuflich")) n.stage = "failed";
-      n.message = verdict.kind === "reject" ? verdict.message : "Wir sehen keine Grundlage mehr für Gespräche.";
-      title = `${seller!.name} lehnt ab`;
-      text = `${n.message}${n.stage === "failed" ? " Die Gespräche sind beendet." : " Ein verbessertes Angebot wäre möglich."}`;
-      log(n, career, "verein", n.message);
-    }
-    await saveNeg(db, n);
-    await send(db, career, {
-      category: "transfer", title, sender: clubSender(seller!, "Sportdirektor"),
-      blocks: [
-        { t: "p", text },
-        { t: "kv", rows: [["Spieler", `${n.player_name} (${p.position}, ${p.age})`], ["Dein Angebot", describeOffer(o)], ...(n.counter && n.status === "countered" ? [["Forderung", describeOffer(n.counter)] as [string, string]] : [])] },
-      ],
-      priority: 2, kind: "negotiation", action: { type: "negotiation", negotiationId: n.id, playerId: p.id },
-    });
+    await answerClubOffer(db, career, n);
   }
 }
 
@@ -101,21 +63,6 @@ export async function paymentsSeasonStart(db: Db, career: CareerRow) {
       priority: 1, kind: "installments",
     });
   }
-}
-
-/** Beim Verkauf eines eigenen Spielers: Weiterverkaufsbeteiligung an den früheren Verein. */
-export async function paySellOn(db: Db, career: CareerRow, p: Player, fee: number, seller: ClubRow, buyer: ClubRow) {
-  if (!p.sellOn || p.sellOn.pct <= 0 || fee <= 0) return 0;
-  const share = Math.round((fee * p.sellOn.pct) / 100);
-  const former = p.sellOn.clubId === buyer.id ? buyer : await getClub(db, career.id, p.sellOn.clubId);
-  seller.balance -= share;
-  if (former) {
-    former.balance += share;
-    if (former !== buyer) await saveClubs(db, career.id, [former]);
-  }
-  await addFinance(db, career.id, seller.id, career.season, career.week, [{ kind: "transfer_out", amount: -share, label: `Weiterverkaufsbeteiligung (${p.sellOn.pct} %) an ${former?.name ?? "Ex-Verein"}` }]);
-  p.sellOn = null;
-  return share;
 }
 
 // ------------------------------------------------------------ Budget

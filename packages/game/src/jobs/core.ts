@@ -245,5 +245,3 @@ export function pruneOffers(career: CareerRow) {
   const now = absDay(career);
   career.job_offers = career.job_offers.filter((o) => (o.expiresDay ?? (o.expires + 1) * 1000) > now && o.clubId !== career.club_id);
 }
-
-/** Täglich: Bewerbungen beantworten, freie Stellen neu besetzen, Angebote verfallen lassen. */

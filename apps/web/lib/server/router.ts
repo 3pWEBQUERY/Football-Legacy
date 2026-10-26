@@ -151,9 +151,9 @@ route("POST", career("players/:pid"), async (c) => {
     case "shortlist": return game.toggleShortlist(c.params.id, acc(c), pid);
     case "list": return game.toggleTransferList(c.params.id, acc(c), pid);
     case "release": return game.releasePlayer(c.params.id, acc(c), pid);
-    case "demand": return game.contractDemand(c.params.id, acc(c), pid);
-    case "renew": return game.renewContract(c.params.id, acc(c), pid, num(c.body.wage), num(c.body.years));
-    case "loan_in": return game.loanIn(c.params.id, acc(c), pid, Number(c.body.wageShare ?? 1));
+    case "loan_in": return game.loanIn(c.params.id, acc(c), pid, Number(c.body.wageShare ?? 1),
+      c.body.optionFee ? { fee: num(c.body.optionFee), obligation: !!c.body.obligation } : null);
+    case "loan_option": return game.exerciseLoanOption(c.params.id, acc(c), pid);
     case "loan_out": return game.loanOut(c.params.id, acc(c), pid);
     case "talk": return game.talkToPlayer(c.params.id, acc(c), pid, String(c.body.topic) as never);
     case "individual": return game.setIndividualTraining(c.params.id, acc(c), pid, (c.body.focus as string) || null, (c.body.position as string) || null);
@@ -201,6 +201,7 @@ route("GET", career("transfers"), async (c) => game.transferHub(c.params.id, acc
 route("POST", career("transfers/budget"), async (c) => game.setWageBudget(c.params.id, acc(c), num(c.body.wageBudget)));
 const clubOffer = (b: Record<string, unknown>) => ({ fee: num(b.fee ?? 0), upfrontPct: num(b.upfrontPct ?? 100), installmentYears: num(b.installmentYears ?? 0), sellOn: num(b.sellOn ?? 0) });
 route("POST", career("negotiations"), async (c) => game.startNegotiation(c.params.id, acc(c), { playerId: num(c.body.playerId), offer: clubOffer(c.body) }));
+route("POST", career("negotiations/renew"), async (c) => game.startRenewal(c.params.id, acc(c), num(c.body.playerId)));
 route("GET", career("negotiations/:nid"), async (c) => game.negotiationView(c.params.id, acc(c), num(c.params.nid)));
 route("POST", career("negotiations/:nid"), async (c) => {
   const nid = num(c.params.nid);
@@ -209,6 +210,9 @@ route("POST", career("negotiations/:nid"), async (c) => {
     case "accept": return game.acceptClubCounter(c.params.id, acc(c), nid);
     case "contract": return game.offerContract(c.params.id, acc(c), nid, c.body as never);
     case "withdraw": return game.withdrawNegotiation(c.params.id, acc(c), nid);
+    case "sale_accept": return game.respondSale(c.params.id, acc(c), nid, "accept");
+    case "sale_reject": return game.respondSale(c.params.id, acc(c), nid, "reject");
+    case "sale_counter": return game.respondSale(c.params.id, acc(c), nid, "counter", clubOffer(c.body));
     default: throw new game.GameError("Unbekannte Aktion");
   }
 });

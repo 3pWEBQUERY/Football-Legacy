@@ -284,7 +284,14 @@ describe("Karriere", () => {
     const back = await pool().query("select id, club_id, data->'loan' as loan from players where career_id = $1 and id = any($2::int[])", [shared.careerId, [shared.loans.inId, shared.loans.outId].filter(Boolean)]);
     for (const row of back.rows) expect(row.loan).toBeNull();
     expect(back.rows.find((r) => r.id === shared.loans.inId)?.club_id).toBe(shared.loans.parentId);
-    if (shared.loans.outId) expect(back.rows.find((r) => r.id === shared.loans.outId)?.club_id).toBe(d.career.clubId);
+    if (shared.loans.outId) {
+      // Zurück beim eigenen Verein – oder der Leihverein hat seine Kaufoption gezogen (dann gibt es Geld)
+      const out = back.rows.find((r) => r.id === shared.loans.outId)!;
+      if (out.club_id !== d.career.clubId) {
+        const fin = await pool().query("select 1 from finance_log where career_id = $1 and club_id = $2 and label like 'Kaufoption gezogen%'", [shared.careerId, d.career.clubId]);
+        expect(fin.rows.length).toBe(1);
+      }
+    }
     // Das Versprechen wurde ausgewertet (gehalten oder gebrochen)
     const pm = await pool().query("select data->'promise' as promise from players where career_id = $1 and id = $2", [shared.careerId, shared.promised]);
     expect(pm.rows[0]?.promise ?? null).toBeNull();

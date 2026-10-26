@@ -31,7 +31,6 @@ export async function squadView(careerId: string, accountId: string) {
   };
 }
 
-/** Laufende Beobachtungen zeigen nur das Datum des Berichts, keine Werte. */
 
 export async function tacticView(careerId: string, accountId: string) {
   const career = await readCareer(careerId, accountId);
@@ -106,7 +105,7 @@ export async function playerDetail(careerId: string, accountId: string, playerId
     budget: userClub?.transfer_budget ?? 0,
     loanParent: p.loan ? (await clubNames(career.id, [p.loan.parentClubId])).get(p.loan.parentClubId) ?? null : null,
     loanedOutByUser: !!p.loan && p.loan.parentClubId === career.club_id,
-    negotiation: career.club_id && p.clubId !== career.club_id ? await playerNegotiation(pool(), career, p.id) : null,
+    negotiation: career.club_id ? await playerNegotiation(pool(), career, p.id) : null,
   };
 }
 

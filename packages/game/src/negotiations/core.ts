@@ -2,13 +2,16 @@
 import { SQUAD_STATUS_LABEL, formatMoney, roundMoney, squadRanks, wageDemand, type Player, type SquadStatus } from "@fl/sim";
 import { one, query, type Db } from "../db";
 import { GameError } from "../errors";
-import { getClub, getPlayers, type CareerRow, type ClubRow } from "../repo";
+import { addFinance, getClub, getPlayer, getPlayers, saveClubs, type CareerRow, type ClubRow } from "../repo";
+import { windowFor } from "../window";
 
 export interface ClubOffer { fee: number; upfrontPct: number; installmentYears: number; sellOn: number }
 export interface ContractTerms { wage: number; years: number; signingBonus: number; releaseClause: number | null; role: SquadStatus; agentFee: number }
 interface LogEntry { day: number; season: number; who: "du" | "verein" | "berater"; text: string }
+/** buy: eigener Einkauf · sell: Angebot für einen eigenen Spieler · renew: Vertragsverlängerung */
+export type NegKind = "buy" | "sell" | "renew";
 export interface NegRow {
-  id: number; career_id: string; player_id: number; player_name: string; from_club: number | null; to_club: number;
+  id: number; career_id: string; kind: NegKind; player_id: number; player_name: string; from_club: number | null; to_club: number;
   stage: "club" | "contract" | "done" | "failed" | "withdrawn" | "expired"; status: string;
   offer: (ClubOffer & { attempts?: number }) | null; counter: ClubOffer | null; demand: ContractTerms | null; terms: ContractTerms | null;
   patience: number; respond_season: number | null; respond_day: number | null; season: number; day: number; message: string | null; log: LogEntry[];
@@ -38,6 +41,40 @@ export async function saveNeg(db: Db, n: NegRow) {
       n.respond_season, n.respond_day, n.message, JSON.stringify(n.log.slice(-30))]);
 }
 
+/** Neue Verhandlung speichern; liefert die ID. */
+export async function insertNeg(db: Db, n: NegRow): Promise<number> {
+  const r = await one<{ id: number }>(db,
+    `insert into negotiations(career_id, kind, player_id, player_name, from_club, to_club, stage, status, offer, counter, demand, patience, respond_season, respond_day, season, day, message, log)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) returning id`,
+    [n.career_id, n.kind, n.player_id, n.player_name, n.from_club, n.to_club, n.stage, n.status, n.offer ? JSON.stringify(n.offer) : null,
+      n.counter ? JSON.stringify(n.counter) : null, n.demand ? JSON.stringify(n.demand) : null, n.patience, n.respond_season, n.respond_day,
+      n.season, n.day, n.message, JSON.stringify(n.log)]);
+  n.id = r!.id;
+  return n.id;
+}
+
+/** Leere Verhandlung mit Standardwerten. */
+export function newNeg(career: CareerRow, kind: NegKind, p: Player, fromClub: number | null, toClub: number): NegRow {
+  return {
+    id: 0, career_id: career.id, kind, player_id: p.id, player_name: `${p.firstName} ${p.lastName}`, from_club: fromClub, to_club: toClub,
+    stage: "club", status: "pending", offer: null, counter: null, demand: null, terms: null, patience: 3,
+    respond_season: career.season, respond_day: career.day, season: career.season, day: career.day, message: null, log: [],
+  };
+}
+
+/** Deadline Day: letzter Tag des Transferfensters – Vereine antworten sofort. */
+export function deadlineDay(career: CareerRow) {
+  const w = windowFor(career);
+  return w.open && w.closes !== null && w.closes <= career.day;
+}
+
+/** Antwortfrist: ein bis zwei Tage, am Deadline Day sofort. */
+export function responseDay(career: CareerRow, delay: number) {
+  const w = windowFor(career);
+  if (w.open && w.closes !== null) return Math.min(career.day + delay, w.closes);
+  return career.day + delay;
+}
+
 export const log = (n: NegRow, career: CareerRow, who: LogEntry["who"], text: string) => n.log.push({ day: career.day, season: career.season, who, text });
 
 // ------------------------------------------------------------ Bewertung
@@ -62,7 +99,7 @@ export function nominalFor(p: Player, value: number, o: ClubOffer) {
   return roundMoney(Math.max(0, (value - sellOnValue) / share));
 }
 
-function expectedRole(p: Player, squad: Player[]): SquadStatus {
+export function expectedRole(p: Player, squad: Player[]): SquadStatus {
   const ranks = squadRanks([...squad.filter((x) => x.id !== p.id), p]);
   const r = ranks.get(p.id) ?? 30;
   if (r <= 3) return "star";
@@ -128,4 +165,38 @@ export function describeTerms(t: ContractTerms) {
   return `${formatMoney(t.wage)}/Woche, ${t.years} Jahre, Handgeld ${formatMoney(t.signingBonus)}, Rolle ${SQUAD_STATUS_LABEL[t.role]}${t.releaseClause ? `, Ausstiegsklausel ${formatMoney(t.releaseClause)}` : ""}, Berater ${formatMoney(t.agentFee)}`;
 }
 
-/** Neues Angebot an den Verein (nach Ablehnung oder Gegenangebot). */
+/** Einigung mit dem Verein: Forderungen des Beraters ermitteln und zu den Vertragsgesprächen wechseln. */
+export async function toContractStage(db: Db, career: CareerRow, n: NegRow, buyer: ClubRow) {
+  const p = (await getPlayer(db, career.id, n.player_id))!;
+  const seller = n.from_club ? await getClub(db, career.id, n.from_club) : null;
+  const squad = await getPlayers(db, career.id, [buyer.id]);
+  const d = initialDemand(p, buyer, seller, squad, n.offer?.fee ?? 0);
+  if ("refuse" in d) {
+    n.stage = "failed";
+    n.status = "rejected";
+    n.message = d.refuse;
+    log(n, career, "berater", d.refuse);
+    return;
+  }
+  n.stage = "contract";
+  n.status = "open";
+  n.demand = d;
+  n.patience = 3;
+  n.message = "Einigung mit dem Verein. Jetzt geht es um den Vertrag des Spielers.";
+  log(n, career, "berater", `Forderung: ${describeTerms(d)}`);
+}
+
+/** Beim Verkauf eines eigenen Spielers: Weiterverkaufsbeteiligung an den früheren Verein. */
+export async function paySellOn(db: Db, career: CareerRow, p: Player, fee: number, seller: ClubRow, buyer: ClubRow) {
+  if (!p.sellOn || p.sellOn.pct <= 0 || fee <= 0) return 0;
+  const share = Math.round((fee * p.sellOn.pct) / 100);
+  const former = p.sellOn.clubId === buyer.id ? buyer : await getClub(db, career.id, p.sellOn.clubId);
+  seller.balance -= share;
+  if (former) {
+    former.balance += share;
+    if (former !== buyer) await saveClubs(db, career.id, [former]);
+  }
+  await addFinance(db, career.id, seller.id, career.season, career.week, [{ kind: "transfer_out", amount: -share, label: `Weiterverkaufsbeteiligung (${p.sellOn.pct} %) an ${former?.name ?? "Ex-Verein"}` }]);
+  p.sellOn = null;
+  return share;
+}

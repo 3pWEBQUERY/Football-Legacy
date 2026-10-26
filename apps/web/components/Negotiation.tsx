@@ -27,6 +27,10 @@ export interface NegotiationTarget {
   club?: { name: string; colors: { primary: string; secondary: string } } | null;
   askingPrice?: number | null;
   value?: number;
+  /** Ausstiegsklausel im aktuellen Vertrag (sofern bekannt) */
+  releaseClause?: number | null;
+  /** Vertragsverlängerung mit einem eigenen Spieler */
+  renew?: boolean;
 }
 
 const STEPS = [{ key: "club", label: "Vereinsangebot" }, { key: "contract", label: "Vertrag" }, { key: "done", label: "Unterschrift" }];
@@ -84,7 +88,7 @@ export function NegotiationModal({ careerId, target, negotiationId, onClose, onC
     const r = await api<any>(`careers/${careerId}/negotiations/${id}`);
     setN(r);
     if (r.offer && r.stage === "club") setOffer({ fee: r.counter?.fee ?? r.offer.fee, upfrontPct: r.offer.upfrontPct, installmentYears: r.offer.installmentYears || 2, sellOn: r.offer.sellOn });
-    if (r.stage === "contract" && r.demand) setTerms((t) => (t && r.status === "countered" ? { ...t, wage: Math.max(t.wage, Math.round(r.demand.wage * 0.97 / 100) * 100) } : t ?? { ...r.demand, wage: Math.round((r.demand.wage * 0.9) / 100) * 100 }));
+    if (r.stage === "contract" && r.demand) setTerms((t) => (t && r.status === "countered" ? { ...t, wage: Math.max(t.wage, Math.round(r.demand.wage * 0.97 / 100) * 100) } : t ?? { ...r.demand, wage: Math.max(r.kind === "renew" ? r.currentWage : 0, Math.round((r.demand.wage * 0.9) / 100) * 100) }));
   }
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
@@ -108,12 +112,16 @@ export function NegotiationModal({ careerId, target, negotiationId, onClose, onC
     }
   }
 
-  const stage = n?.stage ?? (nid ? null : target.free ? "contract" : "club");
+  const noClub = target.free || !!target.renew || n?.kind === "renew";
+  const stage = n?.stage ?? (nid ? null : noClub ? "contract" : "club");
   const ended = n && ["done", "failed", "withdrawn", "expired"].includes(n.stage);
   const stepIdx = stage === "done" ? 2 : stage === "contract" ? 1 : 0;
   const budget = n?.budget;
   const upfront = offer.fee * (offer.upfrontPct / 100);
-  const showOfferForm = !target.free && (!nid || (n?.stage === "club" && (n.status === "rejected" || revise)));
+  const clause = target.releaseClause ?? n?.releaseClause ?? null;
+  // Bei einer Verlängerung ersetzt das neue Gehalt das bisherige
+  const billWith = (wage: number) => (budget ? budget.wageBill - (noClub && !target.free ? n?.currentWage ?? 0 : 0) + wage : 0);
+  const showOfferForm = !noClub && (!nid || (n?.stage === "club" && (n.status === "rejected" || revise)));
 
   return (
     <Modal open onClose={onClose} wide>
@@ -121,17 +129,17 @@ export function NegotiationModal({ careerId, target, negotiationId, onClose, onC
         <div className="neg-head">
           {target.club ? <Crest colors={target.club.colors} name={target.club.name} size={40} /> : <span className="neg-free"><Icon name="contract" size={20} /></span>}
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="faint small up">{target.club ? `Verhandlung mit ${target.club.name}` : "Vereinsloser Spieler"}</div>
+            <div className="faint small up">{noClub && !target.free ? "Vertragsverlängerung" : target.club ? `Verhandlung mit ${target.club.name}` : "Vereinsloser Spieler"}</div>
             <h2 className="truncate">{target.name} <span className="faint" style={{ fontSize: 15 }}>{target.position} · {target.age} J.</span></h2>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Schliessen"><Icon name="close" size={16} /></button>
         </div>
 
         <ol className="neg-steps" aria-label="Ablauf">
-          {STEPS.filter((s) => !(target.free && s.key === "club")).map((s) => {
+          {STEPS.filter((s) => !(noClub && s.key === "club")).map((s) => {
             const i = STEPS.findIndex((x) => x.key === s.key);
             const failed = ended && n.stage !== "done" && i === stepIdx;
-            return <li key={s.key} className={`${i < stepIdx || n?.stage === "done" ? "done" : ""} ${i === stepIdx ? "current" : ""} ${failed ? "failed" : ""}`}><span>{i < stepIdx || n?.stage === "done" ? <Icon name="check" size={12} /> : failed ? <Icon name="close" size={12} /> : STEPS.filter((x) => !(target.free && x.key === "club")).indexOf(s) + 1}</span><em>{s.label}</em></li>;
+            return <li key={s.key} className={`${i < stepIdx || n?.stage === "done" ? "done" : ""} ${i === stepIdx ? "current" : ""} ${failed ? "failed" : ""}`}><span>{i < stepIdx || n?.stage === "done" ? <Icon name="check" size={12} /> : failed ? <Icon name="close" size={12} /> : STEPS.filter((x) => !(noClub && x.key === "club")).indexOf(s) + 1}</span><em>{s.label}</em></li>;
           })}
         </ol>
 
@@ -168,11 +176,13 @@ export function NegotiationModal({ careerId, target, negotiationId, onClose, onC
                 <h4>{nid ? "Verbessertes Angebot" : "Angebot an den Verein"}</h4>
                 <MoneyField label="Ablösesumme" value={offer.fee} step={stepFor(offer.fee)} onChange={(fee) => setOffer({ ...offer, fee })}
                   hint={target.askingPrice ? <>Forderung ca. <b>{money(target.askingPrice)}</b></> : undefined} />
-                {target.askingPrice ? (
+                {target.askingPrice || clause ? (
                   <div className="row-wrap neg-quick">
-                    {[0.8, 0.9, 1, 1.1].map((f) => <button key={f} type="button" className="btn btn-sm btn-ghost" onClick={() => setOffer({ ...offer, fee: Math.round((target.askingPrice! * f) / 25_000) * 25_000 })}>{f === 1 ? "Forderung" : `${Math.round(f * 100)} %`}</button>)}
+                    {target.askingPrice ? [0.8, 0.9, 1, 1.1].map((f) => <button key={f} type="button" className="btn btn-sm btn-ghost" onClick={() => setOffer({ ...offer, fee: Math.round((target.askingPrice! * f) / 25_000) * 25_000 })}>{f === 1 ? "Forderung" : `${Math.round(f * 100)} %`}</button>) : null}
+                    {clause ? <button type="button" className="btn btn-sm neg-clause" onClick={() => setOffer({ ...offer, fee: clause, upfrontPct: 100 })} title="Bei Zahlung der Klausel kann der Verein nicht ablehnen">Ausstiegsklausel {money(clause)}</button> : null}
                   </div>
                 ) : null}
+                {clause && offer.fee >= clause && offer.upfrontPct === 100 && <p className="small pos-text">Du zahlst die Ausstiegsklausel – der Verein kann nicht ablehnen, du sprichst direkt mit dem Spieler.</p>}
                 <Seg label="Sofortzahlung" value={offer.upfrontPct} onChange={(upfrontPct) => setOffer({ ...offer, upfrontPct })}
                   options={[100, 75, 50, 25].map((v) => ({ v, l: `${v} %` }))} />
                 {offer.upfrontPct < 100 && (
@@ -229,9 +239,9 @@ export function NegotiationModal({ careerId, target, negotiationId, onClose, onC
                 </div>
                 {budget && (
                   <div className="neg-budget">
-                    <div className="between small"><span>Gehaltsbudget</span><b className={budget.wageBill + terms.wage > budget.wage ? "neg-text" : ""}>{money(budget.wageBill + terms.wage)} / {money(budget.wage)}</b></div>
-                    <div className={`progress ${budget.wageBill + terms.wage > budget.wage ? "danger" : budget.wageBill + terms.wage > budget.wage * 0.95 ? "warn" : ""}`}><span style={{ width: `${Math.min(100, ((budget.wageBill + terms.wage) / budget.wage) * 100)}%` }} /></div>
-                    <div className="between small faint"><span>Einmalzahlungen jetzt (Ablöse, Handgeld, Berater)</span><b>{money((n.offer?.fee ?? 0) * ((n.offer?.upfrontPct ?? 100) / 100) + terms.signingBonus + terms.agentFee)}</b></div>
+                    <div className="between small"><span>Gehaltsbudget</span><b className={billWith(terms.wage) > budget.wage ? "neg-text" : ""}>{money(billWith(terms.wage))} / {money(budget.wage)}</b></div>
+                    <div className={`progress ${billWith(terms.wage) > budget.wage ? "danger" : billWith(terms.wage) > budget.wage * 0.95 ? "warn" : ""}`}><span style={{ width: `${Math.min(100, (billWith(terms.wage) / budget.wage) * 100)}%` }} /></div>
+                    <div className="between small faint"><span>Einmalzahlungen jetzt ({noClub ? "Handgeld, Berater" : "Ablöse, Handgeld, Berater"})</span><b>{money((n.offer?.fee ?? 0) * ((n.offer?.upfrontPct ?? 100) / 100) + terms.signingBonus + terms.agentFee)}</b></div>
                   </div>
                 )}
                 <div className="row-wrap">
@@ -244,8 +254,8 @@ export function NegotiationModal({ careerId, target, negotiationId, onClose, onC
             {n?.stage === "done" && (
               <div className="neg-box neg-done">
                 <Icon name="check" size={28} />
-                <h4>{target.name} hat unterschrieben!</h4>
-                <p className="dim small">{money(n.terms?.wage)} pro Woche bis Sommer {n.season + (n.terms?.years ?? 1)} · Rolle {ROLE_LABEL[n.terms?.role]}</p>
+                <h4>{target.name} {n.kind === "renew" ? "hat verlängert!" : "hat unterschrieben!"}</h4>
+                <p className="dim small">{money(n.terms?.wage)} pro Woche bis Sommer {n.contractUntil !== null ? n.contractUntil + 1 : n.season + (n.terms?.years ?? 1)} · Rolle {ROLE_LABEL[n.terms?.role]}</p>
               </div>
             )}
 
@@ -275,7 +285,7 @@ export function NegotiationModal({ careerId, target, negotiationId, onClose, onC
                 </ol>
               </div>
             )}
-            {!nid && !target.free && (
+            {!nid && !noClub && (
               <div className="neg-box">
                 <h4>So läuft es ab</h4>
                 <ol className="neg-how">

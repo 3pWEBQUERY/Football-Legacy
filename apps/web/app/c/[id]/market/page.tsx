@@ -9,6 +9,7 @@ import { Crest, Empty, ErrorBox, Icon, Loading, Pos, useToast } from "@/componen
 import { Sheet } from "@/components/Sheet";
 import { usePrompt } from "@/components/Dialog";
 import { NegotiationModal, type NegotiationTarget } from "@/components/Negotiation";
+import { SaleModal } from "@/components/SaleNegotiation";
 
 const STAGE: Record<string, { label: string; cls: string }> = {
   club: { label: "Verein", cls: "badge-blue" }, contract: { label: "Vertrag", cls: "badge-warn" }, done: { label: "Unterschrieben", cls: "badge-accent" },
@@ -24,6 +25,7 @@ export default function TransferHub() {
   const prompt = usePrompt();
   const { data, error, reload } = useApi<any>(`careers/${id}/transfers`);
   const [neg, setNeg] = useState<{ target: NegotiationTarget; id: number } | null>(null);
+  const [sale, setSale] = useState<number | null>(null);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [wage, setWage] = useState(0);
   const budgetBtn = useRef<HTMLButtonElement>(null);
@@ -31,9 +33,10 @@ export default function TransferHub() {
   // Aus dem Posteingang direkt in eine Verhandlung springen
   useEffect(() => {
     const nid = Number(params.get("neg"));
-    if (!data || !nid || neg) return;
+    if (!data || !nid || neg || sale) return;
     const n = data.negotiations.find((x: any) => x.id === nid);
     if (n) openNeg(n);
+    else if (data.sales.some((x: any) => x.id === nid)) setSale(nid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, params]);
 
@@ -46,8 +49,10 @@ export default function TransferHub() {
   const wageShare = b.wage > 0 ? (b.wageBill / b.wage) * 100 : 0;
 
   function openNeg(n: any) {
-    setNeg({ id: n.id, target: { id: n.playerId, name: n.player, position: n.position, age: n.age, free: !n.from, club: n.from ? { name: n.from.name, colors: n.from.colors } : null, askingPrice: null } });
+    const renew = n.kind === "renew";
+    setNeg({ id: n.id, target: { id: n.playerId, name: n.player, position: n.position, age: n.age, free: !n.from && !renew, renew, club: n.from && !renew ? { name: n.from.name, colors: n.from.colors } : null, askingPrice: null } });
   }
+  const openSales = data.sales.filter((n: any) => n.stage === "club" || n.stage === "contract");
 
   async function respond(o: any, decision: "accept" | "reject" | "counter") {
     let counterFee: number | undefined;
@@ -92,6 +97,12 @@ export default function TransferHub() {
         </div>
       </div>
 
+      {data.deadline && (
+        <div className="hub-deadline" role="status">
+          <Icon name="fire" size={18} />
+          <div><b>Deadline Day!</b> Heute um Mitternacht schliesst das Transferfenster. Vereine antworten sofort – was heute nicht unterschrieben ist, platzt.</div>
+        </div>
+      )}
       <div className="hub-kpis">
         <div className={`hub-kpi window ${w.open ? "open" : "closed"}`}>
           <span className="hub-kpi-label"><Icon name="calendar" size={14} /> Transferfenster</span>
@@ -155,9 +166,23 @@ export default function TransferHub() {
           </section>
 
           <section className="card card-flush">
-            <div className="card-head"><h3><Icon name="down" size={15} /> Angebote für deine Spieler {data.incoming.length > 0 && <span className="badge badge-warn">{data.incoming.length}</span>}</h3></div>
-            {data.incoming.length === 0 ? <Empty>Aktuell liegen keine Angebote vor.</Empty> : (
+            <div className="card-head"><h3><Icon name="down" size={15} /> Angebote für deine Spieler {openSales.length + data.incoming.length > 0 && <span className="badge badge-warn">{openSales.length + data.incoming.length}</span>}</h3></div>
+            {openSales.length + data.incoming.length === 0 ? <Empty>Aktuell liegen keine Angebote vor. Spieler auf der Transferliste wecken eher Interesse.</Empty> : (
               <div className="hub-negs">
+                {openSales.map((n: any) => (
+                  <button key={n.id} className={`hub-neg ${n.status === "offered" ? "attention" : ""}`} onClick={() => setSale(n.id)}>
+                    <Crest colors={n.to.colors} name={n.to.name} size={30} />
+                    <span className="hub-neg-main">
+                      <b>{n.player} <Pos p={n.position} /></b>
+                      <small>{n.to.name} · {money(n.offer?.fee)}{n.offer?.upfrontPct < 100 ? ` (${n.offer.upfrontPct} % sofort)` : ""}</small>
+                    </span>
+                    <span className="hub-neg-state">
+                      <span className={`badge ${n.clause ? "badge-danger" : n.status === "offered" ? "badge-warn" : "badge-blue"}`}>{n.clause ? "Klausel gezogen" : n.status === "offered" ? "Entscheidung" : n.status === "player" ? "Spieler entscheidet" : "Forderung gestellt"}</span>
+                      <small>{n.status === "offered" ? (n.waitingDays > 0 ? `Noch ${n.waitingDays} T. gültig` : "Nur noch heute") : n.waitingDays > 0 ? `Antwort in ${n.waitingDays} T.` : "Antwort morgen"}</small>
+                    </span>
+                    <Icon name="next" size={14} />
+                  </button>
+                ))}
                 {data.incoming.map((o: any) => (
                   <div key={o.id} className="hub-neg static">
                     <Crest colors={o.colors} name={o.club} size={30} />
@@ -250,6 +275,7 @@ export default function TransferHub() {
         </div>
       </div>
 
+      {sale && <SaleModal careerId={id} negotiationId={sale} onClose={() => { setSale(null); if (params.get("neg")) router.replace(`/c/${id}/market`); }} onChanged={reload} />}
       {neg && <NegotiationModal careerId={id} target={neg.target} negotiationId={neg.id} onClose={() => { setNeg(null); if (params.get("neg")) router.replace(`/c/${id}/market`); }} onChanged={reload} />}
     </>
   );

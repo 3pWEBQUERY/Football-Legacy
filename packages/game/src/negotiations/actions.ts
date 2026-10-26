@@ -5,10 +5,12 @@ import { one, query, type Db } from "../db";
 import { GameError } from "../errors";
 import { addArticle } from "../media";
 import { clubSender, send } from "../news";
-import { addFinance, getClub, getPlayer, getPlayers, saveCareer, saveClubs, savePlayers, type CareerRow, type ClubRow } from "../repo";
+import { addFinance, getClub, getPlayer, getPlayers, saveCareer, saveClubs, savePlayers, type CareerRow } from "../repo";
 import { announceNotes, awardCard, completeMission, unlockAchievement, type RewardNote } from "../rewards";
 import { windowFor } from "../window";
-import { ACTIVE, ROLE_ORDER, cleanOffer, describeOffer, describeTerms, getNeg, initialDemand, judgeTerms, log, requireClub, saveNeg, type ClubOffer, type ContractTerms, type NegRow } from "./core";
+import { answerClubOffer } from "./answer";
+import { completeRenewal } from "./renewal";
+import { ACTIVE, ROLE_ORDER, cleanOffer, describeOffer, describeTerms, getNeg, initialDemand, insertNeg, judgeTerms, log, newNeg, requireClub, responseDay, saveNeg, toContractStage, type ClubOffer, type ContractTerms, type NegRow } from "./core";
 
 // ------------------------------------------------------------ Aktionen
 
@@ -28,32 +30,35 @@ export async function startNegotiation(careerId: string, accountId: string, inpu
     const o = cleanOffer(input.offer, p.clubId === null);
     if (o.fee * (o.upfrontPct / 100) > buyer.transfer_budget) throw new GameError(`Die Sofortzahlung übersteigt dein Transferbudget (${formatMoney(buyer.transfer_budget)}).`);
     const seller = p.clubId !== null ? await getClub(db, career.id, p.clubId) : null;
-    const neg: NegRow = {
-      id: 0, career_id: career.id, player_id: p.id, player_name: `${p.firstName} ${p.lastName}`, from_club: p.clubId, to_club: clubId,
-      stage: seller ? "club" : "contract", status: seller ? "pending" : "open", offer: { ...o, attempts: 1 }, counter: null, demand: null, terms: null,
-      patience: 3, respond_season: career.season, respond_day: career.day + (seller ? new Rng(seedFor(career.seed, "neg", p.id, career.day)).int(1, 2) : 0),
-      season: career.season, day: career.day, message: null, log: [],
-    };
-    if (seller) {
+    const neg = newNeg(career, "buy", p, p.clubId, clubId);
+    neg.offer = { ...o, attempts: 1 };
+    const clause = p.contract?.releaseClause ?? null;
+    if (seller && clause && o.fee >= clause && o.upfrontPct === 100) {
+      // Ausstiegsklausel: Der Verein kann nicht ablehnen, direkt weiter zum Spieler
+      log(neg, career, "du", `Ausstiegsklausel über ${formatMoney(clause)} gezogen.`);
+      await toContractStage(db, career, neg, buyer);
+      if (neg.stage === "contract") neg.message = `Du hast die Ausstiegsklausel gezogen – ${seller.name} kann nicht ablehnen. Jetzt geht es um den Vertrag.`;
+    } else if (seller) {
+      neg.respond_day = responseDay(career, new Rng(seedFor(career.seed, "neg", p.id, career.day)).int(1, 2));
       log(neg, career, "du", `Angebot an ${seller.name}: ${describeOffer(o)}`);
       neg.message = `${seller.name} prüft dein Angebot und meldet sich in Kürze.`;
     } else {
       const d = initialDemand(p, buyer, null, squad, 0);
       if ("refuse" in d) throw new GameError(d.refuse);
+      neg.stage = "contract";
+      neg.status = "open";
       neg.demand = d;
       log(neg, career, "berater", `Forderung: ${describeTerms(d)}`);
       neg.message = "Der Berater des vereinslosen Spielers ist gesprächsbereit.";
     }
-    const r = await one<{ id: number }>(db,
-      `insert into negotiations(career_id, player_id, player_name, from_club, to_club, stage, status, offer, demand, patience, respond_season, respond_day, season, day, message, log)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) returning id`,
-      [career.id, p.id, neg.player_name, neg.from_club, clubId, neg.stage, neg.status, JSON.stringify(neg.offer), neg.demand ? JSON.stringify(neg.demand) : null,
-        neg.patience, neg.respond_season, neg.respond_day, career.season, career.day, neg.message, JSON.stringify(neg.log)]);
-    return { id: r!.id, message: neg.message };
+    await insertNeg(db, neg);
+    // Am Deadline Day antworten die Vereine sofort
+    if (neg.stage === "club" && neg.respond_day === career.day) await answerClubOffer(db, career, neg);
+    return { id: neg.id, message: neg.message, stage: neg.stage, status: neg.status };
   });
 }
 
-
+/** Neues Angebot an den Verein (nach Ablehnung oder Gegenangebot). */
 export async function reviseClubOffer(careerId: string, accountId: string, id: number, input: ClubOffer) {
   return withCareer(careerId, accountId, async (db, career) => {
     const n = await getNeg(db, career, id);
@@ -66,11 +71,12 @@ export async function reviseClubOffer(careerId: string, accountId: string, id: n
     n.status = "pending";
     n.counter = null;
     n.respond_season = career.season;
-    n.respond_day = career.day + 1;
+    n.respond_day = responseDay(career, 1);
     log(n, career, "du", `Neues Angebot: ${describeOffer(o)}`);
     n.message = "Der Verein prüft dein neues Angebot.";
     await saveNeg(db, n);
-    return { message: n.message };
+    if (n.respond_day === career.day) await answerClubOffer(db, career, n);
+    return { message: n.message, stage: n.stage, status: n.status };
   });
 }
 
@@ -89,31 +95,12 @@ export async function acceptClubCounter(careerId: string, accountId: string, id:
   });
 }
 
-export async function toContractStage(db: Db, career: CareerRow, n: NegRow, buyer: ClubRow) {
-  const p = (await getPlayer(db, career.id, n.player_id))!;
-  const seller = n.from_club ? await getClub(db, career.id, n.from_club) : null;
-  const squad = await getPlayers(db, career.id, [buyer.id]);
-  const d = initialDemand(p, buyer, seller, squad, n.offer?.fee ?? 0);
-  if ("refuse" in d) {
-    n.stage = "failed";
-    n.status = "rejected";
-    n.message = d.refuse;
-    log(n, career, "berater", d.refuse);
-    return;
-  }
-  n.stage = "contract";
-  n.status = "open";
-  n.demand = d;
-  n.patience = 3;
-  n.message = "Einigung mit dem Verein. Jetzt geht es um den Vertrag des Spielers.";
-  log(n, career, "berater", `Forderung: ${describeTerms(d)}`);
-}
-
 /** Vertragsangebot an den Berater. Bei Einigung ist der Transfer perfekt. */
 export async function offerContract(careerId: string, accountId: string, id: number, input: Partial<ContractTerms>) {
   return withCareer(careerId, accountId, async (db, career) => {
     const n = await getNeg(db, career, id);
     if (n.stage !== "contract" || !n.demand) throw new GameError("Die Vertragsgespräche haben noch nicht begonnen.");
+    if (n.kind === "sell") throw new GameError("Über den Vertrag verhandelt der kaufende Verein.");
     const t: ContractTerms = {
       wage: Math.max(0, Math.round(Number(input.wage) || 0)),
       years: Math.max(1, Math.min(5, Math.round(Number(input.years) || n.demand.years))),
@@ -124,18 +111,19 @@ export async function offerContract(careerId: string, accountId: string, id: num
     };
     const buyer = (await getClub(db, career.id, n.to_club))!;
     const squad = await getPlayers(db, career.id, [buyer.id]);
-    const bill = wageBill(squad);
+    // Bei einer Verlängerung fällt das bisherige Gehalt des Spielers weg
+    const bill = wageBill(squad) - (n.kind === "renew" ? squad.find((x) => x.id === n.player_id)?.contract?.wage ?? 0 : 0);
     if (bill + t.wage > buyer.wage_budget) {
       throw new GameError(`Das Gehalt sprengt dein Gehaltsbudget (${formatMoney(bill)} + ${formatMoney(t.wage)} > ${formatMoney(buyer.wage_budget)} pro Woche). Schichte in der Transfer-Zentrale Budget um.`);
     }
     const upfront = (n.offer?.fee ?? 0) * ((n.offer?.upfrontPct ?? 100) / 100);
     if (upfront + t.signingBonus + t.agentFee > buyer.transfer_budget) throw new GameError(`Ablöse, Handgeld und Beraterhonorar übersteigen dein Transferbudget (${formatMoney(buyer.transfer_budget)}).`);
-    if (n.from_club && !windowFor(career).open) throw new GameError("Das Transferfenster ist geschlossen.");
+    if (n.kind === "buy" && n.from_club && !windowFor(career).open) throw new GameError("Das Transferfenster ist geschlossen.");
     log(n, career, "du", `Vertragsangebot: ${describeTerms(t)}`);
     n.terms = t;
     const verdict = judgeTerms(n.demand, t);
     if (verdict.ok) {
-      const res = await completeTransfer(db, career, n, t);
+      const res = n.kind === "renew" ? await completeRenewal(db, career, n, t) : await completeTransfer(db, career, n, t);
       log(n, career, "berater", "Einverstanden – wir haben einen Deal.");
       await saveNeg(db, n);
       return res;

@@ -315,7 +315,3 @@ export function groupTable(codes: string[], matches: NationalMatch[]) {
 export async function qualMatches(db: Db, career: CareerRow): Promise<NationalMatch[]> {
   return query<NationalMatch>(db, "select *, user_match as user from national_matches where career_id = $1 and season = $2 and kind = 'qual' order by day, id", [career.id, career.season]);
 }
-
-/* ---------- Tageslauf ---------- */
-
-/** Täglich: Erinnerung, Nominierung, Spiele und Auswertung der Länderspielpausen. */
