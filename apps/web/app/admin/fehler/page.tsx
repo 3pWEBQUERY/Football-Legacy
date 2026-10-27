@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { AccountTop } from "@/components/AccountTop";
 import { useApi } from "@/lib/client/api";
+import { MfaGate } from "@/components/admin/MfaGate";
 
 interface Group { fingerprint: string; source: string; message: string; path: string | null; count: number; first_at: string; last_at: string; users: number; stack: string | null }
 
@@ -11,12 +12,19 @@ const when = (iso: string) => new Date(iso).toLocaleString("de-CH", { day: "2-di
 
 /** Fehlerprotokoll der letzten 7 Tage (nur Administratoren). */
 export default function ErrorsPage() {
+  return (
+    <>
+      <AccountTop />
+      <main className="content"><MfaGate><ErrorList /></MfaGate></main>
+    </>
+  );
+}
+
+function ErrorList() {
   const data = useApi<{ groups: Group[]; totals: { day: number; week: number }; sentry: boolean }>("admin/errors");
   const [open, setOpen] = useState<string | null>(null);
   return (
     <>
-      <AccountTop />
-      <main className="content">
         <div className="page-head">
           <div><h1>Fehlerprotokoll</h1><p>Unerwartete Fehler der letzten 7 Tage, gruppiert. {data.data ? `${data.data.totals.day} heute · ${data.data.totals.week} in 7 Tagen${data.data.sentry ? " · wird zusätzlich an Sentry gemeldet" : ""}` : ""}</p></div>
           <button className="btn" onClick={() => data.reload()}>Aktualisieren</button>
@@ -46,7 +54,6 @@ export default function ErrorsPage() {
           </div>
         )}
         <p className="faint small">Zugang über die Umgebungsvariable <code>ADMIN_EMAILS</code>. <Link href="/careers">Zurück</Link></p>
-      </main>
     </>
   );
 }

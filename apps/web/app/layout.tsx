@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import "@fontsource/barlow/400.css";
 import "@fontsource/barlow/500.css";
 import "@fontsource/barlow/600.css";
@@ -44,12 +45,14 @@ const themeScript = `(function(){try{var t=localStorage.getItem('fl-theme')||'da
 // Sprache aus dem Cookie; bei Englisch bleibt die Seite bis zur Übersetzung unsichtbar (höchstens 3 s)
 const langScript = `(function(){var h=document.documentElement;if(/(?:^|;\\s*)fl-lang=en\\b/.test(document.cookie)){h.lang='en';h.classList.add('i18n-pending');setTimeout(function(){h.classList.remove('i18n-pending')},3000);}})();`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Nonce aus proxy.ts für die eigenen Inline-Skripte (macht alle Seiten dynamisch)
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="de" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        <script dangerouslySetInnerHTML={{ __html: langScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: langScript }} />
       </head>
       <body>
         <ToastProvider><DialogProvider>{children}</DialogProvider></ToastProvider>

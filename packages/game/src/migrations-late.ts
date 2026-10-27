@@ -176,4 +176,22 @@ create table if not exists admin_actions (
 create index if not exists admin_actions_created on admin_actions(created_at desc);
 `,
   },
+  {
+    name: "027_betrieb.sql",
+    sql: `
+-- Schlankere Indizes für Spiele: (Karriere, Verein) lässt sich komprimieren, der alte Index war fast eindeutig
+create index if not exists fixtures_home_idx on fixtures(career_id, home_id);
+create index if not exists fixtures_away_idx on fixtures(career_id, away_id);
+drop index if exists fixtures_club_idx;
+-- Aufräumen inaktiver Konten: Zeitpunkt der Vorwarnung per E-Mail
+alter table accounts add column if not exists inactivity_warned_at timestamptz;
+create index if not exists accounts_last_login on accounts(last_login_day);
+-- Zwei-Faktor-Anmeldung (TOTP) für Administratoren
+alter table accounts add column if not exists totp_secret text;
+alter table accounts add column if not exists totp_enabled_at timestamptz;
+alter table accounts add column if not exists totp_last_step bigint;
+alter table sessions add column if not exists mfa_at timestamptz;
+create index if not exists sessions_expires on sessions(expires_at);
+`,
+  },
 ];

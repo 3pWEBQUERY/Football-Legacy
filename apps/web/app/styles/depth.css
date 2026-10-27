@@ -78,3 +78,12 @@
 .admin-tile:disabled { cursor: default; opacity: 1; }
 .admin-tile.clickable:hover { border-color: var(--accent); }
 .admin-quote { margin: 0; padding: 8px 12px; border-left: 3px solid var(--line-2); background: var(--bg-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Zwei-Faktor-Anmeldung (Admin) */
+.mfa-card { max-width: 560px; margin-top: 14px; }
+.mfa-card h2 { margin: 0; }
+.mfa-steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--text-2); }
+.mfa-secret { font-family: var(--mono); background: var(--panel-2); padding: 1px 6px; border-radius: var(--r-sm); letter-spacing: .05em; color: var(--text); word-break: break-all; }
+.mfa-qr { width: 196px; height: 196px; background: #fff; padding: 8px; border-radius: var(--r-sm); }
+.mfa-qr svg { width: 100%; height: 100%; display: block; }
+.mfa-code { width: 140px; font-family: var(--mono); font-size: 18px; letter-spacing: .15em; text-align: center; }

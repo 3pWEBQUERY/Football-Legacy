@@ -7,6 +7,7 @@ import { AdminOverview } from "@/components/admin/Overview";
 import { AdminReports } from "@/components/admin/Reports";
 import { AdminAccounts } from "@/components/admin/Accounts";
 import { AdminAi, AdminActions } from "@/components/admin/Usage";
+import { MfaGate } from "@/components/admin/MfaGate";
 
 type Tab = "overview" | "reports" | "accounts" | "ai" | "log";
 
@@ -21,6 +22,7 @@ export default function AdminPage() {
           <div><h1>Admin-Bereich</h1><p>Betrieb, Moderation und Kosten von Football Legacy</p></div>
           <Link className="btn btn-sm" href="/admin/fehler">Fehlerprotokoll</Link>
         </div>
+        <MfaGate>
         <Seg<Tab> value={tab} onChange={setTab} options={[
           { value: "overview", label: "Übersicht" }, { value: "reports", label: "Meldungen" }, { value: "accounts", label: "Konten" },
           { value: "ai", label: "KI-Kosten" }, { value: "log", label: "Protokoll" },
@@ -32,6 +34,7 @@ export default function AdminPage() {
           {tab === "ai" && <AdminAi />}
           {tab === "log" && <AdminActions />}
         </div>
+        </MfaGate>
       </main>
     </>
   );

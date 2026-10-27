@@ -12,6 +12,7 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
+import { createHmac } from "node:crypto";
 
 const B = process.env.E2E_URL ?? "http://localhost:3000";
 const OUT = process.argv[2] ?? null;
@@ -42,6 +43,28 @@ const confirmIfAsked = async () => {
   const dialog = page.locator(".modal [role=dialog], [role=alertdialog], .modal").last();
   if (await dialog.isVisible().catch(() => false)) await dialog.locator(".btn-primary, .btn-danger").last().click();
 };
+/** TOTP (RFC 6238) wie in packages/game/src/account/totp.ts – für die Zwei-Faktor-Anmeldung im Admin-Bereich */
+function totp(secret) {
+  const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = 0, value = 0;
+  const bytes = [];
+  for (const ch of secret.replace(/\s/g, "")) {
+    value = (value << 5) | A.indexOf(ch);
+    bits += 5;
+    if (bits >= 8) { bytes.push((value >>> (bits - 8)) & 255); bits -= 8; }
+  }
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
+  const mac = createHmac("sha1", Buffer.from(bytes)).update(counter).digest();
+  const o = mac[mac.length - 1] & 15;
+  return String((((mac[o] & 0x7f) << 24) | (mac[o + 1] << 16) | (mac[o + 2] << 8) | mac[o + 3]) % 1_000_000).padStart(6, "0");
+}
+async function sql(text, params) {
+  const db = new Client({ connectionString: process.env.DATABASE_URL });
+  await db.connect();
+  await db.query(text, params);
+  await db.end();
+}
 async function verify(email) {
   if (!process.env.DATABASE_URL) fail("DATABASE_URL fehlt (zum Bestätigen der Test-E-Mail)");
   const db = new Client({ connectionString: process.env.DATABASE_URL });
@@ -51,6 +74,12 @@ async function verify(email) {
 }
 
 try {
+  step("Sicherheits-Header");
+  const head = await page.request.get(B + "/");
+  const h = head.headers();
+  if (!/script-src 'self' 'nonce-/.test(h["content-security-policy"] ?? "")) fail("Content-Security-Policy mit Nonce fehlt");
+  if (h["x-frame-options"] !== "DENY" || h["x-content-type-options"] !== "nosniff") fail("X-Frame-Options/X-Content-Type-Options fehlen");
+
   step("Konto und Karriere");
   await page.goto(B);
   const email = `flow${Date.now()}@example.com`;
@@ -139,8 +168,16 @@ try {
   } catch {
     await api("auth/register", { email: ADMIN, password: "geheim123", displayName: "Admin E2E", acceptTerms: true, ageConfirmed: true });
   }
+  // Zwei-Faktor-Anmeldung: bei jedem Lauf neu einrichten
+  await sql("update accounts set totp_secret = null, totp_enabled_at = null, totp_last_step = null where email = $1", [ADMIN]);
   await page.goto(`${B}/admin`);
   await page.getByRole("heading", { name: "Admin-Bereich", level: 1 }).waitFor();
+  await page.getByRole("button", { name: "Einrichtung starten" }).click();
+  const secret = await page.locator(".mfa-secret").innerText();
+  await page.locator(".mfa-qr svg").waitFor();
+  await shot("14a-admin-2fa");
+  await page.fill("#mfa-code", totp(secret));
+  await page.getByRole("button", { name: "Bestätigen" }).click();
   await page.locator(".admin-tile").first().waitFor();
   await shot("14-admin");
   for (const tab of ["Meldungen", "Konten", "KI-Kosten", "Protokoll"]) {

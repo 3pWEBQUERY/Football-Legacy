@@ -25,7 +25,8 @@ async function scan(page, name) {
   results.push({ page: name, violations: r });
 }
 
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+// axe wird als Skript eingespielt – nur im Testbrowser an der CSP vorbei
+const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, bypassCSP: true });
 const page = await ctx.newPage();
 page.setDefaultTimeout(30_000);
 const api = (p, b) => page.evaluate(async ([p, b]) => {

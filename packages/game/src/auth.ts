@@ -124,7 +124,7 @@ export async function touchLoginStreak(accountId: string): Promise<{ streak: num
   const streak = row.day_diff === 1 ? row.login_streak + 1 : 1;
   await query(
     pool(),
-    "update accounts set login_streak = $2, best_login_streak = greatest(best_login_streak, $2), last_login_day = current_date where id = $1",
+    "update accounts set login_streak = $2, best_login_streak = greatest(best_login_streak, $2), last_login_day = current_date, inactivity_warned_at = null where id = $1",
     [accountId, streak],
   );
   return { streak, firstToday: true };

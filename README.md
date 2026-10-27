@@ -122,13 +122,32 @@ Beim ersten Start legt der Server das Schema selbst an und startet den Hintergru
 | `ANTHROPIC_API_KEY` | API-Schlüssel von [Anthropic](https://console.anthropic.com) für die freiwilligen KI-Funktionen (Claude Sonnet 5.5). Ohne Schlüssel sind sie ausgeschaltet. |
 | `MAIL_FROM` | Absender, z. B. `Football Legacy <noreply@deine-domain.ch>`. Die Domain muss bei Resend verifiziert sein; ohne eigene Domain kann `onboarding@resend.dev` nur an die E-Mail des Resend-Kontos senden. |
 | `APP_URL` | Öffentliche Adresse für Links in E-Mails. Optional – auf Railway wird `RAILWAY_PUBLIC_DOMAIN` verwendet. |
-| `ADMIN_EMAILS` | Kommagetrennte E-Mail-Adressen, die das Fehlerprotokoll unter `/admin/fehler` sehen dürfen. |
+| `ADMIN_EMAILS` | Kommagetrennte E-Mail-Adressen mit Zugang zum Admin-Bereich `/admin` (Kennzahlen, Moderation, KI-Kosten, Fehlerprotokoll). |
+| `ADMIN_MFA` | `required` (Standard): Admins müssen eine Authenticator-App einrichten und jede Sitzung mit einem Code bestätigen (12 h gültig). `off` nur im Notfall, z. B. bei verlorenem Gerät – danach neu einrichten. |
+| `WORKER_MODE` | `fork` (Standard): der Webserver startet den Hintergrunddienst selbst. `off`: kein eigener Dienst – für den Betrieb mit separatem Worker-Dienst (siehe unten). |
 | `SENTRY_DSN` | Optional. Unerwartete Fehler gehen zusätzlich an [Sentry](https://sentry.io) (ohne SDK, über die Envelope-API). Ohne DSN bleibt es beim eigenen Fehlerprotokoll in der Datenbank (30 Tage). |
 | `WORKER_MODE` | `fork` (Standard): Webserver startet den Hintergrunddienst selbst. `off`: Dienst läuft separat. |
 | `JOB_MODE` | `auto` (Standard): Warteschlange, sobald ein Dienst läuft. `inline`: immer direkt in der Anfrage rechnen. |
 | `WORKER_CONCURRENCY` | Parallele Aufträge pro Dienst (Standard 2). Faustregel: Anzahl vCPUs des Dienstes, höchstens 4. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Optional. Ohne Angabe erzeugt der Server die Push-Schlüssel beim ersten Bedarf selbst und speichert sie in der Datenbank (`app_secrets`). |
 | `LEGAL_NAME`, `LEGAL_ADDRESS`, `LEGAL_EMAIL` | Angaben für Impressum und Datenschutzerklärung. Mehrzeilige Anschrift mit `|` trennen, z. B. `Musterstrasse 1|8000 Zürich|Schweiz`. |
+
+### Sicherheit und Speicherdauer
+
+- **Header:** `proxy.ts` setzt pro Seite eine Content-Security-Policy mit Nonce (Skripte nur von der eigenen Domain oder mit Nonce, keine Einbettung in fremde Seiten). `next.config.ts` ergänzt für alle Antworten `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` und in Produktion `Strict-Transport-Security`.
+- **Zwei-Faktor für Admins:** TOTP nach RFC 6238 (`packages/game/src/account/totp.ts`), Einrichtung per QR-Code im Admin-Bereich. Notfall ohne Gerät: `ADMIN_MFA=off` setzen oder in der Datenbank `update accounts set totp_secret = null, totp_enabled_at = null where email = '…';`.
+- **Inaktive Konten:** Der Hintergrunddienst löscht stündlich abgelaufene Sitzungen und Links. Konten ohne Anmeldung seit 11 Monaten bekommen eine Erinnerung per E-Mail; meldet sich niemand innerhalb von 30 Tagen an, wird das Konto mit allen Spielständen gelöscht (Admins ausgenommen). Ohne eingerichteten Mailversand wird nie gelöscht.
+
+### Eigener Worker-Dienst (optional)
+
+Wenn die Rechenlast steigt, laufen Webserver und Hintergrunddienst besser getrennt:
+
+1. In Railway im selben Projekt einen neuen Dienst aus demselben GitHub-Repository anlegen.
+2. Beim neuen Dienst unter *Settings → Config-as-code* den Pfad `railway.worker.json` eintragen (Startbefehl `node apps/web/worker.cjs`, kein Healthcheck).
+3. Die Variablen `DATABASE_URL`, `WORKER_CONCURRENCY` (z. B. Anzahl vCPUs) und – falls genutzt – `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `MAIL_FROM`, `APP_URL` übernehmen.
+4. Beim Web-Dienst `WORKER_MODE=off` setzen.
+
+Mehrere Worker-Dienste können parallel laufen; die Aufträge werden über die Datenbank verteilt (`FOR UPDATE SKIP LOCKED`). `/api/health` zeigt die Zahl der aktiven Dienste.
 
 ### Backups
 

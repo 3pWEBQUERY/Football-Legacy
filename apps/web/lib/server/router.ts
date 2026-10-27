@@ -124,6 +124,9 @@ route("POST", "errors", async (c) => {
 route("GET", "admin/errors", async (c) => game.errorOverview(c.account!.email));
 route("GET", "admin/me", async (c) => ({ admin: game.isAdmin(c.account?.email) }), false);
 const adm = (c: { account?: { email: string } | null }) => c.account!.email;
+route("GET", "admin/2fa", async (c) => game.adminMfaStatus(acc(c), c.token));
+route("POST", "admin/2fa/setup", async (c) => game.adminMfaSetup(acc(c)));
+route("POST", "admin/2fa/verify", async (c) => game.adminMfaVerify(acc(c), c.token, str(c.body.code)));
 route("GET", "admin/overview", async (c) => game.adminOverview(adm(c)));
 route("GET", "admin/reports", async (c) => game.adminReports(adm(c)));
 route("POST", "admin/reports/:pid", async (c) => {
@@ -395,6 +398,8 @@ export async function dispatch(req: NextRequest, path: string[]): Promise<NextRe
     const token = tokenFrom(req);
     account = token ? await game.accountForToken(token) : null;
     if (found.auth && !account) return NextResponse.json({ error: "Bitte melde dich an." }, { status: 401 });
+    // Admin-Funktionen nur mit Zwei-Faktor-Anmeldung (Status und Einrichtung ausgenommen)
+    if (path[0] === "admin" && path[1] !== "me" && path[1] !== "2fa" && account) await game.requireAdminMfa(account.id, token);
     let body: Record<string, unknown> = {};
     if (method !== "GET" && method !== "DELETE") {
       const text = await req.text();
@@ -420,7 +425,7 @@ export async function dispatch(req: NextRequest, path: string[]): Promise<NextRe
     if (clearCookie) res.cookies.delete(SESSION_COOKIE);
     return res;
   } catch (e) {
-    if (e instanceof game.GameError) return NextResponse.json({ error: e.message }, { status: e.status });
+    if (e instanceof game.GameError) return NextResponse.json({ error: e.message, ...(e.code ? { code: e.code } : {}) }, { status: e.status });
     game.captureException(e, { source: "server", path: `${method} /api/${path.join("/")}`, accountId: account?.id, userAgent: req.headers.get("user-agent") });
     return NextResponse.json({ error: "Interner Fehler. Bitte versuche es erneut." }, { status: 500 });
   }

@@ -9,6 +9,7 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/sim/package.json packages/sim/
 COPY packages/game/package.json packages/game/
+COPY packages/i18n/package.json packages/i18n/
 COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile
 

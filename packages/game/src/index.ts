@@ -55,6 +55,8 @@ export { playDueOnlineLeagues } from "./online";
 export { MIN_AGE, TERMS_VERSION, acceptTerms, requireConsent } from "./account/terms";
 export { requireVerified, sendVerification, verifyEmail } from "./account/verify";
 export { mailConfigured } from "./account/mail";
+export { INACTIVE_MONTHS, WARN_DAYS, retentionSweep } from "./account/retention";
 export { captureException, errorOverview, guardErrorReports, isAdmin, reportError, type ErrorSource } from "./monitoring";
 export { blockOnlineAuthor, blockedList, deleteOnlinePost, reportOnlinePost, unblockOnline } from "./online-moderation";
 export { conditionsView, fixtureConditions } from "./conditions";
+export { adminMfaSetup, adminMfaStatus, adminMfaVerify, requireAdminMfa } from "./admin-mfa";

@@ -6,6 +6,7 @@
  * alte Aufträge löschen und fällige Spieltage täglicher Online-Ligen spielen.
  */
 import os from "node:os";
+import { retentionSweep } from "../account/retention";
 import crypto from "node:crypto";
 import type pg from "pg";
 import { one, pool, query } from "../db";
@@ -97,6 +98,7 @@ export function startWorker(opts: WorkerOptions = {}) {
   async function maintenance() {
     await query(pool(), "delete from sim_jobs where finished_at < now() - interval '1 day'");
     await query(pool(), "delete from sim_workers where seen_at < now() - interval '1 day'");
+    await retentionSweep();
   }
 
   const ready = (async () => {
@@ -105,7 +107,8 @@ export function startWorker(opts: WorkerOptions = {}) {
     await listener.query("listen fl_jobs");
     listener.on("notification", wake);
     timers.push(setInterval(() => heartbeat().catch((e) => console.error("[worker] Lebenszeichen", e)), 5000));
-    timers.push(setInterval(() => maintenance().catch(() => {}), 60 * 60 * 1000));
+    timers.push(setInterval(() => maintenance().catch((e) => console.error("[worker] Wartung", e)), 60 * 60 * 1000));
+    setTimeout(() => maintenance().catch((e) => console.error("[worker] Wartung", e)), 30_000).unref?.();
     if (opts.schedule !== false) {
       const due = () => playDueOnlineLeagues().then((n) => n && log(`[worker] ${n} Online-Spieltag(e) gespielt`)).catch((e) => console.error("[worker] Online-Ligen", e));
       timers.push(setInterval(due, 60_000));
