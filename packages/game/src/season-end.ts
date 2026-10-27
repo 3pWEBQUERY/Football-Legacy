@@ -114,6 +114,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
     const order = tables.get(league.id)!;
     // Ruf pendelt zum Ligaschnitt zurück – sonst werden Starke immer stärker und die Liga zerfällt
     const meanRep = order.reduce((s, id) => s + (w.clubs.get(id)?.reputation ?? 50), 0) / Math.max(1, order.length);
+    const meanRating = order.reduce((s, id) => s + (w.clubs.get(id)?.rating ?? 50), 0) / Math.max(1, order.length);
     order.forEach((clubId, i) => {
       const club = w.clubs.get(clubId)!;
       const pos = i + 1;
@@ -127,8 +128,8 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
         if (club.id !== career.club_id) club.transfer_budget = Math.max(0, Math.round(club.balance * 0.4));
         if (club.id === career.club_id) prizeEntries.push({ kind: "prize", amount: prize, label: `Platzierungsprämie (Platz ${pos})` });
       } else {
-        // Vereinfachte Vereine: Stärke driftet leicht
-        club.rating = Math.max(25, Math.min(90, Math.round(club.rating + rng.normal(swing * 2, 1.5))));
+        // Vereinfachte Vereine: Stärke driftet leicht und pendelt zum Ligaschnitt zurück
+        club.rating = Math.max(25, Math.min(90, Math.round(club.rating + rng.normal(swing * 2, 1.5) + (meanRating - club.rating) * REPUTATION_PULL)));
       }
       w.dirtyClubs.add(club.id);
     });
