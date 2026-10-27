@@ -1,4 +1,6 @@
 /** SQL-Migrationen, eingebettet, damit sie in jedem Build verfügbar sind. */
+import { LATE_MIGRATIONS } from "./migrations-late";
+
 export const MIGRATIONS: { name: string; sql: string }[] = [
   {
     name: "001_init.sql",
@@ -549,4 +551,5 @@ create index if not exists rivalries_b on rivalries(career_id, club_b);
 alter table careers add column if not exists sponsor jsonb;
 `,
   },
+  ...LATE_MIGRATIONS,
 ];

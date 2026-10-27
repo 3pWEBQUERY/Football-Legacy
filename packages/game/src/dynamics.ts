@@ -4,7 +4,7 @@
  */
 import {
   EXPECTED_SHARE, HIERARCHY_LABEL, SQUAD_STATUS, SQUAD_STATUS_LABEL, cohesion, cohesionLabel, defaultStatuses, hierarchy,
-  moodLabel, playingTimeHappiness, squadRanks, statusChange, statusOf, type Formation, type Player, type SquadStatus,
+  moodLabel, playingTimeHappiness, restlessness, squadRanks, statusChange, statusOf, type Formation, type Player, type SquadStatus,
 } from "@fl/sim";
 import { pool, query, type Db } from "./db";
 import { readCareer, withCareer } from "./career";
@@ -58,7 +58,7 @@ export async function weeklyDynamics(db: Db, career: CareerRow, squad: Player[])
     }
     if (coh < 40) p.morale = clamp(p.morale - 1);
     else if (coh >= 75) p.morale = clamp(p.morale + 1);
-    if (!p.transferRequest && h !== null && h <= -0.6 && p.morale < 30 && (p.playing?.matches ?? 0) >= 8) {
+    if (!p.transferRequest && h !== null && h <= -0.6 && p.morale < 30 * restlessness(p) && (p.playing?.matches ?? 0) >= 8) {
       p.transferRequest = true;
       await addInbox(db, career.id, career.season, career.week, "transfer", `${p.firstName} ${p.lastName} bittet um Freigabe`,
         `${p.firstName} ${p.lastName} ist mit seiner Einsatzzeit unzufrieden. Als ${SQUAD_STATUS_LABEL[status]} hat er nur ` +

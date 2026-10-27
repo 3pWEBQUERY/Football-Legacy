@@ -1,5 +1,5 @@
 /** Transferverhandlungen: Datenmodell, Bewertung von Angeboten und Forderungen des Beraters. */
-import { SQUAD_STATUS_LABEL, formatMoney, roundMoney, squadRanks, wageDemand, type Player, type SquadStatus } from "@fl/sim";
+import { SQUAD_STATUS_LABEL, formatMoney, roundMoney, squadRanks, wageDemand, wageFactor, type Player, type SquadStatus } from "@fl/sim";
 import { one, query, type Db } from "../db";
 import { GameError } from "../errors";
 import { addFinance, getClub, getPlayer, getPlayers, saveClubs, type CareerRow, type ClubRow } from "../repo";
@@ -113,7 +113,7 @@ export function initialDemand(p: Player, buyer: ClubRow, seller: ClubRow | null,
   const curRep = seller?.reputation ?? Math.max(1, buyer.reputation - 20);
   if (buyer.reputation < curRep - 30 && p.rating > 60) return { refuse: `${p.firstName} ${p.lastName} sieht bei ${buyer.name} keine sportliche Perspektive und lehnt Gespräche ab.` };
   const repF = buyer.reputation < curRep - 10 ? 1.25 : buyer.reputation > curRep + 10 ? 0.92 : 1;
-  const wage = Math.max(Math.round((wageDemand(p, buyer.reputation) * repF) / 100) * 100, Math.round(((p.contract?.wage ?? 0) * 1.05) / 100) * 100, 500);
+  const wage = Math.max(Math.round((wageDemand(p, buyer.reputation) * repF * wageFactor(p)) / 100) * 100, Math.round(((p.contract?.wage ?? 0) * 1.05) / 100) * 100, 500);
   const years = p.age >= 31 ? 2 : p.age <= 23 ? 4 : 3;
   const wantsClause = p.age <= 25 && p.potential >= p.rating + 4;
   return {

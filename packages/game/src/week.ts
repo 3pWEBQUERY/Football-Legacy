@@ -185,7 +185,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
       const ht = isUser && home.id === userClubId && home.tactic ? validateTactic(home.tactic, hs) : aiTactic(home, hs);
       const at = isUser && away.id === userClubId && away.tactic ? validateTactic(away.tactic, as) : aiTactic(away, as);
       const fam = isUser ? await userFamiliarity(db, career, w.clubs.get(userClubId!)!) : undefined;
-      const r = playMatch(derbySetup({ seed: seedFor(career.seed, "match", f.id), home: teamSetup(home, hs, ht, true, home.id === userClubId ? fam : undefined), away: teamSetup(away, as, at, true, away.id === userClubId ? fam : undefined) }, rivalryOf(rivals, home.id, away.id)));
+      const r = playMatch(derbySetup({ seed: seedFor(career.seed, "match", f.id), home: teamSetup(home, hs, ht, true, home.id === userClubId ? fam : undefined), away: teamSetup(away, as, at, true, away.id === userClubId ? fam : undefined) }, rivalryOf(rivals, home.id, away.id), f.cup_id != null));
       hg = r.homeGoals;
       ag = r.awayGoals;
       applyMatchToPlayers(w, rng, r, home.id, away.id, physio, injuredNow).forEach((id) => minutes.set(id, 90));

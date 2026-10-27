@@ -1,4 +1,7 @@
 "use client";
+import { Switch } from "@/components/Switch";
+import { AppSettings } from "@/components/Pwa";
+import { SoundSettings } from "@/components/SoundToggle";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, useApi } from "@/lib/client/api";
@@ -7,15 +10,6 @@ import { useGame } from "@/components/GameShell";
 import { ErrorBox, Loading, Modal, Panel, Seg, useToast } from "@/components/ui";
 import { useOnboarding } from "@/components/Onboarding";
 import { LegalLinks } from "@/components/Legal";
-
-function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <label className="switch" aria-label={label}>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <span />
-    </label>
-  );
-}
 
 export default function SettingsPage() {
   const { id, reloadShell } = useGame();
@@ -123,6 +117,12 @@ export default function SettingsPage() {
               <div><b>Automatische Wechsel</b><div className="faint small">Der Co-Trainer wechselt bei Verletzungen und Erschöpfung selbst</div></div>
               <Switch label="Automatische Wechsel" checked={s.autoSubs} onChange={(v) => saveCareer({ autoSubs: v })} />
             </div>
+          </Panel>
+          <Panel title="Ton" icon="sound">
+            <SoundSettings />
+          </Panel>
+          <Panel title="App & Mitteilungen" icon="bolt">
+            <AppSettings />
           </Panel>
           <Panel title="Weiter: anhalten bei" icon="calendar">
             <p className="dim small" style={{ marginTop: 0 }}>„Weiter“ lässt die Tage ablaufen, bis etwas Wichtiges passiert. Lege fest, bei welchen Nachrichten angehalten wird. Spieltage halten immer an.</p>

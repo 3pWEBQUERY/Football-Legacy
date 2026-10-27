@@ -1,5 +1,5 @@
 /** Sichten: gemeinsame Bausteine (Spieler- und Vereinsdarstellung, Scouting-Wissen, Tabellen, Karriere-Kopf). */
-import { ALL_ATTRS, Rng, UNLOCKS, computeStandings, flagEmoji, seedFor, titleForLevel, trainingAverage, xpForLevel, type Player, type Position } from "@fl/sim";
+import { ALL_ATTRS, Rng, TRAITS, UNLOCKS, computeStandings, flagEmoji, seedFor, titleForLevel, trainingAverage, traitsOf, xpForLevel, type Player, type Position } from "@fl/sim";
 import { isoDate } from "../calendar-view";
 import { pool, query } from "../db";
 import { getClubs, type CareerRow, type ClubRow, type FixtureRow } from "../repo";
@@ -21,7 +21,9 @@ export function playerView(p: Player, knowledge: Knowledge, extra: Record<string
     nationality: p.nationality, flag: flagEmoji(p.nationality), position: p.position, altPositions: p.altPositions,
     foot: p.foot, archetype: p.archetype, form: p.form, fitness: p.fitness, morale: p.morale, value: p.value,
     contract: p.contract, injuryWeeks: p.injuryWeeks, suspendedWeeks: p.suspendedWeeks, stats: p.stats, listed: p.listed,
-    youth: p.youth, clubId: p.clubId, history: p.history ?? [], loan: p.loan ?? null, promise: p.promise ?? null, talk: p.talk ?? null, trainingAvg: trainingAverage(p), individual: p.individual ?? null, injury: p.injury ?? null, caps: p.caps ?? 0, intlGoals: p.intlGoals ?? 0, away: p.away ?? null, squadStatus: p.squadStatus ?? null, playing: p.playing ?? null, transferRequest: !!p.transferRequest, awards: p.awards ?? [], knowledge, ...extra,
+    youth: p.youth, clubId: p.clubId, history: p.history ?? [], loan: p.loan ?? null, promise: p.promise ?? null, talk: p.talk ?? null, trainingAvg: trainingAverage(p), individual: p.individual ?? null, injury: p.injury ?? null, caps: p.caps ?? 0, intlGoals: p.intlGoals ?? 0, away: p.away ?? null, squadStatus: p.squadStatus ?? null, playing: p.playing ?? null, transferRequest: !!p.transferRequest, awards: p.awards ?? [], knowledge,
+    // Charakter: erst bei guter Kenntnis (eigene Spieler, Scoutbericht, eigene Liga) sichtbar
+    traits: knowledge === "rough" ? null : traitsOf(p).map((t) => ({ key: t, ...TRAITS[t] })), ...extra,
   };
   if (knowledge === "exact") {
     return { ...base, rating: p.rating, potential: p.potential, wonderkid: p.wonderkid, attrs: p.attrs, ratingRange: [p.rating, p.rating], attrRanges: null };

@@ -1,6 +1,6 @@
 /** KI-Transfermarkt: Vereine handeln untereinander (Angebote für deine Spieler: negotiations/sales). */
 import {
-  Rng, askingPrice, evaluateFee, evaluateTerms, formatMoney, squadNeed, squadRanks, wageDemand, type Player,
+  Rng, askingPrice, evaluateFee, evaluateTerms, formatMoney, squadNeed, squadRanks, wageDemand, wageFactor, type Player,
 } from "@fl/sim";
 import type { Db } from "./db";
 import { query } from "./db";
@@ -66,7 +66,7 @@ export async function aiMarketRound(db: Db, w: WorldState, rng: Rng): Promise<Ma
       // Abgebender Verein darf nicht ausbluten
       if (squadOf(w, target.clubId).length <= 18) continue;
     }
-    const wage = Math.round(Math.max(wageDemand(target, club.reputation), (target.contract?.wage ?? 0) * 1.1) / 100) * 100;
+    const wage = Math.round(Math.max(wageDemand(target, club.reputation) * wageFactor(target), (target.contract?.wage ?? 0) * 1.1) / 100) * 100;
     if (wage * 52 > club.balance * 0.5 && fee > 0) continue;
     const terms = evaluateTerms(target, { wage, years: 3, releaseClause: null }, club.reputation, sellerClub?.reputation ?? 20, rng);
     if (terms.kind !== "accept") continue;

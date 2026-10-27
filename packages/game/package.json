@@ -5,20 +5,27 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "migrate": "tsx src/migrate-cli.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "balance": "tsx scripts/balance.ts"
+    "balance": "tsx scripts/balance.ts",
+    "worker": "tsx src/worker/main.ts",
+    "build:worker": "node scripts/build-worker.mjs"
   },
   "dependencies": {
     "@fl/sim": "workspace:*",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "web-push": "3.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.20.0",
     "@types/pg": "^8.15.0",
+    "@types/web-push": "3.6.4",
+    "esbuild": "0.28.2",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"

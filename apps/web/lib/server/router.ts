@@ -76,6 +76,12 @@ route("POST", "auth/reset", async (c) => {
   return { ok: true, account: { id: r.account.id, email: r.account.email, displayName: r.account.display_name }, setCookie: r.token };
 }, false);
 route("GET", "auth/export", async (c) => game.exportAccountData(acc(c)));
+// Push-Mitteilungen (Geräte-Abos)
+route("GET", "push/key", async () => game.pushPublicKey(), false);
+route("GET", "push/status", async (c) => game.pushStatus(acc(c), c.query.get("endpoint")));
+route("POST", "push/subscribe", async (c) => game.subscribePush(acc(c), c.body as never, c.req.headers.get("user-agent")));
+route("POST", "push/unsubscribe", async (c) => game.unsubscribePush(acc(c), str(c.body.endpoint)));
+route("POST", "push/test", async (c) => game.testPush(acc(c)));
 
 route("GET", "auth/me", async (c) => {
   if (!c.account) return { account: null };
@@ -103,7 +109,8 @@ function publicAccount(a: Account) {
 
 route("GET", "health", async () => {
   await game.pool().query("select 1");
-  return { ok: true };
+  const w = await game.workerStatus().catch(() => null);
+  return { ok: true, workers: w?.workers ?? 0, queued: w?.queued ?? 0 };
 }, false);
 route("GET", "world", async () => game.worldMeta(), false);
 route("GET", "world/preview", async (c) => game.previewClubs(num(c.query.get("seed") ?? 1), str(c.query.get("country"))), false);
@@ -111,7 +118,7 @@ route("GET", "leaderboards", async () => game.leaderboards(), false);
 
 route("GET", "careers", async (c) => ({ careers: await game.listCareers(acc(c)) }));
 route("POST", "careers", async (c) => ({
-  id: await game.createCareer(acc(c), {
+  id: await game.bg.createCareer(acc(c), {
     managerName: str(c.body.managerName),
     countryCode: str(c.body.countryCode),
     clubIndex: num(c.body.clubIndex),
@@ -138,8 +145,8 @@ route("POST", "online/:lid/leave", async (c) => game.leaveOnlineLeague(acc(c), c
 route("POST", "online/:lid/kick", async (c) => game.kickOnlineMember(acc(c), c.params.lid, num(c.body.memberId)));
 route("POST", "online/:lid/bots", async (c) => game.addOnlineBots(acc(c), c.params.lid, num(c.body.count ?? 1)));
 route("POST", "online/:lid/start", async (c) => game.startOnlineLeague(acc(c), c.params.lid));
-route("POST", "online/:lid/play", async (c) => game.playOnlineRound(acc(c), c.params.lid));
-route("POST", "online/:lid/ready", async (c) => game.setOnlineReady(acc(c), c.params.lid, c.body.ready !== false));
+route("POST", "online/:lid/play", async (c) => game.bg.playOnlineRound(acc(c), c.params.lid));
+route("POST", "online/:lid/ready", async (c) => game.bg.setOnlineReady(acc(c), c.params.lid, c.body.ready !== false));
 route("POST", "online/:lid/team", async (c) => game.switchOnlineTeam(acc(c), c.params.lid, str(c.body.careerId)));
 route("POST", "online/:lid/posts", async (c) => game.postOnlineMessage(acc(c), c.params.lid, str(c.body.body)));
 route("GET", "online/:lid/matches/:fid", async (c) => game.onlineMatchReport(acc(c), c.params.lid, num(c.params.fid)));
@@ -148,7 +155,7 @@ const career = (pattern: string) => `careers/:id/${pattern}`.replace(/\/$/, "");
 
 route("POST", career("checkin"), async (c) => game.checkin(c.params.id, acc(c)));
 route("GET", career("dashboard"), async (c) => game.dashboard(c.params.id, acc(c)));
-route("POST", career("advance"), async (c) => game.advance(c.params.id, acc(c)));
+route("POST", career("advance"), async (c) => game.bg.advance(c.params.id, acc(c)));
 route("GET", career("squad"), async (c) => game.squadView(c.params.id, acc(c)));
 route("GET", career("tactic"), async (c) => game.tacticView(c.params.id, acc(c)));
 route("PUT", career("tactic"), async (c) => game.saveTactic(c.params.id, acc(c), c.body as never));
@@ -287,9 +294,9 @@ route("GET", career("match/press"), async (c) => game.pressConference(c.params.i
 route("POST", career("match/press"), async (c) => game.answerPress(c.params.id, acc(c), (c.body.answers ?? {}) as Record<string, number>));
 route("GET", career("match/teamtalk"), async (c) => game.teamTalkState(c.params.id, acc(c)));
 route("POST", career("match/teamtalk"), async (c) => game.giveTeamTalk(c.params.id, acc(c), String(c.body.tone) as never));
-route("POST", career("match/start"), async (c) => game.startMatch(c.params.id, acc(c)));
-route("POST", career("match/continue"), async (c) => game.continueMatch(c.params.id, acc(c), (c.body ?? {}) as never));
-route("POST", career("match/step"), async (c) => game.stepMatch(c.params.id, acc(c), {
+route("POST", career("match/start"), async (c) => game.bg.startMatch(c.params.id, acc(c)));
+route("POST", career("match/continue"), async (c) => game.bg.continueMatch(c.params.id, acc(c), (c.body ?? {}) as never));
+route("POST", career("match/step"), async (c) => game.bg.stepMatch(c.params.id, acc(c), {
   change: (c.body.change ?? undefined) as never,
   until: c.body.until !== undefined ? num(c.body.until) : undefined,
 }));
@@ -297,7 +304,7 @@ route("POST", career("match/shout"), async (c) => game.matchShout(c.params.id, a
 route("POST", career("match/halftime"), async (c) => game.halftimeAddress(c.params.id, acc(c), str(c.body.tone) as never));
 route("GET", career("match/post-talk"), async (c) => ({ talk: await game.postMatchState(game.pool(), await game.readCareer(c.params.id, acc(c))) }));
 route("POST", career("match/post-talk"), async (c) => game.postMatchTalk(c.params.id, acc(c), str(c.body.tone) as never));
-route("POST", career("match/quick"), async (c) => game.quickMatch(c.params.id, acc(c)));
+route("POST", career("match/quick"), async (c) => game.bg.quickMatch(c.params.id, acc(c)));
 
 // ---------------------------------------------------------------- Dispatcher
 

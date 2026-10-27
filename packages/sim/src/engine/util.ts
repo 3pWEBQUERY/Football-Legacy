@@ -68,10 +68,12 @@ export function leaderBoost(team: EngineTeam, tick = -1): number {
 }
 
 /** Führungsqualität 0–1 aus Gelassenheit, Entscheidungen, Einsatz und Erfahrung. */
-export function leadership(p: Pick<EnginePlayer, "attrs" | "age">): number {
+export function leadership(p: Pick<EnginePlayer, "attrs" | "age"> & { leader?: boolean; traits?: string[] }): number {
   const mind = (p.attrs.composure + p.attrs.decisions + p.attrs.workRate) / 60;
   const experience = Math.min(1, Math.max(0.4, (p.age - 18) / 12));
-  return Math.max(0, Math.min(1, mind * experience));
+  // Führungsspieler (Charakterzug) haben zusätzliche Ausstrahlung
+  const trait = p.leader || p.traits?.includes("leader") ? 0.2 : 0;
+  return Math.max(0, Math.min(1, mind * experience + trait));
 }
 
 export function eff(state: MatchState, side: Side, p: EnginePlayer, key: AttrKey): number {
@@ -82,6 +84,7 @@ export function eff(state: MatchState, side: Side, p: EnginePlayer, key: AttrKey
   const team = state.teams[side];
   const boost = (team.spirit ?? 0) + (team.shout && state.tick < team.shout.until ? team.shout.boost : 0) + leaderBoost(team, state.tick);
   if (boost) raw *= 1 + boost;
+  if (p.clutch) raw *= p.clutch;
   // Gegneranweisungen des anderen Teams gegen diesen Spieler
   const mark = state.teams[side === 0 ? 1 : 0].marks?.[p.id];
   if (mark && key !== "goalkeeping") raw *= MARK_FACTOR[mark](key);

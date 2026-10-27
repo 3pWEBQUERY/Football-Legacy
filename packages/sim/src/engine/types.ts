@@ -44,6 +44,10 @@ export interface EnginePlayer {
   yellow: number;
   red: boolean;
   injured: boolean;
+  /** Charakter: Faktor in grossen Spielen, Führungsspieler, Verletzungsanfälligkeit */
+  clutch?: number;
+  leader?: boolean;
+  fragile?: number;
   minIn: number | null;
   minOut: number | null;
   st: EnginePlayerStats;
@@ -145,6 +149,8 @@ export interface MatchSetup {
   home: TeamSetup;
   away: TeamSetup;
   homeAdvantage?: number;
+  /** Grosses Spiel (Derby, Pokal-K.-o., Relegation, Kontinentalpokal): Wettkampftypen legen zu, Nervöse lassen nach */
+  big?: boolean;
 }
 
 /** Ein Frame: [ballX, ballY, ballführende Seite, 11x Heim (x,y), 11x Gast (x,y)] in Dezimetern, -1 = leer. */

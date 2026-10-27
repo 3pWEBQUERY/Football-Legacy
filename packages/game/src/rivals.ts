@@ -74,10 +74,11 @@ export async function rivalsOf(db: Db, career: Pick<CareerRow, "id">, clubId: nu
 }
 
 /** Derby-Atmosphäre in der Matchengine: mehr Härte auf beiden Seiten, stärkerer Heimvorteil. */
-export function derbySetup(setup: MatchSetup, kind: RivalryKind | null): MatchSetup {
-  if (!kind) return setup;
+export function derbySetup(setup: MatchSetup, kind: RivalryKind | null, cup = false): MatchSetup {
+  // Derbys und Pokal-/Relegations-/Kontinentalspiele gelten als grosse Spiele (Charakterzüge)
+  if (!kind) return cup ? { ...setup, big: true } : setup;
   const harder = (t: MatchSetup["home"]) => ({ ...t, tactic: { ...t.tactic, style: { ...t.tactic.style, hardness: Math.min(100, t.tactic.style.hardness + (kind === "derby" ? 15 : 10)) } } });
-  return { ...setup, home: harder(setup.home), away: harder(setup.away), homeAdvantage: kind === "derby" ? 1.08 : 1.07 };
+  return { ...setup, home: harder(setup.home), away: harder(setup.away), homeAdvantage: kind === "derby" ? 1.08 : 1.07, big: true };
 }
 
 /** Derby-Bilanz (alle gespeicherten Pflichtspiele) aus Sicht von clubId. */

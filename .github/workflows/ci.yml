@@ -31,6 +31,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm --filter @fl/web build
+      - run: pnpm --filter @fl/game build:worker
       - name: Browser installieren
         run: pnpm exec playwright install --with-deps chromium
       - name: Browser-Test (Smoke)
@@ -39,7 +40,9 @@ jobs:
           PORT: "3000"
         run: |
           pnpm --filter @fl/web start > web.log 2>&1 &
-          for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health > /dev/null && break; sleep 2; done
+          for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health | grep -q '"workers":[1-9]' && break; sleep 2; done
+          # Der Hintergrunddienst muss laufen, damit der Test auch die Warteschlange prüft
+          curl -sf http://localhost:3000/api/health | grep '"workers":[1-9]'
           pnpm e2e e2e-shots
       - name: Browser-Test-Protokoll hochladen
         if: failure()

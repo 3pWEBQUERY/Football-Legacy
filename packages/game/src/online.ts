@@ -11,6 +11,7 @@ import { type Db, one, pool, query, tx } from "./db";
 import { GameError } from "./errors";
 import { getCareer, getClub, getClubs, getPlayers } from "./repo";
 import { aiTactic } from "./setup";
+import { pushChat, pushJoin, pushRound, pushSeason } from "./online-push";
 
 export type Rhythm = "manual" | "daily";
 const MIN_MEMBERS = 2;
@@ -174,6 +175,7 @@ async function playRound(db: pg.PoolClient, l: LeagueRow): Promise<string> {
     if (t) await query(db, "update online_members set team = $2, snapshot = $3 where id = $1", [m.id, JSON.stringify(t.team), JSON.stringify(t.snapshot)]);
   }
   const lines: string[] = [];
+  const results: { home_id: number; away_id: number; hg: number; ag: number }[] = [];
   for (const f of fixtures) {
     const home = loaded.get(f.home_id);
     const away = loaded.get(f.away_id);
@@ -198,6 +200,7 @@ async function playRound(db: pg.PoolClient, l: LeagueRow): Promise<string> {
     }
     await query(db, "update online_fixtures set home_goals = $2, away_goals = $3, played = true, report = $4 where id = $1", [f.id, hg, ag, report ? JSON.stringify(report) : null]);
     lines.push(`${byId.get(f.home_id)?.team.name} ${hg}:${ag} ${byId.get(f.away_id)?.team.name}`);
+    results.push({ home_id: f.home_id, away_id: f.away_id, hg, ag });
   }
   await query(db, "update online_members set ready = false where league_id = $1", [l.id]);
   const done = round >= l.rounds;
@@ -208,12 +211,15 @@ async function playRound(db: pg.PoolClient, l: LeagueRow): Promise<string> {
   l.round = round;
   if (done) l.status = "finished";
   await post(db, l.id, `${round}. Spieltag gespielt: ${lines.join(" · ") || "keine Partien"}`);
+  let champion: string | null = null;
   if (done) {
     const all = await query<FixtureRow>(db, "select * from online_fixtures where league_id = $1 and season = $2", [l.id, l.season]);
     const top = standings(ms, all)[0];
     const champ = byId.get(top.memberId)!;
+    champion = champ.team.name;
     await post(db, l.id, `🏆 ${champ.team.name} (${champ.bot ? "CPU" : champ.manager}) ist Meister der Saison ${l.season} mit ${top.pts} Punkten!`);
   }
+  pushRound(l, round, ms, results, champion);
   return `${round}. Spieltag gespielt`;
 }
 
@@ -224,6 +230,20 @@ async function catchUp(db: pg.PoolClient, l: LeagueRow) {
     await playRound(db, l);
     l.next_at = (await getLeague(db, l.id)).next_at;
   }
+}
+
+/** Hintergrunddienst: fällige Spieltage aller täglichen Ligen spielen (auch wenn niemand die Seite öffnet). */
+export async function playDueOnlineLeagues(): Promise<number> {
+  const due = await query<{ id: string }>(pool(), "select id from online_leagues where status = 'running' and rhythm = 'daily' and next_at <= now() order by next_at limit 20");
+  let played = 0;
+  for (const { id } of due) {
+    played += await inLeague(id, async (db, l) => {
+      const before = l.round;
+      await catchUp(db, l);
+      return l.round - before;
+    });
+  }
+  return played;
 }
 
 async function inLeague<T>(leagueId: string, fn: (db: pg.PoolClient, l: LeagueRow) => Promise<T>): Promise<T> {
@@ -293,6 +313,7 @@ export async function joinOnlineLeague(accountId: string, input: { code?: string
       l.id, accountId, t.career.id, t.career.club_id, manager, JSON.stringify(t.team), JSON.stringify(t.snapshot),
     ]);
     await post(db, l.id, `${manager} ist mit ${t.team.name} beigetreten.`);
+    pushJoin(l, manager, t.team.name);
     return { id: l.id, message: `Willkommen in „${l.name}“` };
   });
 }
@@ -373,6 +394,7 @@ export async function startOnlineLeague(accountId: string, leagueId: string) {
     const season = l.status === "finished" ? l.season + 1 : l.season;
     const rounds = await schedule(db, l, season);
     await post(db, l.id, `Saison ${season} gestartet: ${rounds} Spieltage${l.rhythm === "daily" ? ", ein Spieltag pro Tag" : ""}.`);
+    pushSeason(l, season, rounds, await members(db, l.id), accountId);
     return { message: `Saison ${season} gestartet` };
   });
 }
@@ -407,6 +429,7 @@ export async function postOnlineMessage(accountId: string, leagueId: string, bod
     const last = await one<{ n: number }>(db, "select count(*)::int as n from online_posts where league_id = $1 and account_id = $2 and created_at > now() - interval '1 minute'", [l.id, accountId]);
     if ((last?.n ?? 0) >= 6) throw new GameError("Langsam – zu viele Nachrichten in kurzer Zeit");
     await post(db, l.id, text, { id: accountId, name: me.manager });
+    pushChat(l, await members(db, l.id), { id: accountId, name: me.manager }, text);
     return { message: "Gesendet" };
   });
 }

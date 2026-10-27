@@ -86,7 +86,8 @@ export function influence(p: Player, season: number): number {
   const quality = Math.max(0, Math.min(1, (p.rating - 50) / 40));
   const personality = (p.attrs.composure + p.attrs.decisions + p.attrs.workRate + p.attrs.aggression * 0.5) / (3.5 * 20);
   const tenure = p.joined ? Math.min(1, (season - p.joined.season) / 4) : 0.75;
-  return Math.round(100 * (age * 0.28 + caps * 0.14 + quality * 0.26 + personality * 0.17 + tenure * 0.15));
+  const lead = p.traits?.includes("leader") ? 0.12 : 0;
+  return Math.min(100, Math.round(100 * (age * 0.28 + caps * 0.14 + quality * 0.26 + personality * 0.17 + tenure * 0.15 + lead)));
 }
 
 export type HierarchyLevel = "leader" | "influential" | "other";

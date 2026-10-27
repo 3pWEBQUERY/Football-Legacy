@@ -7,7 +7,7 @@
 .compare-cards { display: grid; gap: 10px; }
 .compare-card { border-top: 3px solid var(--accent); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .compare-kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; }
-.compare-kv span { color: var(--text-3); }
+.compare-kv > span:nth-child(2n+1) { color: var(--text-3); }
 .compare-kv b, .compare-kv > :nth-child(2n) { justify-self: end; }
 .compare-table td, .compare-table th { padding-top: 5px; padding-bottom: 5px; }
 .compare-group td { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); background: var(--panel-2); font-weight: 700; }
@@ -29,3 +29,11 @@
 .sponsor-amount { font-size: 20px; font-weight: 700; }
 .sponsor-amount small { font-size: 12px; color: var(--text-3); font-weight: 500; }
 .sponsor-offer .btn { margin-top: auto; }
+
+/* Charakterzüge */
+.trait-list { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.trait { position: relative; display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 3px; font-size: 12px; font-weight: 600; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text-2); cursor: help; }
+.trait-pos { border-color: color-mix(in srgb, var(--pos) 45%, transparent); color: var(--pos); background: var(--pos-soft); }
+.trait-neg { border-color: color-mix(in srgb, var(--neg) 45%, transparent); color: var(--neg); background: var(--neg-soft); }
+.trait-tip { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 40; width: 260px; padding: 8px 10px; font-weight: 500; font-size: 12.5px; line-height: 1.4; color: var(--text); background: var(--panel); border: 1px solid var(--line-2); border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.35); white-space: normal; }
+.trait:hover .trait-tip, .trait:focus .trait-tip { display: block; }

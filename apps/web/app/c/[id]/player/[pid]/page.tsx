@@ -1,4 +1,5 @@
 "use client";
+import { Traits } from "@/components/Traits";
 import Link from "next/link";
 import { PlayerFace } from "@/components/PlayerFace";
 import { useParams, useRouter } from "next/navigation";
@@ -126,6 +127,10 @@ export default function PlayerPage() {
               {data.club ? (
                 <Link href={`/c/${id}/club/${data.club.id}`} className="row small" style={{ gap: 8 }}><Crest colors={data.club.colors} name={data.club.name} size={18} /> <b>{data.club.name}</b> <span className="faint">{data.league?.name}</span></Link>
               ) : <span className="badge badge-blue">Vereinslos</span>}
+            </div>
+            <div className="row-wrap" style={{ marginTop: 8, gap: 8 }}>
+              <span className="faint small up" style={{ fontWeight: 600 }}>Charakter</span>
+              <Traits traits={p.traits} />
             </div>
           </div>
           <div style={{ display: "flex", borderLeft: "1px solid var(--line)" }}>

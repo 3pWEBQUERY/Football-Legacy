@@ -37,6 +37,13 @@ try {
   const health = await page.request.get(`${B}/api/health`);
   if (!health.ok()) fail(`Health-Check ${health.status()}`);
 
+  step("Installierbare App");
+  const manifest = await page.request.get(`${B}/manifest.webmanifest`);
+  if (!manifest.ok() || (await manifest.json()).name !== "Football Legacy") fail("Manifest fehlt");
+  for (const path of ["/sw.js", "/offline.html", "/icons/icon-192.png", "/icons/maskable-512.png"]) {
+    if (!(await page.request.get(B + path)).ok()) fail(`${path} fehlt`);
+  }
+
   step("Startseite und Rechtstexte");
   await page.goto(B);
   await page.getByRole("link", { name: "Impressum" }).first().waitFor();
@@ -92,6 +99,14 @@ try {
   await page.goto(`${B}/c/${id}/report/${week.userFixtureId}`);
   await page.locator(".chart-svg").first().waitFor();
   await shot("02-bericht");
+
+  step("Charakter, Ton und App-Einstellungen");
+  const squad = await api(`careers/${id}/squad`);
+  await page.goto(`${B}/c/${id}/player/${squad.players[0].id}`);
+  await page.getByText("Charakter", { exact: true }).first().waitFor();
+  await page.goto(`${B}/c/${id}/career/settings`);
+  await page.getByText("App & Mitteilungen").waitFor();
+  await page.getByText("Stadionton", { exact: true }).waitFor();
 
   step("Passwort vergessen");
   await api("auth/logout", {});

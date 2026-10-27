@@ -6,6 +6,7 @@ import { Rng, clamp } from "./rng";
 import { roundMoney, wageDemand } from "./player";
 import type { Player, Position } from "./types";
 import { positionGroup } from "./types";
+import { wageFactor } from "./traits";
 
 export interface SellerContext {
   season: number;
@@ -65,7 +66,7 @@ export function evaluateTerms(
   }
   const repF = buyerReputation < currentReputation - 10 ? 1.25 : buyerReputation > currentReputation + 10 ? 0.92 : 1;
   const ageF = p.age >= 31 && terms.years >= 3 ? 0.9 : p.age <= 23 && terms.years <= 1 ? 1.1 : 1;
-  const demand = Math.round((wageDemand(p, buyerReputation) * repF * ageF) / 100) * 100;
+  const demand = Math.round((wageDemand(p, buyerReputation) * repF * ageF * wageFactor(p)) / 100) * 100;
   const currentWage = p.contract?.wage ?? 0;
   const need = Math.max(demand, Math.round(currentWage * 1.05));
   if (terms.wage >= need * rng.range(0.95, 1)) return { kind: "accept" };
@@ -79,7 +80,7 @@ export function renewalDemand(p: Player, reputation: number, squadRank: number):
   const loyalty = clamp(p.morale / 100, 0.3, 1);
   const rankF = squadRank <= 11 ? 1.1 : squadRank <= 18 ? 1 : 0.85;
   const current = p.contract?.wage ?? 0;
-  const wage = Math.round((Math.max(base * rankF * (1.15 - loyalty * 0.2), current * 1.02)) / 100) * 100;
+  const wage = Math.round((Math.max(base * rankF * (1.15 - loyalty * 0.2) * wageFactor(p, true), current * 1.02)) / 100) * 100;
   const years = p.age >= 32 ? 1 : p.age >= 29 ? 2 : 3;
   return { wage, years };
 }

@@ -1,4 +1,5 @@
 "use client";
+import { Traits } from "@/components/Traits";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -119,6 +120,7 @@ export default function ComparePage() {
                   <span>Marktwert</span><b>{money(p.value)}</b>
                   <span>Vertrag</span><b>{p.contract ? `bis ${seasonLabel(p.contract.untilSeason)}` : "–"}</b>
                   <span>Saison</span><b>{p.stats?.apps ?? 0} Sp · {p.stats?.goals ?? 0} T · {p.stats?.assists ?? 0} V</b>
+                  <span>Charakter</span><span><Traits traits={p.traits} compact /></span>
                 </div>
               </div>
             ))}

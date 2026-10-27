@@ -40,6 +40,11 @@ Ein tiefgehender Fussball-Manager im Browser: Kader, Taktik, Transfers und Saiso
 | Scouting-Zentrale | Aufträge nach Land, Position und Höchstalter (Anzahl, Dauer und Genauigkeit je nach Chefscout, Ausland teurer). Nach Ablauf liefert der Scout fünf Empfehlungen mit Bericht, die Kader fremder Ligen werden dafür bei Bedarf erzeugt |
 | Medizin | Verletzungsarten passend zur Dauer (Prellung bis Kreuzbandriss), Meldungen bei Genesung, Seite mit Verletzten, voraussichtlicher Rückkehr, Sperren und Verletzungsrisiko |
 | Navigation | Horizontales Hauptmenü mit Untermenüs, Datum und Weiter-Button in der Kopfleiste |
+| Charakterzüge | Bis zu zwei feste Eigenschaften je Spieler (ehrgeizig, Profi, launisch, Führungsspieler, Wettkampftyp, nervös, vereinstreu, geldorientiert, verletzungsanfällig). Sie wirken auf Entwicklung, Moral, Kapitänsrolle, Leistung in Derbys/Pokal/Relegation, Verletzungen, Gehaltsforderungen und Wechselwünsche; sichtbar bei eigenen und gut bekannten Spielern |
+| Stadionton | Synthetisch im Browser erzeugt (keine Audiodateien): Zuschauer, Raunen bei Chancen, Torjubel bzw. Stöhnen je nach Heim- und Gästeblock, Trillerpfiffe. Schalter im Spiel, Lautstärke in den Einstellungen (pro Gerät) |
+| Installierbare App | Web-App-Manifest, Symbole, Service Worker mit Offline-Hinweis; „App installieren“ auf der Karrierenseite und in den Einstellungen |
+| Push-Mitteilungen | Web Push (VAPID) für Online-Ligen (Spieltage, Saisonstart, Beitritte, Nachrichten) und lange Berechnungen, wenn die Seite inzwischen geschlossen wurde. Themen pro Gerät wählbar, Testmitteilung |
+| Hintergrunddienst | Rechenintensive Aufrufe (Weiter, Spiele, neue Karriere, Online-Spieltage) laufen über eine Warteschlange in PostgreSQL und einen eigenen Prozess; tägliche Online-Ligen spielen ihre Spieltage selbstständig |
 
 ## Architektur
 
@@ -55,6 +60,7 @@ apps/web        @fl/web   Next.js: JSON-API unter /api/* und der Browser-Client
 
 - Die Simulation bekommt nur einfache Datenobjekte und ist deterministisch (gleicher Seed → gleiches Ergebnis).
 - Spiele werden auf dem Server in Abschnitten simuliert, der Spielstand wird nach jedem Abschnitt in der Datenbank gespeichert. Der Browser puffert die Positionsdaten und spielt sie ab.
+- Hintergrunddienst (`packages/game/src/worker`): Die API legt rechenintensive Aufträge in `sim_jobs` ab, ein eigener Node-Prozess holt sie mit `FOR UPDATE SKIP LOCKED` ab (mehrere Prozesse möglich), die Anfrage wartet nur auf das Ergebnis. Der Webserver startet den gebündelten Dienst (`apps/web/worker.cjs`, gebaut mit `pnpm --filter @fl/game build:worker`) als Kindprozess und startet ihn nach Abstürzen neu. Ohne laufenden Dienst wird wie bisher direkt in der Anfrage gerechnet. `/api/health` zeigt die Zahl der aktiven Dienste.
 - Die API (`apps/web/lib/server/router.ts`) akzeptiert Cookies oder `Authorization: Bearer <token>` – die spätere iOS-App kann sie unverändert nutzen (`returnToken: true` beim Login liefert das Token).
 
 ## Lokal starten
@@ -96,7 +102,7 @@ Kennzahlen der Engine (gleich starke Teams): ~2,7 Tore, ~23 Schüsse, ~2,7 Gelbe
 
 Live-Instanz: https://web-production-4d4918.up.railway.app (Railway-Projekt „Football Legacy“, Region europe-west4).
 
-Beim ersten Start legt der Server das Schema selbst an. Ein separater Simulations-Worker mit Warteschlange ist für eine spätere Ausbaustufe vorgesehen.
+Beim ersten Start legt der Server das Schema selbst an und startet den Hintergrunddienst als Kindprozess. Bei viel Last lässt sich der Dienst als eigener Railway-Service betreiben: gleiches Repository, Startbefehl `node apps/web/worker.cjs`, dieselbe `DATABASE_URL`; im Web-Service dann `WORKER_MODE=off` setzen.
 
 ### Weitere Variablen
 
@@ -105,11 +111,15 @@ Beim ersten Start legt der Server das Schema selbst an. Ein separater Simulation
 | `RESEND_API_KEY` | API-Schlüssel von [Resend](https://resend.com) für E-Mails (Passwort zurücksetzen). Ohne Schlüssel wird nichts verschickt, nur protokolliert. |
 | `MAIL_FROM` | Absender, z. B. `Football Legacy <noreply@deine-domain.ch>`. Die Domain muss bei Resend verifiziert sein; ohne eigene Domain kann `onboarding@resend.dev` nur an die E-Mail des Resend-Kontos senden. |
 | `APP_URL` | Öffentliche Adresse für Links in E-Mails. Optional – auf Railway wird `RAILWAY_PUBLIC_DOMAIN` verwendet. |
+| `WORKER_MODE` | `fork` (Standard): Webserver startet den Hintergrunddienst selbst. `off`: Dienst läuft separat. |
+| `JOB_MODE` | `auto` (Standard): Warteschlange, sobald ein Dienst läuft. `inline`: immer direkt in der Anfrage rechnen. |
+| `WORKER_CONCURRENCY` | Parallele Aufträge pro Dienst (Standard 2). |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Optional. Ohne Angabe erzeugt der Server die Push-Schlüssel beim ersten Bedarf selbst und speichert sie in der Datenbank (`app_secrets`). |
 | `LEGAL_NAME`, `LEGAL_ADDRESS`, `LEGAL_EMAIL` | Angaben für Impressum und Datenschutzerklärung. Mehrzeilige Anschrift mit `|` trennen, z. B. `Musterstrasse 1|8000 Zürich|Schweiz`. |
 
 ### Backups
 
-Die Datenbank liegt auf dem Volume `postgres-volume`. Unter Postgres → Volume → *Backups* sind tägliche (6 Tage aufbewahrt) und wöchentliche Sicherungen (1 Monat) eingestellt; dort lässt sich auch ein Stand wiederherstellen.
+Die Datenbank liegt auf dem Volume `postgres-volume`. Unter Postgres → Volume → *Backups* lassen sich tägliche (6 Tage aufbewahrt) und wöchentliche Sicherungen (1 Monat) einschalten und Stände wiederherstellen. Die Zeitpläne müssen im Railway-Dashboard aktiviert werden.
 
 ### Browser-Test
 
@@ -119,4 +129,4 @@ Die Datenbank liegt auf dem Volume `postgres-volume`. Unter Postgres → Volume 
 
 - Offene Entscheidungen aus dem Konzept: Monetarisierung, Magic-Link statt Passwort, Logo/Design-System, Online-Umfang (nur Ranglisten oder gemeinsame Ligen).
 - Stufe 1.x: detailliertere Jugendakademie, Medien und Spielerinteraktionen, internationale Wettbewerbe.
-- Technik: Simulations-Worker mit Warteschlange (Redis), Fehlerüberwachung.
+- Technik: Fehlerüberwachung, weitere Sprachen.

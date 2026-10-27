@@ -5,6 +5,7 @@ import { api, useApi } from "@/lib/client/api";
 import { seasonLabel } from "@/lib/client/format";
 import { Crest, Empty, ErrorBox, Icon, Loading, useToast } from "@/components/ui";
 import { AccountTop } from "@/components/AccountTop";
+import { InstallButton } from "@/components/Pwa";
 import { useConfirm } from "@/components/Dialog";
 import { LegalLinks } from "@/components/Legal";
 
@@ -40,7 +41,10 @@ export default function CareersPage() {
             <h1>Spielstände</h1>
             <p>Bis zu fünf Karrieren parallel, jede mit eigener Welt.{streak > 1 ? ` Login-Serie: ${streak} Tage.` : ""}</p>
           </div>
-          <Link className="btn btn-primary btn-lg" href="/careers/new"><Icon name="plus" size={16} /> Neue Karriere</Link>
+          <div className="row-wrap">
+            <InstallButton className="btn btn-lg" />
+            <Link className="btn btn-primary btn-lg" href="/careers/new"><Icon name="plus" size={16} /> Neue Karriere</Link>
+          </div>
         </div>
         {loading && <Loading />}
         {error && <ErrorBox message={error} />}

@@ -130,6 +130,8 @@ export interface Player {
   joined?: { season: number } | null;
   /** Weiterverkaufsbeteiligung des abgebenden Vereins */
   sellOn?: { clubId: number; pct: number } | null;
+  /** Charakterzüge (höchstens zwei, siehe traits.ts) */
+  traits?: import("./traits").Trait[];
   /** Auszeichnungen (z. B. Spieler des Monats) */
   awards?: { season: number; month: number; kind: string; league: string }[];
 }

@@ -1,4 +1,6 @@
 "use client";
+import { SoundToggle } from "@/components/SoundToggle";
+import { crowd, playEvent } from "@/lib/client/sound";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HalftimeTalk, PostMatchTalk, ShoutBar } from "@/components/Touchline";
@@ -223,6 +225,24 @@ export default function MatchDay() {
   const flash = lastGoal && playhead - lastGoal.tick < 8 && phase === "live" ? "TOR!" : null;
   const minute = Math.min(90, Math.floor(playhead / 6));
 
+  // Stadionton: Ereignisse beim Erreichen abspielen (beim Vorspulen nicht nachholen), Grundrauschen je nach Spielstand
+  const heard = useRef(0);
+  useEffect(() => {
+    const from = heard.current;
+    heard.current = visible.length;
+    if (phase !== "live" && phase !== "halftime" && phase !== "fulltime") return;
+    for (const e of visible.slice(from)) {
+      if (playhead - e.tick <= 4) playEvent(e.type, e.side === (m?.side === 0 ? "home" : "away"), m?.side === 0);
+    }
+  }, [visible, phase, playhead, m]);
+  useEffect(() => {
+    const close = Math.abs(score[0] - score[1]) <= 1;
+    if (phase === "live" && !paused && !talk) crowd(true, 0.16 + (close && minute >= 75 ? 0.1 : 0) + (close && minute >= 85 ? 0.06 : 0));
+    else if (phase === "halftime" || ((paused || talk) && phase === "live")) crowd(true, 0.07);
+    else crowd(false);
+  }, [phase, paused, talk, minute, score]);
+  useEffect(() => () => crowd(false), []);
+
   const numbers = useMemo<[number[], number[]]>(() => {
     if (!m) return [[], []];
     const res: [number[], number[]] = [Array.from({ length: 11 }, (_, i) => i + 1), Array.from({ length: 11 }, (_, i) => i + 1)];
@@ -365,6 +385,7 @@ export default function MatchDay() {
             <div className="card row-wrap" style={{ padding: 8 }}>
               <button className="btn" onClick={() => setPaused((p) => !p)}><Icon name={paused ? "play" : "pause"} size={15} /> {paused ? "Weiter" : "Pause"}</button>
               <div className="seg">{SPEEDS.map((s, i) => <button key={s.label} className={speed === i ? "active" : ""} onClick={() => setSpeed(i)}>{s.label}</button>)}</div>
+              <SoundToggle />
               <button className="btn btn-primary" onClick={() => { setPaused(true); setTalk(true); if (m) resetChange(m.teams[m.side]); }}><Icon name="board" size={15} /> Eingreifen</button>
               <button className="btn" disabled={busy} onClick={skip}><Icon name="fast" size={15} /> {secondHalf ? "Zum Abpfiff" : "Zur Halbzeit"}</button>
               {applyFrom !== null && <span className="badge badge-blue">Neue Anweisungen ab Min. {Math.floor(applyFrom / 6) + 1}</span>}

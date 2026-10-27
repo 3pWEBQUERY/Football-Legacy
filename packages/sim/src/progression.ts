@@ -3,6 +3,7 @@ import { Rng, clamp } from "./rng";
 import { POSITION_WEIGHTS, marketValue, ratingAt } from "./player";
 import type { AttrKey, Player } from "./types";
 import { MENTAL, PHYSICAL, TECHNICAL } from "./types";
+import { declineFactor, growthFactor, hasTrait, injuryFactor, moraleChange } from "./traits";
 
 export type TrainingFocus = "balanced" | "attack" | "defense" | "physical" | "technical" | "mental" | "recovery";
 export type TrainingIntensity = "low" | "normal" | "high";
@@ -70,7 +71,7 @@ export function weeklyDevelopment(rng: Rng, p: Player, plan: TrainingPlan, ctx: 
   // Trainingsverletzungen bei hoher Intensität
   let injured = false;
   const injuryRisk = plan.intensity === "high" ? 0.008 : plan.intensity === "low" ? 0.0015 : 0.004;
-  if (p.injuryWeeks === 0 && rng.chance(injuryRisk * (1.2 - ctx.physioQuality / 40))) {
+  if (p.injuryWeeks === 0 && rng.chance(injuryRisk * (1.2 - ctx.physioQuality / 40) * injuryFactor(p))) {
     p.injuryWeeks = rng.int(1, 3);
     injured = true;
   }
@@ -84,11 +85,11 @@ export function weeklyDevelopment(rng: Rng, p: Player, plan: TrainingPlan, ctx: 
     const intensityF = plan.intensity === "high" ? 1.25 : plan.intensity === "low" ? 0.75 : 1;
     const focusF = plan.focus === "recovery" ? 0.4 : 1;
     const youthF = plan.youthFocus && p.age <= 21 ? 1.3 : 1;
-    growth = 0.055 * ageF * play * intensityF * focusF * youthF * (0.7 + ctx.coachQuality / 33) * Math.min(1.6, gap / 8);
+    growth = 0.055 * ageF * play * intensityF * focusF * youthF * (0.7 + ctx.coachQuality / 33) * Math.min(1.6, gap / 8) * growthFactor(p);
   }
   // Alterung: Physis lässt ab 30 nach
   let decline = 0;
-  if (p.age >= 30) decline = 0.02 * (p.age - 29) * (plan.focus === "physical" ? 0.7 : 1);
+  if (p.age >= 30) decline = 0.02 * (p.age - 29) * (plan.focus === "physical" ? 0.7 : 1) * declineFactor(p);
 
   const dev = p.devProgress ?? 0;
   let next = dev + growth - decline;
@@ -132,7 +133,7 @@ export function refresh(p: Player) {
 export function afterMatch(p: Player, matchRating: number, minutes: number, result: "W" | "D" | "L", staminaEnd: number) {
   p.form = clamp(Math.round((p.form * 0.6 + matchRating * 0.4) * 10) / 10, 1, 10);
   p.fitness = clamp(Math.round(Math.min(p.fitness, staminaEnd + 10)), 30, 100);
-  p.morale = clamp(p.morale + (result === "W" ? 5 : result === "D" ? 0 : -5) + (matchRating >= 7.5 ? 3 : matchRating < 5.5 ? -3 : 0), 5, 100);
+  moraleChange(p, (result === "W" ? 5 : result === "D" ? 0 : -5) + (matchRating >= 7.5 ? 3 : matchRating < 5.5 ? -3 : 0));
   p.stats.apps++;
   p.stats.ratingSum += matchRating;
   void minutes;
@@ -140,7 +141,8 @@ export function afterMatch(p: Player, matchRating: number, minutes: number, resu
 
 /** Spieler ohne Einsatz verlieren Moral, wenn sie zu den Besseren gehören. */
 export function benchMorale(p: Player, squadRank: number) {
-  if (squadRank <= 14) p.morale = clamp(p.morale - (squadRank <= 11 ? 4 : 2), 5, 100);
+  // Ehrgeizige Stammkräfte vertragen die Bank besonders schlecht
+  if (squadRank <= 14) moraleChange(p, -(squadRank <= 11 ? 4 : 2) * (hasTrait(p, "ambitious") ? 1.3 : 1));
   else p.morale = clamp(p.morale + 1, 5, 75);
   p.form = clamp(Math.round((p.form * 0.9 + 6 * 0.1) * 10) / 10, 1, 10);
 }

@@ -42,3 +42,8 @@ export { exportAccountData } from "./account/privacy";
 export { sendMail, setMailTransport, type MailMessage } from "./account/mail";
 export { chooseSponsor } from "./sponsors";
 export { rivalsOf } from "./rivals";
+export { PUSH_TOPICS, notify, pushPublicKey, pushStatus, setPushTransport, subscribePush, testPush, unsubscribePush, type PushTopic } from "./account/push";
+export { bg } from "./worker/tasks";
+export { startWorker } from "./worker/worker";
+export { resetWorkerCache, workerOnline, workerStatus } from "./worker/queue";
+export { playDueOnlineLeagues } from "./online";

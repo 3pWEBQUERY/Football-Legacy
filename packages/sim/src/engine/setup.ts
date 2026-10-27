@@ -5,6 +5,7 @@ import { FORMATIONS, defaultRole, mentalityStyle } from "../tactics";
 import type { Player } from "../types";
 import { EnginePlayer, EnginePlayerStats, EngineTeam, EngineTeamStats, MatchSetup, MatchState, PITCH_H, PITCH_W, Side, TeamSetup } from "./types";
 import { basePosition, kickoff, leadership, pushEvent } from "./util";
+import { bigGameFactor, hasTrait, injuryFactor } from "../traits";
 
 function newStats(): EnginePlayerStats {
   return { goals: 0, assists: 0, shots: 0, onTarget: 0, passes: 0, passesOk: 0, tackles: 0, dribbles: 0, saves: 0, fouls: 0, keyPasses: 0, rating: 6.0 };
@@ -26,7 +27,7 @@ function leaders(t: TeamSetup["tactic"], players: EnginePlayer[], slots: (number
   return { cap: cap >= 0 ? cap : null, vice: vice >= 0 ? vice : null, capBoost: boost(cap), viceBoost: boost(vice) * 0.7 };
 }
 
-function buildTeam(setup: TeamSetup, opponentId: number): EngineTeam {
+function buildTeam(setup: TeamSetup, opponentId: number, big: boolean): EngineTeam {
   const t = setup.tactic;
   const byId = new Map(setup.players.map((p) => [p.id, p]));
   const players: EnginePlayer[] = [];
@@ -48,6 +49,9 @@ function buildTeam(setup: TeamSetup, opponentId: number): EngineTeam {
       yellow: 0,
       red: false,
       injured: false,
+      clutch: big && bigGameFactor(p) !== 1 ? bigGameFactor(p) : undefined,
+      leader: hasTrait(p, "leader") || undefined,
+      fragile: injuryFactor(p) !== 1 ? injuryFactor(p) : undefined,
       minIn: slot >= 0 ? 0 : null,
       minOut: null,
       st: newStats(),
@@ -99,7 +103,7 @@ export function createMatch(setup: MatchSetup): MatchState {
     ball: { x: PITCH_W / 2, y: PITCH_H / 2 },
     possession: 0,
     carrier: 0,
-    teams: [buildTeam(setup.home, setup.away.clubId), buildTeam(setup.away, setup.home.clubId)],
+    teams: [buildTeam(setup.home, setup.away.clubId, !!setup.big), buildTeam(setup.away, setup.home.clubId, !!setup.big)],
     events: [],
     homeAdvantage: setup.homeAdvantage ?? 1.06,
     level: 10,

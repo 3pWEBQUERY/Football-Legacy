@@ -93,7 +93,8 @@ describe("Mentalität, Pflichten, Vertrautheit", () => {
   it("hohe Vertrautheit hilft, niedrige schadet", () => {
     let hi = 0;
     let lo = 0;
-    for (let i = 0; i < 40; i++) {
+    // Der Effekt ist klein (einige Prozent): genug Partien, damit der Zufall ihn nicht überdeckt
+    for (let i = 0; i < 150; i++) {
       const h = playMatch({ seed: 12000 + i, home: withTactic(53, {}, 100), away: team(54, 66) });
       const l = playMatch({ seed: 12000 + i, home: withTactic(53, {}, 0), away: team(54, 66) });
       hi += h.homeGoals - h.awayGoals;

@@ -18,3 +18,4 @@ export * from "./training";
 export * from "./injury";
 export * from "./face";
 export * from "./dynamics";
+export * from "./traits";

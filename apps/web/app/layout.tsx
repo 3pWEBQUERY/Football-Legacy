@@ -18,11 +18,14 @@ import "./styles/onboarding.css";
 import "./styles/depth.css";
 import { ToastProvider } from "@/components/ui";
 import { DialogProvider } from "@/components/Dialog";
+import { PwaRegister } from "@/components/Pwa";
 
 export const metadata: Metadata = {
   title: "Football Legacy – Schreibe Fussball Geschichte",
   description: "Der Fussball-Manager im Browser: Kader, Taktik, Transfers und eine ganze Welt voller fiktiver Ligen.",
   applicationName: "Football Legacy",
+  appleWebApp: { capable: true, title: "Football Legacy", statusBarStyle: "black-translucent" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
@@ -45,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ToastProvider><DialogProvider>{children}</DialogProvider></ToastProvider>
+        <PwaRegister />
       </body>
     </html>
   );

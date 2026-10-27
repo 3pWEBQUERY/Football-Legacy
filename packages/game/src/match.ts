@@ -95,7 +95,7 @@ async function buildMatch(db: pg.PoolClient, career: CareerRow, f: FixtureRow): 
     seed: seedFor(career.seed, "match", f.id),
     home: teamSetup(home, hs, userIsHome ? userTactic : aiTactic(home, hs), userIsHome ? autoSubs : true, userIsHome ? fam : undefined),
     away: teamSetup(away, as, userIsHome ? aiTactic(away, as) : userTactic, userIsHome ? true : autoSubs, userIsHome ? undefined : fam),
-  }, await rivalryBetween(db, career, home.id, away.id)));
+  }, await rivalryBetween(db, career, home.id, away.id), f.cup_id != null));
 }
 
 /** Spielerverzeichnis und Aufstellungsverlauf für die 2D-Ansicht. */

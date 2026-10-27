@@ -52,6 +52,8 @@ const PATHS: Record<string, string> = {
   fire: "M12 3c1 4 5 5 5 10a5 5 0 01-10 0c0-3 2-4 2-7 1.5 1 2 2 2 3 1-2 1-4 1-6z",
   eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z",
   stadium: "M3 9c0-2 4-4 9-4s9 2 9 4v8c0 2-4 4-9 4s-9-2-9-4zM3 9c0 2 4 4 9 4s9-2 9-4",
+  sound: "M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11",
+  mute: "M4 9v6h4l5 4V5L8 9zM17 9l5 6M22 9l-5 6",
 };
 
 export function Icon({ name, size = 18, stroke = 1.8 }: { name: keyof typeof PATHS | string; size?: number; stroke?: number }) {

@@ -228,7 +228,7 @@ export async function playUserMatch(db: pg.PoolClient, career: CareerRow, st: Na
   const opp = await opponentSquad(db, career, oppCode);
   const mine = setupFor(st.code, players, tacticFor(players, st.formation, st.preset, st.starters));
   const theirs = setupFor(oppCode, opp, tacticFor(opp, "4-4-2", "balanced"));
-  const result = playMatch({ seed: seedFor(career.seed, "national-match", m.id), home: userHome ? mine : theirs, away: userHome ? theirs : mine, homeAdvantage: m.kind === "tournament" ? 1 : undefined });
+  const result = playMatch({ seed: seedFor(career.seed, "national-match", m.id), home: userHome ? mine : theirs, away: userHome ? theirs : mine, homeAdvantage: m.kind === "tournament" ? 1 : undefined, big: m.kind === "tournament" });
   const out: Played = { home: result.homeGoals, away: result.awayGoals, result };
   if (knockout && result.homeGoals === result.awayGoals) {
     const rng = new Rng(seedFor(career.seed, "national-pens", m.id));

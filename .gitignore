@@ -8,3 +8,4 @@ coverage
 next-env.d.ts
 e2e-shots/
 web.log
+apps/web/worker.cjs
