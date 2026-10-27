@@ -31,6 +31,8 @@ export interface NegotiationTarget {
   releaseClause?: number | null;
   /** Vertragsverlängerung mit einem eigenen Spieler */
   renew?: boolean;
+  /** Vorvertrag: Spieler im letzten Vertragsjahr, Wechsel im Sommer ohne Ablöse */
+  pre?: boolean;
 }
 
 const STEPS = [{ key: "club", label: "Vereinsangebot" }, { key: "contract", label: "Vertrag" }, { key: "done", label: "Unterschrift" }];
@@ -112,7 +114,8 @@ export function NegotiationModal({ careerId, target, negotiationId, onClose, onC
     }
   }
 
-  const noClub = target.free || !!target.renew || n?.kind === "renew";
+  const pre = !!target.pre || n?.kind === "pre";
+  const noClub = target.free || !!target.renew || n?.kind === "renew" || pre;
   const stage = n?.stage ?? (nid ? null : noClub ? "contract" : "club");
   const ended = n && ["done", "failed", "withdrawn", "expired"].includes(n.stage);
   const stepIdx = stage === "done" ? 2 : stage === "contract" ? 1 : 0;
@@ -120,7 +123,7 @@ export function NegotiationModal({ careerId, target, negotiationId, onClose, onC
   const upfront = offer.fee * (offer.upfrontPct / 100);
   const clause = target.releaseClause ?? n?.releaseClause ?? null;
   // Bei einer Verlängerung ersetzt das neue Gehalt das bisherige
-  const billWith = (wage: number) => (budget ? budget.wageBill - (noClub && !target.free ? n?.currentWage ?? 0 : 0) + wage : 0);
+  const billWith = (wage: number) => (budget ? budget.wageBill - (noClub && !target.free && !pre ? n?.currentWage ?? 0 : 0) + wage : 0);
   const showOfferForm = !noClub && (!nid || (n?.stage === "club" && (n.status === "rejected" || revise)));
 
   return (
@@ -129,7 +132,7 @@ export function NegotiationModal({ careerId, target, negotiationId, onClose, onC
         <div className="neg-head">
           {target.club ? <Crest colors={target.club.colors} name={target.club.name} size={40} /> : <span className="neg-free"><Icon name="contract" size={20} /></span>}
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="faint small up">{noClub && !target.free ? "Vertragsverlängerung" : target.club ? `Verhandlung mit ${target.club.name}` : "Vereinsloser Spieler"}</div>
+            <div className="faint small up">{pre ? `Vorvertrag${target.club ? ` · noch bei ${target.club.name}` : ""} · ablösefrei im Sommer` : noClub && !target.free ? "Vertragsverlängerung" : target.club ? `Verhandlung mit ${target.club.name}` : "Vereinsloser Spieler"}</div>
             <h2 className="truncate">{target.name} <span className="faint" style={{ fontSize: 15 }}>{target.position} · {target.age} J.</span></h2>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Schliessen"><Icon name="close" size={16} /></button>
@@ -254,7 +257,7 @@ export function NegotiationModal({ careerId, target, negotiationId, onClose, onC
             {n?.stage === "done" && (
               <div className="neg-box neg-done">
                 <Icon name="check" size={28} />
-                <h4>{target.name} {n.kind === "renew" ? "hat verlängert!" : "hat unterschrieben!"}</h4>
+                <h4>{target.name} {n.kind === "renew" ? "hat verlängert!" : n.kind === "pre" ? "hat einen Vorvertrag unterschrieben!" : "hat unterschrieben!"}</h4>
                 <p className="dim small">{money(n.terms?.wage)} pro Woche bis Sommer {n.contractUntil !== null ? n.contractUntil + 1 : n.season + (n.terms?.years ?? 1)} · Rolle {ROLE_LABEL[n.terms?.role]}</p>
               </div>
             )}

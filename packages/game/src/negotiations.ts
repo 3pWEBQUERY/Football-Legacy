@@ -11,3 +11,4 @@ export { deadlineDay, paySellOn } from "./negotiations/core";
 export { aiSaleOffers, respondSale, transferDeadline } from "./negotiations/sales";
 export { startRenewal } from "./negotiations/renewal";
 export { negotiationView, offerHint, playerNegotiation, transferHub } from "./negotiations/views";
+export { aiPrecontracts, precontractBlocker, precontractOpen, startPrecontract } from "./negotiations/precontract";

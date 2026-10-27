@@ -52,7 +52,7 @@ export default function TransferHub() {
 
   function openNeg(n: any) {
     const renew = n.kind === "renew";
-    setNeg({ id: n.id, target: { id: n.playerId, name: n.player, position: n.position, age: n.age, free: !n.from && !renew, renew, club: n.from && !renew ? { name: n.from.name, colors: n.from.colors } : null, askingPrice: null } });
+    setNeg({ id: n.id, target: { id: n.playerId, name: n.player, position: n.position, age: n.age, free: !n.from && !renew, renew, pre: n.kind === "pre", club: n.from && !renew ? { name: n.from.name, colors: n.from.colors } : null, askingPrice: null } });
   }
   const openSales = data.sales.filter((n: any) => n.stage === "club" || n.stage === "contract");
 

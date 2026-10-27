@@ -12,6 +12,7 @@ import { type WorldState, loadWorld, movePlayer, removePlayer, squadOf } from ".
 import { persistWorld } from "./week";
 import { buildReview, saveReview, type SeasonReview } from "./review";
 import { academySeasonEnd } from "./academy";
+import { applyPrecontract } from "./negotiations/precontract";
 import { movements, recordRetirements, recordSeason } from "./history/record";
 import { reviewVision, type VisionReview } from "./history/vision";
 import { fillAiSquads, refreshFinances, seasonStart, trimFreeAgents, trimSquads } from "./season-economy";
@@ -220,6 +221,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   const loansBought: string[] = [];
   const loanFinance: { kind: string; amount: number; label: string }[] = [];
   const released: string[] = [];
+  const precontracts: string[] = [];
   for (const p of [...w.players.values()]) {
     const club = p.clubId !== null ? w.clubs.get(p.clubId) : undefined;
     if (p.stats.apps > 0) {
@@ -262,6 +264,9 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
         movePlayer(w, p, w.clubs.has(parentId) ? parentId : null);
       }
     }
+    // Vorverträge: ablösefreier Wechsel zum neuen Verein
+    const moved = applyPrecontract(w, p, career, newSeason);
+    if (moved !== null) { if (moved) precontracts.push(moved); continue; }
     if (p.contract && p.contract.untilSeason < newSeason && p.clubId !== null) {
       if (p.clubId === career.club_id) {
         released.push(`${p.firstName} ${p.lastName}`);
@@ -377,6 +382,10 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   if (loansEnded.length) {
     await addInbox(db, career.id, newSeason, 0, "transfer", "Leihgeschäfte beendet",
       `Diese Leihen sind mit dem Saisonende ausgelaufen:\n${loansEnded.map((n) => `• ${n}`).join("\n")}`);
+  }
+  if (precontracts.length) {
+    await addInbox(db, career.id, newSeason, 0, "transfer", "Wechsel durch Vorverträge",
+      `Mit dem Saisonwechsel sind diese Vorverträge wirksam geworden:\n${precontracts.map((n) => `• ${n}`).join("\n")}`);
   }
   if (retired.length || released.length) {
     await addInbox(db, career.id, newSeason, 0, "contract", "Kaderveränderungen zum Saisonwechsel",

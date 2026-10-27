@@ -31,7 +31,7 @@ export async function aiMarketRound(db: Db, w: WorldState, rng: Rng): Promise<Ma
   const userClubId = w.career.club_id;
   const userLeague = userClubId ? w.clubs.get(userClubId)?.league_id : undefined;
   const activeClubs = [...w.clubs.values()].filter((c) => c.players_generated && c.id !== userClubId);
-  const market = [...w.players.values()].filter((p) => p.clubId !== userClubId && !p.loan);
+  const market = [...w.players.values()].filter((p) => p.clubId !== userClubId && !p.loan && !p.precontract);
 
   // Ligaschnitt der Stärke: wer weit vorne liegt, rüstet nicht immer weiter auf
   const leagueRating = new Map<number, { sum: number; n: number }>();

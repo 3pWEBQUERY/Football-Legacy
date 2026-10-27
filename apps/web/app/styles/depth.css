@@ -37,3 +37,20 @@
 .trait-neg { border-color: color-mix(in srgb, var(--neg) 45%, transparent); color: var(--neg); background: var(--neg-soft); }
 .trait-tip { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 40; width: 260px; padding: 8px 10px; font-weight: 500; font-size: 12.5px; line-height: 1.4; color: var(--text); background: var(--panel); border: 1px solid var(--line-2); border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.35); white-space: normal; }
 .trait:hover .trait-tip, .trait:focus .trait-tip { display: block; }
+
+/* U19-Ergebnisse */
+.u19-res { font-family: var(--font-cond); font-weight: 700; padding: 1px 7px; border-radius: 3px; background: var(--bg-2); }
+.u19-win { background: color-mix(in srgb, var(--pos) 22%, transparent); color: var(--pos); }
+.u19-loss { background: color-mix(in srgb, var(--neg) 22%, transparent); color: var(--neg); }
+
+/* Mannschaftsrat */
+.council { display: flex; flex-direction: column; gap: 14px; }
+.council-members { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.council-member { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px; border: 1px solid var(--line); border-radius: 6px; text-align: center; min-width: 0; }
+.council-member .name { max-width: 100%; }
+.council-member:hover { border-color: var(--accent); }
+.council-concern { border-left: 3px solid var(--warn); padding: 10px 14px; background: var(--bg-2); border-radius: 4px; display: flex; flex-direction: column; gap: 8px; }
+.council-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.council-options .btn { flex-direction: column; align-items: flex-start; height: auto; padding: 8px 12px; text-align: left; white-space: normal; gap: 2px; }
+.council-history { display: flex; flex-direction: column; gap: 4px; }
+.council-member .progress { width: 100%; margin-top: 2px; }

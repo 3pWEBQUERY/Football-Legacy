@@ -105,6 +105,8 @@ export interface Player {
    * optional mit Kaufoption (optionFee) oder Kaufpflicht (obligation).
    */
   loan?: { parentClubId: number; untilSeason: number; wageShare: number; optionFee?: number | null; obligation?: boolean } | null;
+  /** Vorvertrag: wechselt nach Ablauf des Vertrags (Saison `season`) ablösefrei zu `clubId` */
+  precontract?: { clubId: number; season: number; wage: number; years: number; role: import("./dynamics").SquadStatus; releaseClause: number | null } | null;
   /** Letztes Gespräch mit dem Trainer (Saison, Tag) */
   talk?: { season: number; day: number } | null;
   /** Versprochene Einsatzzeit: Startelfeinsätze bis zum Tag `until` */

@@ -78,7 +78,7 @@ export async function aiSaleOffers(db: Db, career: CareerRow, rng: Rng, opts: { 
   const active = await query<{ player_id: number }>(db, "select player_id from negotiations where career_id = $1 and kind = 'sell' and stage = any($2::text[])", [career.id, ACTIVE]);
   if (!opts.force && active.length >= SALE_LIMIT) return 0;
   const busy = new Set(active.map((a) => a.player_id));
-  const squad = (await getPlayers(db, career.id, [userId])).filter((p) => !p.loan && !busy.has(p.id));
+  const squad = (await getPlayers(db, career.id, [userId])).filter((p) => !p.loan && !p.precontract && !busy.has(p.id));
   if (!squad.length) return 0;
   const user = (await getClub(db, career.id, userId))!;
   const clubs = await getClubs(db, career.id, "players_generated and id <> $2", [userId]);

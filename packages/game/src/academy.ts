@@ -14,6 +14,7 @@ import { GameError } from "./errors";
 import { type CareerRow, addInbox, getClub, getPlayers, insertPlayers, saveCareer } from "./repo";
 import { type RewardNote, announceNotes, awardCard } from "./rewards";
 import { facilitiesOf } from "./facilities";
+import { u19Round, u19View } from "./u19";
 
 const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 
@@ -80,12 +81,13 @@ export async function runYouthIntake(db: pg.PoolClient, career: CareerRow): Prom
 
 /** Wöchentliches Training der Akademie (nur an Ligaspieltagen). */
 export async function academyWeek(db: pg.PoolClient, career: CareerRow, rng: Rng) {
-  const players = await getAcademy(db, career.id);
+  // U19-Spieltag: Einsatzminuten treiben die Entwicklung (ohne Einsatz zählen Trainingsspiele)
+  const { minutes, players } = await u19Round(db, career, await getAcademy(db, career.id));
   if (!players.length) return;
   const fac = facilitiesOf(career);
   for (const p of players) {
     weeklyDevelopment(rng, p, { focus: "balanced", intensity: "normal", youthFocus: true }, {
-      minutesLastWeek: 60, coachQuality: career.staff.youth + (fac.youth - 1) * 2, physioQuality: 8,
+      minutesLastWeek: Math.max(30, minutes.get(p.id) ?? 0), coachQuality: career.staff.youth + (fac.youth - 1) * 2, physioQuality: 8,
     });
   }
   await saveAcademy(db, career.id, players);
@@ -138,6 +140,7 @@ export async function academyView(careerId: string, accountId: string) {
   const intakeDate = intakeDay !== null ? dateOf(career.season, intakeDay) : null;
   const club = career.club_id ? await getClub(pool(), career.id, career.club_id) : null;
   return {
+    u19: await u19View(career),
     kit: club?.colors ?? null,
     career: { season: career.season, day: career.day, clubId: career.club_id },
     staffYouth: career.staff.youth,
@@ -149,6 +152,7 @@ export async function academyView(careerId: string, accountId: string) {
       .map((p) => ({
         id: p.id, name: `${p.firstName} ${p.lastName}`, age: p.age, position: p.position, nationality: p.nationality, foot: p.foot,
         archetype: p.archetype, wonderkid: p.wonderkid, attrs: p.attrs, ...estimate(career, p),
+        apps: p.stats?.apps ?? 0, goals: p.stats?.goals ?? 0, assists: p.stats?.assists ?? 0,
       })),
   };
 }

@@ -14,6 +14,7 @@ export async function startRenewal(careerId: string, accountId: string, playerId
     const p = await getPlayer(db, career.id, playerId);
     if (!p || p.clubId !== clubId) throw new GameError("Spieler nicht in deinem Kader.");
     if (p.loan) throw new GameError("Mit Leihspielern kannst du nicht verlängern.");
+    if (p.precontract) throw new GameError(`${p.firstName} ${p.lastName} hat bereits einen Vorvertrag bei einem anderen Verein unterschrieben.`);
     const open = await one<{ id: number; kind: string }>(db, "select id, kind from negotiations where career_id = $1 and player_id = $2 and stage = any($3::text[])", [career.id, p.id, ACTIVE]);
     if (open?.kind === "renew") return { id: open.id, message: "Die Gespräche laufen bereits." };
     if (open) throw new GameError("Über den Spieler wird gerade mit einem anderen Verein verhandelt.");

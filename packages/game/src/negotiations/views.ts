@@ -41,7 +41,7 @@ async function negPayload(db: Db, career: CareerRow, n: NegRow, full = false) {
   if (!full) return base;
   return {
     ...base, log: n.log, roles: SQUAD_STATUS_LABEL, value: p?.value ?? 0, currentWage: p?.contract?.wage ?? 0, budget: await budgetOf(db, career),
-    attempts: n.offer?.attempts ?? 1, releaseClause: p?.contract?.releaseClause ?? null, contractUntil: p?.contract?.untilSeason ?? null,
+    attempts: n.offer?.attempts ?? 1, releaseClause: p?.contract?.releaseClause ?? null, contractUntil: n.kind === "pre" ? (p?.precontract ? p.precontract.season + p.precontract.years : null) : p?.contract?.untilSeason ?? null,
   };
 }
 

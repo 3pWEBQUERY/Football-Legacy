@@ -18,6 +18,7 @@ import {
 import { type RewardNote, announceNotes, ensureMissions, rewardMatch } from "./rewards";
 import { aiTactic, teamSetup } from "./setup";
 import { trackPlayingTime, weeklyDynamics } from "./dynamics";
+import { councilWeek } from "./council";
 import { leagueRoundup, matchArticle, transferArticles } from "./media";
 import { nationalNewSeason, nationalTournament } from "./national";
 import { staffSeasonEnd } from "./staff";
@@ -31,7 +32,7 @@ import { academyWeek } from "./academy";
 import { facilitiesOf } from "./facilities";
 import { endSeason, type SeasonSummary } from "./season-end";
 import { jobsSeasonEnd, jobsWeek } from "./jobs";
-import { aiSaleOffers, negotiationsDaily, paymentsSeasonStart, transferDeadline } from "./negotiations";
+import { aiPrecontracts, aiSaleOffers, negotiationsDaily, paymentsSeasonStart, transferDeadline } from "./negotiations";
 import { matchAnalysis, milestones, newsWeekly, send, staffSender } from "./news";
 import { familiarityTick, userFamiliarity } from "./tactics";
 import { type WorldState, loadWorld, squadOf } from "./world-state";
@@ -274,6 +275,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   if (userClubId && !midweek) {
     const own = squadOf(w, userClubId);
     await weeklyDynamics(db, career, own);
+    news.push(...await councilWeek(db, career, own));
     for (const p of own) w.dirtyPlayers.add(p.id);
   }
   // Genesene Spieler: Verletzung austragen, eigene melden
@@ -348,6 +350,8 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     await transferArticles(db, career, marketNews.filter((n) => n.important).map((n) => ({ text: n.text })));
     if (userClubId) await aiSaleOffers(db, career, rng);
   }
+  // Vorverträge: KI-Vereine werben auslaufende Spieler ab (ab 1. Januar)
+  if (userClubId && !midweek) news.push(...await aiPrecontracts(db, career, w));
   // Abgelaufene Angebote verfallen
   await query(
     db,

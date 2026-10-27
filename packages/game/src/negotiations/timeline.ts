@@ -19,7 +19,7 @@ export async function negotiationsDaily(db: Db, career: CareerRow) {
   if (!rows.length) return;
   const window = windowFor(career);
   for (const n of rows) {
-    if (n.kind !== "renew" && n.from_club && !window.open) {
+    if (n.kind !== "renew" && n.kind !== "pre" && n.from_club && !window.open) {
       n.stage = "expired";
       n.status = "expired";
       n.message = "Das Transferfenster hat geschlossen – die Verhandlung ist beendet.";

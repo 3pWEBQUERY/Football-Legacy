@@ -28,6 +28,7 @@ export default function PlayerPage() {
   const { data, error, reload } = useApi<any>(`careers/${id}/players/${pid}`);
   const [negOpen, setNegOpen] = useState(false);
   const [renewId, setRenewId] = useState<number | null>(null);
+  const [preId, setPreId] = useState<number | null>(null);
   const [saleId, setSaleId] = useState<number | null>(null);
   const [loan, setLoan] = useState<{ share: number; option: "none" | "option" | "obligation"; fee: number; msg: any | null } | null>(null);
   const [talk, setTalk] = useState<{ result: any | null } | null>(null);
@@ -57,6 +58,18 @@ export default function PlayerPage() {
     try {
       const r = await api<any>(`careers/${id}/negotiations/renew`, { body: { playerId: p.id } });
       setRenewId(r.id);
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openPrecontract() {
+    setBusy(true);
+    try {
+      const r = await api<any>(`careers/${id}/negotiations/precontract`, { body: { playerId: p.id } });
+      setPreId(r.id);
     } catch (e) {
       toast((e as Error).message, "error");
     } finally {
@@ -121,6 +134,7 @@ export default function PlayerPage() {
               {p.away && data.career.day <= p.away.until && <span className="badge badge-blue">Bei der Nationalmannschaft</span>}
               {p.caps > 0 && <span className="faint">{p.caps} Länderspiele{p.intlGoals ? ` · ${p.intlGoals} Tore` : ""}</span>}
               {p.promise && <span className="badge badge-warn" title="Versprochene Einsatzzeit">Versprechen · {p.promise.starts}/{p.promise.needed} Startelf bis {fmtDate(dayIso(data.career.season, p.promise.until), { year: false })}</span>}
+              {data.precontract?.signed && <span className={`badge ${data.precontract.signed.own ? "badge-accent" : "badge-warn"}`} title="Wechselt nach Vertragsende ablösefrei">Vorvertrag {data.precontract.signed.own ? "bei dir" : `bei ${data.precontract.signed.club}`} · ab Sommer</span>}
               {p.loan && <span className="badge badge-accent">{data.loanedOutByUser ? "Von dir verliehen" : `Leihe von ${data.loanParent ?? "Stammverein"}`} · bis Saisonende</span>}
             </div>
             <div style={{ marginTop: 8 }}>
@@ -184,6 +198,11 @@ export default function PlayerPage() {
               <button className="btn btn-primary" disabled={busy || (!data.window.open && p.clubId !== null && !activeNeg) || (!!p.loan && !activeNeg)} onClick={startOffer} title={!data.window.open && p.clubId !== null ? "Transferfenster geschlossen" : ""}>
                 <Icon name={activeNeg ? "transfer" : p.clubId === null ? "contract" : "transfer"} size={15} /> {activeNeg ? "Zur Verhandlung" : p.clubId === null ? "Vertrag anbieten" : "Angebot abgeben"}
               </button>
+              {data.precontract?.lastYear && !data.precontract.signed && (activeNeg?.kind === "pre" ? (
+                <button className="btn btn-primary" onClick={() => setPreId(activeNeg.id)}><Icon name="contract" size={15} /> Zum Vorvertrag</button>
+              ) : !activeNeg && (
+                <button className="btn" disabled={busy || !!data.precontract.blocker} onClick={openPrecontract} title={data.precontract.blocker ?? "Ablösefreier Wechsel zur neuen Saison"}><Icon name="contract" size={15} /> Vorvertrag anbieten</button>
+              ))}
               {p.clubId !== null && !p.loan && (
                 <button className="btn" disabled={busy || !data.window.open} onClick={() => setLoan({ share: 75, option: "none", fee: Math.round(((data.askingPrice ?? p.value) * 1.05) / 50_000) * 50_000, msg: null })} title={!data.window.open ? "Transferfenster geschlossen" : "Bis Saisonende ausleihen"}>Ausleihen</button>
               )}
@@ -336,6 +355,10 @@ export default function PlayerPage() {
       {renewId && (
         <NegotiationModal careerId={id} negotiationId={renewId} onClose={() => { setRenewId(null); reload(); }} onChanged={reload}
           target={{ id: p.id, name: p.name, position: p.position, age: p.age, free: false, renew: true, club: data.club ? { name: data.club.name, colors: data.club.colors } : null, value: p.value }} />
+      )}
+      {preId && (
+        <NegotiationModal careerId={id} negotiationId={preId} onClose={() => { setPreId(null); reload(); }} onChanged={reload}
+          target={{ id: p.id, name: p.name, position: p.position, age: p.age, free: false, pre: true, club: data.club ? { name: data.club.name, colors: data.club.colors } : null, value: p.value }} />
       )}
       {saleId && <SaleModal careerId={id} negotiationId={saleId} onClose={() => { setSaleId(null); reload(); }} onChanged={reload} />}
     </>

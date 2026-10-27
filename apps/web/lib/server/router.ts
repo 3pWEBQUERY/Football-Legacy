@@ -255,6 +255,8 @@ route("POST", career("transfers/budget"), async (c) => game.setWageBudget(c.para
 const clubOffer = (b: Record<string, unknown>) => ({ fee: num(b.fee ?? 0), upfrontPct: num(b.upfrontPct ?? 100), installmentYears: num(b.installmentYears ?? 0), sellOn: num(b.sellOn ?? 0) });
 route("POST", career("negotiations"), async (c) => game.startNegotiation(c.params.id, acc(c), { playerId: num(c.body.playerId), offer: clubOffer(c.body) }));
 route("POST", career("negotiations/renew"), async (c) => game.startRenewal(c.params.id, acc(c), num(c.body.playerId)));
+route("POST", career("council"), async (c) => game.answerCouncil(c.params.id, acc(c), String(c.body.choice ?? "")));
+route("POST", career("negotiations/precontract"), async (c) => game.startPrecontract(c.params.id, acc(c), num(c.body.playerId)));
 route("GET", career("negotiations/:nid"), async (c) => game.negotiationView(c.params.id, acc(c), num(c.params.nid)));
 route("POST", career("negotiations/:nid"), async (c) => {
   const nid = num(c.params.nid);

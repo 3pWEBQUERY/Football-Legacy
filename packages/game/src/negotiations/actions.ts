@@ -9,6 +9,7 @@ import { addFinance, getClub, getPlayer, getPlayers, saveCareer, saveClubs, save
 import { announceNotes, awardCard, completeMission, unlockAchievement, type RewardNote } from "../rewards";
 import { windowFor } from "../window";
 import { answerClubOffer } from "./answer";
+import { completePrecontract } from "./precontract";
 import { completeRenewal } from "./renewal";
 import { ACTIVE, ROLE_ORDER, cleanOffer, describeOffer, describeTerms, getNeg, initialDemand, insertNeg, judgeTerms, log, newNeg, requireClub, responseDay, saveNeg, toContractStage, type ClubOffer, type ContractTerms, type NegRow } from "./core";
 import { transferBan } from "../club-safety";
@@ -128,7 +129,7 @@ export async function offerContract(careerId: string, accountId: string, id: num
     n.terms = t;
     const verdict = judgeTerms(n.demand, t);
     if (verdict.ok) {
-      const res = n.kind === "renew" ? await completeRenewal(db, career, n, t) : await completeTransfer(db, career, n, t);
+      const res = n.kind === "renew" ? await completeRenewal(db, career, n, t) : n.kind === "pre" ? await completePrecontract(db, career, n, t) : await completeTransfer(db, career, n, t);
       log(n, career, "berater", "Einverstanden – wir haben einen Deal.");
       await saveNeg(db, n);
       return res;
@@ -197,6 +198,7 @@ async function completeTransfer(db: Db, career: CareerRow, n: NegRow, t: Contrac
   p.joined = { season: career.season };
   p.squadStatus = t.role;
   p.transferRequest = false;
+  p.precontract = null;
   p.sellOn = seller && o.sellOn > 0 ? { clubId: seller.id, pct: o.sellOn } : null;
   p.contract = { wage: t.wage, untilSeason: career.season + t.years - 1, releaseClause: t.releaseClause, goalBonus: 0 };
   p.morale = 82;

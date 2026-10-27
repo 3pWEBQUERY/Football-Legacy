@@ -112,4 +112,21 @@ create table if not exists online_blocks (
 );
 `,
   },
+  {
+    name: "024_u19_council.sql",
+    sql: `
+-- U19-Liga der Akademie (eine Zeile pro Saison)
+create table if not exists u19_seasons (
+  career_id uuid not null references careers(id) on delete cascade,
+  season int not null,
+  data jsonb not null,
+  primary key (career_id, season)
+);
+-- Mannschaftsrat: Sitzungen und offene Anliegen
+create table if not exists council (
+  career_id uuid primary key references careers(id) on delete cascade,
+  data jsonb not null
+);
+`,
+  },
 ];

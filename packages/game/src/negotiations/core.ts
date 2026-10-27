@@ -9,7 +9,7 @@ export interface ClubOffer { fee: number; upfrontPct: number; installmentYears: 
 export interface ContractTerms { wage: number; years: number; signingBonus: number; releaseClause: number | null; role: SquadStatus; agentFee: number }
 interface LogEntry { day: number; season: number; who: "du" | "verein" | "berater"; text: string }
 /** buy: eigener Einkauf · sell: Angebot für einen eigenen Spieler · renew: Vertragsverlängerung */
-export type NegKind = "buy" | "sell" | "renew";
+export type NegKind = "buy" | "sell" | "renew" | "pre";
 export interface NegRow {
   id: number; career_id: string; kind: NegKind; player_id: number; player_name: string; from_club: number | null; to_club: number;
   stage: "club" | "contract" | "done" | "failed" | "withdrawn" | "expired"; status: string;

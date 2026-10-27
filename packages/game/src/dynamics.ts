@@ -6,6 +6,7 @@ import {
   EXPECTED_SHARE, HIERARCHY_LABEL, SQUAD_STATUS, SQUAD_STATUS_LABEL, cohesion, cohesionLabel, defaultStatuses, hierarchy,
   moodLabel, playingTimeHappiness, restlessness, squadRanks, statusChange, statusOf, type Formation, type Player, type SquadStatus,
 } from "@fl/sim";
+import { councilView } from "./council";
 import { pool, query, type Db } from "./db";
 import { readCareer, withCareer } from "./career";
 import { GameError } from "./errors";
@@ -131,6 +132,7 @@ export async function dynamicsView(careerId: string, accountId: string) {
     statuses: SQUAD_STATUS.map((s) => ({ value: s, label: SQUAD_STATUS_LABEL[s], expected: Math.round(EXPECTED_SHARE[s] * 100) })),
     players: rows,
     unhappy,
+    council: await councilView(career, squad, club.tactic?.captain),
   };
 }
 

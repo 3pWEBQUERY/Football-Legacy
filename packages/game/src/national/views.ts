@@ -21,7 +21,7 @@ export async function nationalJobs(careerId: string, accountId: string) {
   return {
     reputation: rep,
     current: st ? { code: st.code, name: nation(st.code).name } : null,
-    jobs: list.map((c) => ({ ...c, colors: nationColors(c.code), available: rep >= c.required, home: c.code === career.country_code })),
+    jobs: list.map((c) => ({ ...c, colors: nationColors(c.code), available: career.manager.reputation >= c.required, home: c.code === career.country_code })),
   };
 }
 

@@ -4,7 +4,7 @@ import { scoutLimit } from "../actions";
 import { readCareer } from "../career";
 import { one, pool, query } from "../db";
 import { GameError } from "../errors";
-import { playerNegotiation } from "../negotiations";
+import { playerNegotiation, precontractBlocker } from "../negotiations";
 import { getClub, getLeague, getPlayer, getPlayers } from "../repo";
 import { MAX_TACTICS, familiarityOf, getTactics, presetName } from "../tactics";
 import { windowFor } from "../window";
@@ -127,6 +127,12 @@ export async function playerDetail(careerId: string, accountId: string, playerId
     loanParent: p.loan ? (await clubNames(career.id, [p.loan.parentClubId])).get(p.loan.parentClubId) ?? null : null,
     loanedOutByUser: !!p.loan && p.loan.parentClubId === career.club_id,
     negotiation: career.club_id ? await playerNegotiation(pool(), career, p.id) : null,
+    precontract: {
+      // Angebot möglich (letztes Vertragsjahr bei einem anderen Verein) – sonst der Grund
+      lastYear: p.clubId !== null && p.clubId !== career.club_id && p.contract?.untilSeason === career.season,
+      blocker: career.club_id ? precontractBlocker(career, p) : "Ohne Verein keine Vorverträge.",
+      signed: p.precontract ? { clubId: p.precontract.clubId, club: (await clubNames(career.id, [p.precontract.clubId])).get(p.precontract.clubId) ?? "?", own: p.precontract.clubId === career.club_id } : null,
+    },
   };
 }
 

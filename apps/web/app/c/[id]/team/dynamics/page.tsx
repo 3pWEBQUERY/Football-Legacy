@@ -5,6 +5,7 @@ import { api, useApi } from "@/lib/client/api";
 import { useGame } from "@/components/GameShell";
 import { Empty, ErrorBox, Loading, Panel, Pos, Progress, moraleLabel, useToast } from "@/components/ui";
 import { FaceName, PlayerFace } from "@/components/PlayerFace";
+import { CouncilPanel } from "@/components/Council";
 
 function happinessText(h: number | null) {
   if (h === null) return { text: "Noch offen", color: "var(--text-3)" };
@@ -60,6 +61,8 @@ export default function DynamicsPage() {
           <span className="faint small">{data.players.filter((p: any) => p.transferRequest).length} mit Wechselwunsch</span>
         </div>
       </div>
+
+      <CouncilPanel careerId={id} council={data.council} kit={data.kit} onChanged={reload} />
 
       <div className="grid grid-main" style={{ alignItems: "start" }}>
         <Panel title="Kaderstatus und Einsatzzeit" icon="users" flush>
