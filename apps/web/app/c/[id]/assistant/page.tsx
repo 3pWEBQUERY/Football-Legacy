@@ -83,7 +83,7 @@ export default function AssistantPage() {
             {messages.map((m, i) => (
               <div key={i} className={`aic-msg ${m.role === "user" ? "me" : "coach"}`}>
                 {m.role === "assistant" && (face ? <PlayerFace player={face} size={34} /> : <span className="aic-avatar"><Icon name="team" size={16} /></span>)}
-                <div className="aic-bubble">{m.content}</div>
+                <div className="aic-bubble" translate={m.role === "user" ? "no" : undefined}>{m.content}</div>
               </div>
             ))}
             {busy && <div className="aic-msg coach"><span className="aic-avatar"><Icon name="team" size={16} /></span><div className="aic-bubble dim">{coach.name} überlegt …</div></div>}

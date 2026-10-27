@@ -72,6 +72,12 @@ export const ROLE_CODE: Record<string, string> = {
   gk: "TW", sweeper_keeper: "MTW", cb: "IV", bpd: "BIV", fb: "AV", wb: "FV", anchor: "AB", dlp: "TSM", b2b: "BTB",
   playmaker: "SM", winger: "FL", wide_mid: "BM", inside_fwd: "IF", am: "OM", poacher: "KN", target: "ZS", complete_fwd: "KS", false9: "F9",
 };
+/** Englische Kürzel (FM-Stil) für Rollen und Aufgaben */
+export const ROLE_CODE_EN: Record<string, string> = {
+  gk: "GK", sweeper_keeper: "SK", cb: "CD", bpd: "BPD", fb: "FB", wb: "WB", anchor: "A", dlp: "DLP", b2b: "BBM",
+  playmaker: "AP", winger: "W", wide_mid: "WM", inside_fwd: "IF", am: "AM", poacher: "P", target: "TM", complete_fwd: "CF", false9: "F9",
+};
+export const DUTY_EN: Record<string, string> = { defend: "D", support: "S", attack: "A" };
 export const GROUP: Record<string, SlotGroup> = {
   GK: "gk", DC: "def", DR: "def", DL: "def", DM: "mid", MC: "mid", MR: "mid", ML: "mid", AMC: "att", AMR: "att", AML: "att", ST: "att",
 };
@@ -162,7 +168,7 @@ export function SlotMenu(props: {
       {sub === "duty" && Object.entries(props.dutyLabels).map(([k, d]) => (
         <button key={k} role="menuitemradio" aria-checked={(props.duty ?? "support") === k} className="ctx-item ctx-two" onClick={() => act(() => props.onDuty(k))}>
           <span className="ctx-check">{(props.duty ?? "support") === k && <Icon name="check" size={13} />}</span>
-          <span><b>{d.name}</b> <span className="ctx-code">{d.short}</span><small>{d.text}</small></span>
+          <span><b>{d.name}</b> <span className="ctx-code" data-en={DUTY_EN[k] ?? d.short}>{d.short}</span><small>{d.text}</small></span>
         </button>
       ))}
       {sub === "pi" && Object.entries(props.instructionLabels).map(([k, d]) => (

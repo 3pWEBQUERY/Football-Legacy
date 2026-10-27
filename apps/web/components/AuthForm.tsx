@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { LangSwitch } from "./LangSwitch";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/client/api";
@@ -33,10 +34,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
   return (
     <div className="auth-wrap">
+      <div className="auth-lang"><LangSwitch /></div>
     <div className="auth-card card stack">
       <div className="card-head"><h3>{mode === "login" ? "Anmelden" : "Account erstellen"}</h3><span className="faint small">Football Legacy</span></div>
       <div className="row" style={{ gap: 10 }}>
-        <div className="brand-mark">FL</div>
+        <div className="brand-mark" translate="no">FL</div>
         <div className="brand-name">Football Legacy<small>{mode === "login" ? "Spielstand laden" : "Neuer Manager"}</small></div>
       </div>
       <form className="stack" onSubmit={submit}>

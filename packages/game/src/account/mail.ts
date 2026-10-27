@@ -3,6 +3,8 @@
  *   RESEND_API_KEY  API-Schlüssel (ohne Schlüssel wird nichts verschickt, nur protokolliert)
  *   MAIL_FROM       Absender, z. B. "Football Legacy <noreply@example.com>" (Domain muss bei Resend verifiziert sein)
  */
+import { accountLang, translateHtml, translatorFor } from "./lang";
+
 export interface MailMessage { to: string; subject: string; html: string; text: string }
 export interface MailResult { sent: boolean; id?: string; error?: string }
 
@@ -41,8 +43,17 @@ export function mailConfigured(): boolean {
   return transport !== resend || !!process.env.RESEND_API_KEY;
 }
 
-export function sendMail(m: MailMessage): Promise<MailResult> {
-  return transport(m);
+/** Verschickt in der Sprache des Empfängers (Texte stehen deutsch im Code und werden bei Bedarf übersetzt). */
+export async function sendMail(m: MailMessage): Promise<MailResult> {
+  const lang = await accountLang({ email: m.to }).catch(() => "de" as const);
+  if (lang === "de") return transport(m);
+  const tr = await translatorFor(lang);
+  return transport({
+    to: m.to,
+    subject: tr(m.subject),
+    html: translateHtml(m.html.replace('<html>', `<html lang="${lang}">`), tr),
+    text: m.text.split("\n").map((line) => tr(line)).join("\n"),
+  });
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);

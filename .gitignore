@@ -9,3 +9,4 @@ next-env.d.ts
 e2e-shots/
 web.log
 apps/web/worker.cjs
+packages/i18n/catalog/missing.*.json

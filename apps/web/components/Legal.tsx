@@ -45,7 +45,7 @@ export function LegalPage({ title, updated, children }: { title: string; updated
     <div className="legal">
       <header className="legal-top">
         <Link href="/" className="row" style={{ gap: 10 }}>
-          <div className="brand-mark">FL</div>
+          <div className="brand-mark" translate="no">FL</div>
           <div className="brand-name">Football Legacy<small>{title}</small></div>
         </Link>
         <Link href="/careers" className="btn btn-ghost btn-sm">Zurück zum Spiel</Link>

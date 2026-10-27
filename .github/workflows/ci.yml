@@ -29,12 +29,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:lines
       - run: pnpm typecheck
+      - name: Übersetzungen vollständig
+        run: pnpm --filter @fl/i18n extract --check
       - run: pnpm test
       - run: pnpm --filter @fl/web build
       - run: pnpm --filter @fl/game build:worker
       - name: Browser installieren
         run: pnpm exec playwright install --with-deps chromium
-      - name: Browser-Tests (Smoke, Abläufe, Barrierefreiheit)
+      - name: Browser-Tests (Smoke, Abläufe, Barrierefreiheit, Englisch)
         env:
           DATABASE_URL: postgres://fl:fl@localhost:5432/football_legacy_test
           PORT: "3000"
@@ -47,6 +49,7 @@ jobs:
           pnpm e2e e2e-shots
           pnpm e2e:flows e2e-shots
           pnpm e2e:a11y
+          pnpm e2e:i18n e2e-shots
       - name: Browser-Test-Protokoll hochladen
         if: failure()
         uses: actions/upload-artifact@v4

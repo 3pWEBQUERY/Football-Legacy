@@ -12,6 +12,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { one, pool, query } from "../db";
 import { GameError } from "../errors";
 import { attempts, record, type Limit } from "../account/limits";
+import { accountLang } from "../account/lang";
 
 export const AI_MODEL = "claude-sonnet-5-5";
 /** KI-Anfragen je Konto und Tag. */
@@ -98,6 +99,8 @@ export async function generate(req: AiRequest, required = false): Promise<AiResp
   if (!(await aiEnabled(req.accountId))) return fail("Die KI-Funktionen sind ausgeschaltet. Du kannst sie in den Einstellungen aktivieren.");
   if ((await attempts(AI_DAILY, req.accountId)) >= AI_DAILY.max) return fail(`Tageslimit für KI-Texte erreicht (${AI_DAILY.max}). Morgen geht es weiter.`, 429);
   await record(AI_DAILY, req.accountId);
+  // Englische Fassung: Anweisungen bleiben deutsch (Zwischenspeicher), die Antwort kommt auf Englisch
+  if ((await accountLang({ id: req.accountId }).catch(() => "de")) === "en") req = { ...req, context: [req.context, ENGLISH].filter(Boolean).join("\n\n") };
   let res: AiResponse | null = null;
   try {
     res = await transport(req);
@@ -120,6 +123,8 @@ export function parseJson<T>(res: AiResponse | null): T | null {
     return null;
   }
 }
+
+const ENGLISH = "SPRACHE: Der Spieler nutzt die englische Fassung. Schreibe alle Texte und JSON-Werte auf Englisch (britisches Englisch, Football-Manager-Stil) – trotz der deutschen Anweisungen. Positions- und Wettbewerbsbegriffe ebenfalls auf Englisch.";
 
 /** Gemeinsame Stilregeln für alle Texte. */
 export const STYLE_RULES = [

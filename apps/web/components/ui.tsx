@@ -110,7 +110,7 @@ export function FormChips({ form }: { form: string[] }) {
   return (
     <span className="row" style={{ gap: 3 }}>
       {form.map((f, i) => (
-        <span key={i} className={`form-chip form-${f}`} title={f === "W" ? "Sieg" : f === "D" ? "Unentschieden" : "Niederlage"}>
+        <span key={i} className={`form-chip form-${f}`} data-en={f} title={f === "W" ? "Sieg" : f === "D" ? "Unentschieden" : "Niederlage"}>
           {f === "W" ? "S" : f === "D" ? "U" : "N"}
         </span>
       ))}

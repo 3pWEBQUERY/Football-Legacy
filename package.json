@@ -20,6 +20,8 @@
     "e2e": "node apps/web/e2e/smoke.mjs",
     "e2e:flows": "node apps/web/e2e/flows.mjs",
     "e2e:a11y": "node apps/web/e2e/a11y.mjs",
+    "e2e:i18n": "node apps/web/e2e/i18n.mjs",
+    "i18n:extract": "pnpm --filter @fl/i18n extract",
     "loadtest": "node scripts/loadtest.mjs"
   },
   "pnpm": {

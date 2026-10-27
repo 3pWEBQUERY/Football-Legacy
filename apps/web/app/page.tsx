@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LangSwitch } from "@/components/LangSwitch";
 import { LegalLinks } from "@/components/Legal";
 
 const FEATURES = [
@@ -20,10 +21,11 @@ export default async function Landing() {
     <div className="landing">
       <header className="landing-top">
         <div className="row" style={{ gap: 10 }}>
-          <div className="brand-mark">FL</div>
+          <div className="brand-mark" translate="no">FL</div>
           <div className="brand-name">Football Legacy<small>Manager</small></div>
         </div>
         <div className="row">
+          <LangSwitch />
           <ThemeToggle compact />
           <Link className="btn btn-ghost" href="/login">Anmelden</Link>
           <Link className="btn btn-primary" href="/register">Registrieren</Link>

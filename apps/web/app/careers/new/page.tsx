@@ -55,7 +55,7 @@ export default function NewCareer() {
       <header className="landing-top">
         <div className="row" style={{ gap: 10 }}>
           <button className="btn btn-ghost btn-sm" onClick={() => router.push("/careers")}><Icon name="back" size={15} /></button>
-          <div className="brand-mark">FL</div>
+          <div className="brand-mark" translate="no">FL</div>
           <div className="brand-name">Neue Karriere<small>Land und Verein wählen</small></div>
         </div>
         <div className="row">

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useApi } from "@/lib/client/api";
 import { Icon } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
+import { LangSwitch } from "./LangSwitch";
 
 /** Kopfleiste der Account-Seiten (Spielstände, Online-Ligen). */
 export function AccountTop({ onLogout }: { onLogout?: () => void }) {
@@ -16,10 +17,11 @@ export function AccountTop({ onLogout }: { onLogout?: () => void }) {
     <TermsGate />
     <header className="landing-top">
       <Link href="/careers" className="row" style={{ gap: 10 }}>
-        <div className="brand-mark">FL</div>
+        <div className="brand-mark" translate="no">FL</div>
         <div className="brand-name">Football Legacy<small>{me.data?.account?.displayName ?? "Manager"}</small></div>
       </Link>
       <nav className="row account-nav">
+        <LangSwitch />
         <ThemeToggle compact />
         <Link className={`btn btn-ghost btn-sm ${path === "/careers" ? "active" : ""}`} href="/careers" aria-label="Spielstände"><Icon name="career" size={15} /> <span className="nav-lbl">Spielstände</span></Link>
         <Link className={`btn btn-ghost btn-sm ${path?.startsWith("/online") ? "active" : ""}`} href="/online" aria-label="Online-Ligen"><Icon name="users" size={15} /> <span className="nav-lbl">Online-Ligen</span></Link>

@@ -20,6 +20,9 @@ importers:
       '@fl/game':
         specifier: workspace:*
         version: link:../../packages/game
+      '@fl/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@fl/sim':
         specifier: workspace:*
         version: link:../../packages/sim
@@ -57,6 +60,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^1.3.0
         version: 1.3.0
+      '@fl/i18n':
+        specifier: workspace:*
+        version: link:../i18n
       '@fl/sim':
         specifier: workspace:*
         version: link:../sim
@@ -82,6 +88,18 @@ importers:
       tsx:
         specifier: ^4.20.0
         version: 4.23.15
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/node@22.20.5)(tsx@4.23.15)
+
+  packages/i18n:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.0
+        version: 22.20.5
       typescript:
         specifier: ^5.9.0
         version: 5.9.3

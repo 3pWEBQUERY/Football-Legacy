@@ -8,6 +8,7 @@ import webpush from "web-push";
 import { one, pool, query } from "../db";
 import { GameError } from "../errors";
 import { appUrl } from "./password-reset";
+import { accountLang, translatorFor } from "./lang";
 
 export type PushTopic = "online" | "jobs";
 export const PUSH_TOPICS: Record<PushTopic, { label: string; text: string }> = {
@@ -87,7 +88,8 @@ export async function unsubscribePush(accountId: string, endpoint: string) {
 }
 
 async function send(sub: SubRow, payload: PushPayload): Promise<boolean> {
-  const body = JSON.stringify({ ...payload, url: payload.url ?? "/careers" });
+  const tr = await translatorFor(await accountLang({ id: sub.account_id }).catch(() => "de" as const));
+  const body = JSON.stringify({ ...payload, title: tr(payload.title), body: tr(payload.body), url: payload.url ?? "/careers" });
   const target = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } };
   try {
     if (transport) await transport(target, body);

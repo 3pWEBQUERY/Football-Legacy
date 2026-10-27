@@ -6,6 +6,7 @@ import { api, refreshAll, useApi } from "@/lib/client/api";
 import { fmtDate, money, seasonLabel } from "@/lib/client/format";
 import { Crest, Icon, Modal, Progress, useNotes, useToast } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
+import { LangSwitch } from "./LangSwitch";
 import { WeekSummaryView } from "./WeekSummary";
 import { OnboardingProvider } from "./Onboarding";
 import { TermsGate } from "./TermsGate";
@@ -151,7 +152,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
       <div className="app" style={clubStyle}>
         <header className="topbar">
           <Link href="/careers" className="brand" title="Karrieren">
-            <div className="brand-mark">FL</div>
+            <div className="brand-mark" translate="no">FL</div>
             <div className="brand-name">Football Legacy<small>Manager</small></div>
           </Link>
           <div className="clubbar">
@@ -241,6 +242,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
             )}
             <div className="mn-cell" style={{ gap: 4 }}>
               <Link className="btn btn-ghost btn-sm" href={`${base}/career/help`} title="Hilfe & Glossar" aria-label="Hilfe & Glossar"><b className="cond" style={{ fontSize: 15, lineHeight: 1 }}>?</b></Link>
+              <LangSwitch />
               <ThemeToggle compact />
               <Link className="btn btn-ghost btn-sm" href="/careers" title="Alle Karrieren"><Icon name="users" size={15} /></Link>
             </div>

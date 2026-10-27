@@ -12,12 +12,15 @@ import { useGame } from "@/components/GameShell";
 import { ErrorBox, Loading, Modal, Panel, Seg, useToast } from "@/components/ui";
 import { useOnboarding } from "@/components/Onboarding";
 import { LegalLinks } from "@/components/Legal";
+import { currentLang, setLanguage } from "@/lib/client/lang";
 
 export default function SettingsPage() {
   const { id, reloadShell } = useGame();
   const toast = useToast();
   const router = useRouter();
   const [theme, setTheme] = useTheme();
+  const [lang, setLang] = useState<"de" | "en">("de");
+  useEffect(() => setLang(currentLang()), []);
   const me = useApi<any>("auth/me");
   const settings = useApi<any>(`careers/${id}/settings`);
   const onboarding = useOnboarding();
@@ -113,6 +116,10 @@ export default function SettingsPage() {
             <div className="settings-row">
               <div><b>Farbschema</b><div className="faint small">Dunkel, hell oder wie dein Betriebssystem</div></div>
               <Seg value={theme} onChange={(v) => setTheme(v)} options={[{ value: "dark", label: "Dunkel" }, { value: "light", label: "Hell" }, { value: "system", label: "System" }]} />
+            </div>
+            <div className="settings-row">
+              <div><b>Sprache</b><div className="faint small">Oberfläche, Nachrichten, E-Mails und KI-Texte</div></div>
+              <div translate="no"><Seg value={lang} onChange={(v) => { if (v !== lang) setLanguage(v); }} options={[{ value: "de", label: "Deutsch" }, { value: "en", label: "English" }]} /></div>
             </div>
           </Panel>
           <Panel title="Spieltag" icon="whistle">

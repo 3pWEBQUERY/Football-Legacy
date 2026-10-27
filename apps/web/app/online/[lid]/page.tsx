@@ -274,7 +274,7 @@ export default function OnlineLeaguePage() {
                           </span>
                         )}
                       </span>
-                      <span>{p.body}</span>
+                      <span translate={p.system ? undefined : "no"}>{p.body}</span>
                       <span className="chat-time">{new Date(p.at).toLocaleString("de-CH", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
                     </div>
                   ))}

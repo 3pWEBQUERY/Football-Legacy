@@ -11,6 +11,8 @@ export interface BoardSlot {
   y: number; // 0 links → 1 rechts
   /** Rollenkürzel im Kartenkopf, z. B. "IV" oder "F9" */
   role: string;
+  /** Englisches Kürzel (FM-Stil), falls abweichend */
+  roleEn?: string;
   roleName: string;
   group: SlotGroup;
   name: string | null;
@@ -149,7 +151,7 @@ export function PitchBoard({ slots, selected, onSelect, onMove, onContext, toolb
           <span className="sr-only">{`${POS_LABEL[s.position] ?? s.position}, ${s.roleName}: `}</span>
           <Shirt kit={s.kit} number={s.number} keeper={s.group === "gk"} empty={!s.name} />
           <div className="fm-card">
-            <div className={`fm-role g-${s.group}`} title={s.roleName}>{s.role}</div>
+            <div className={`fm-role g-${s.group}`} title={s.roleName} data-en={s.roleEn}>{s.role}</div>
             <div className="fm-body">
               {s.meter ? (
                 <div className={`fm-meter tone-${s.meter.tone}`} title={s.meter.label}><i style={{ width: `${Math.max(4, Math.min(100, s.meter.value))}%` }} /><span>{s.meter.label}</span></div>

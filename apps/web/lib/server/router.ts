@@ -5,6 +5,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import * as game from "@fl/game";
 import type { Account } from "@fl/game";
+import { LANG_COOKIE, isLang, langFromCookie } from "@fl/i18n";
 
 export const SESSION_COOKIE = "fl_session";
 
@@ -59,6 +60,9 @@ const clientIp = (c: Ctx) => c.req.headers.get("x-real-ip")?.trim() || c.req.hea
 route("POST", "auth/register", async (c) => {
   const consent = game.requireConsent(c.body);
   const { account, token } = await game.register(str(c.body.email), str(c.body.password), str(c.body.displayName), consent, { ip: clientIp(c) });
+  // Gewählte Sprache ins Konto übernehmen (für E-Mails, Push und KI-Texte)
+  const lang = langFromCookie(c.req.headers.get("cookie"));
+  if (lang !== "de") await game.updateSettings(account.id, { lang });
   // Bestätigungs-Mail im Hintergrund – die Registrierung soll daran nicht scheitern
   void game.sendVerification(account.id, c.req.nextUrl.origin).catch((e) => console.warn("[verify]", (e as Error).message));
   return { account: publicAccount(account), token: c.body.returnToken ? token : undefined, setCookie: token };
@@ -66,7 +70,7 @@ route("POST", "auth/register", async (c) => {
 
 route("POST", "auth/login", async (c) => {
   const { account, token } = await game.login(str(c.body.email), str(c.body.password), { ip: clientIp(c) });
-  return { account: publicAccount(account), token: c.body.returnToken ? token : undefined, setCookie: token };
+  return { account: publicAccount(account), token: c.body.returnToken ? token : undefined, setCookie: token, setLang: isLang(account.settings.lang) ? account.settings.lang : undefined };
 }, false);
 
 route("POST", "auth/logout", async (c) => {
@@ -101,6 +105,7 @@ route("POST", "account/settings", async (c) => {
   if (c.body.theme === "dark" || c.body.theme === "light" || c.body.theme === "system") allowed.theme = c.body.theme;
   if (typeof c.body.reducedMotion === "boolean") allowed.reducedMotion = c.body.reducedMotion;
   if (typeof c.body.ai === "boolean") allowed.ai = c.body.ai;
+  if (isLang(c.body.lang)) allowed.lang = c.body.lang;
   await game.updateSettings(acc(c), allowed);
   return { ok: true };
 });
@@ -403,8 +408,10 @@ export async function dispatch(req: NextRequest, path: string[]): Promise<NextRe
     }
     const result = (await found.handler({ req, params, body, query: req.nextUrl.searchParams, account, token })) as Record<string, unknown>;
     if (Array.isArray(result) || result === null || typeof result !== "object") return NextResponse.json(result ?? null);
-    const { setCookie, clearCookie, ...payload } = (result ?? {}) as Record<string, unknown>;
+    const { setCookie, clearCookie, setLang, ...payload } = (result ?? {}) as Record<string, unknown>;
     const res = NextResponse.json(payload);
+    // Sprache des Kontos auf neue Geräte mitnehmen (lesbar für das Frontend)
+    if (isLang(setLang)) res.cookies.set(LANG_COOKIE, setLang, { sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 * 365 });
     if (typeof setCookie === "string") {
       res.cookies.set(SESSION_COOKIE, setCookie, {
         httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 * 30,

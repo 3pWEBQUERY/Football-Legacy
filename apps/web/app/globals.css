@@ -270,3 +270,6 @@ small, .small { font-size: 12px; }
 
 /* Links im Fliesstext auch ohne Farbe erkennbar (WCAG 1.4.1) */
 p a:not(.btn), li a:not(.btn), .consent a, .legal a:not(.btn), .faint a:not(.btn), .dim a:not(.btn) { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Englische Fassung: bis zur ersten Übersetzung nichts Deutsches zeigen */
+html.i18n-pending body { visibility: hidden; }

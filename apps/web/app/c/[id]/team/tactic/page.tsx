@@ -11,7 +11,7 @@ import { Sheet } from "@/components/Sheet";
 import { Condition, ErrorBox, Icon, Loading, Panel, Seg, moraleLabel, useNotes, useToast } from "@/components/ui";
 import { api, useApi } from "@/lib/client/api";
 import { POS_LABEL } from "@/lib/client/format";
-import { ATTACK_KEYS, CORNER_LABEL, DEFEND_KEYS, FormationIcon, GROUP, MENTALITY_TEXT, MentalityIcon, Meter, PHASE_HINT, ROLE_CODE, SlotMenu, VIEW_LABEL, fill, formationText, squadNumbers, starsFor, styleText, type Phase, type SheetKey, type ViewMode } from "@/components/TacticParts";
+import { ATTACK_KEYS, CORNER_LABEL, DEFEND_KEYS, FormationIcon, GROUP, MENTALITY_TEXT, MentalityIcon, Meter, PHASE_HINT, ROLE_CODE, ROLE_CODE_EN, DUTY_EN, SlotMenu, VIEW_LABEL, fill, formationText, squadNumbers, starsFor, styleText, type Phase, type SheetKey, type ViewMode } from "@/components/TacticParts";
 import { PageTip } from "@/components/Onboarding";
 import { TacticExtras } from "@/components/TacticExtras";
 
@@ -81,6 +81,7 @@ export default function TacticPage() {
       x: shown[i].x,
       y: shown[i].y,
       role: `${ROLE_CODE[role?.id] ?? POS_LABEL[s.position] ?? s.position}${t.duties?.[i] ? `-${data.duties[t.duties[i]].short}` : ""}${t.instructions?.[i]?.length ? " •" : ""}`,
+      roleEn: `${ROLE_CODE_EN[role?.id] ?? s.position}${t.duties?.[i] ? `-${DUTY_EN[t.duties[i]] ?? ""}` : ""}${t.instructions?.[i]?.length ? " •" : ""}`,
       roleName: role?.name ?? POS_LABEL[s.position],
       group: GROUP[s.position] ?? "mid",
       name: p ? p.lastName : null,

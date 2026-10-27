@@ -20,6 +20,7 @@ import { ToastProvider } from "@/components/ui";
 import { DialogProvider } from "@/components/Dialog";
 import { PwaRegister } from "@/components/Pwa";
 import { ErrorReporter } from "@/components/ErrorReporter";
+import { LangRuntime } from "@/components/LangRuntime";
 
 export const metadata: Metadata = {
   title: "Football Legacy – Schreibe Fussball Geschichte",
@@ -40,17 +41,21 @@ export const viewport: Viewport = {
 
 // Theme vor dem ersten Rendern setzen, damit nichts flackert
 const themeScript = `(function(){try{var t=localStorage.getItem('fl-theme')||'dark';var d=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;document.documentElement.dataset.theme=d;}catch(e){}})();`;
+// Sprache aus dem Cookie; bei Englisch bleibt die Seite bis zur Übersetzung unsichtbar (höchstens 3 s)
+const langScript = `(function(){var h=document.documentElement;if(/(?:^|;\\s*)fl-lang=en\\b/.test(document.cookie)){h.lang='en';h.classList.add('i18n-pending');setTimeout(function(){h.classList.remove('i18n-pending')},3000);}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="de" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: langScript }} />
       </head>
       <body>
         <ToastProvider><DialogProvider>{children}</DialogProvider></ToastProvider>
         <PwaRegister />
         <ErrorReporter />
+        <LangRuntime />
       </body>
     </html>
   );

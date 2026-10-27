@@ -63,12 +63,14 @@ packages/sim    @fl/sim   Reine Simulation ohne UI und Datenbank: Welt- und Spie
                           Matchengine, Saison, Training, Finanzen, Transferregeln, Gamification
 packages/game   @fl/game  Game-Server: PostgreSQL-Schema und Migrationen, Accounts, Karrieren,
                           Spielwoche, Saisonende, Aktionen und lesende Sichten
+packages/i18n  @fl/i18n  Sprachen: Übersetzer und englischer Katalog (deutsch ist die Quellsprache)
 apps/web        @fl/web   Next.js: JSON-API unter /api/* und der Browser-Client
 ```
 
 - Die Simulation bekommt nur einfache Datenobjekte und ist deterministisch (gleicher Seed → gleiches Ergebnis).
 - Spiele werden auf dem Server in Abschnitten simuliert, der Spielstand wird nach jedem Abschnitt in der Datenbank gespeichert. Der Browser puffert die Positionsdaten und spielt sie ab.
 - Hintergrunddienst (`packages/game/src/worker`): Die API legt rechenintensive Aufträge in `sim_jobs` ab, ein eigener Node-Prozess holt sie mit `FOR UPDATE SKIP LOCKED` ab (mehrere Prozesse möglich), die Anfrage wartet nur auf das Ergebnis. Der Webserver startet den gebündelten Dienst (`apps/web/worker.cjs`, gebaut mit `pnpm --filter @fl/game build:worker`) als Kindprozess und startet ihn nach Abstürzen neu. Ohne laufenden Dienst wird wie bisher direkt in der Anfrage gerechnet. `/api/health` zeigt die Zahl der aktiven Dienste.
+- Englische Fassung (`packages/i18n`): Alle Texte stehen deutsch im Code. `pnpm i18n:extract` zieht sie per TypeScript-Compiler aus Oberfläche, Spiellogik und Engine – Vorlagen wie `` `${a} unterschreibt bei ${b}!` `` werden zu Mustern („{0} unterschreibt bei {1}!“) – und schreibt fehlende Übersetzungen nach `catalog/missing.*.json`; die Übersetzungen stehen in `catalog/en.*.json` (`en.manual.json` für Kürzel und Sonderfälle). Im Browser übersetzt `components/LangRuntime.tsx` für englische Spieler die gerenderte Oberfläche nach dem Hydrieren (der Katalog wird nur dann geladen); dadurch sind auch gespeicherte Nachrichten, News und Spielkommentare alter Spielstände englisch. E-Mails und Push-Mitteilungen übersetzt der Server in der Kontosprache (`settings.lang`), KI-Texte schreibt Claude direkt auf Englisch. Die Sprache steckt im Cookie `fl-lang` und im Konto (Umschalter oben rechts und unter Einstellungen). Mehrdeutige Kürzel geben ihre Übersetzung ausdrücklich mit (`data-en="W"`), Nutzertexte wie Chat-Nachrichten sind mit `translate="no"` ausgenommen. Die CI bricht ab, wenn neue Texte ohne Übersetzung dazukommen; `pnpm e2e:i18n` prüft die Hauptseiten auf deutsche Reste.
 - Die API (`apps/web/lib/server/router.ts`) akzeptiert Cookies oder `Authorization: Bearer <token>` – die spätere iOS-App kann sie unverändert nutzen (`returnToken: true` beim Login liefert das Token).
 
 ## Lokal starten
@@ -138,6 +140,7 @@ Alle drei brauchen einen laufenden Server (`E2E_URL`, Standard `http://localhost
 
 - `pnpm e2e [Screenshot-Ordner]` (Smoke): registriert einen Account, startet eine Karriere, öffnet alle Hauptseiten, simuliert ein Spiel, prüft „Passwort vergessen“, die Rechtstexte und die Smartphone-Ansicht.
 - `pnpm e2e:flows [Screenshot-Ordner]` (Abläufe): ablösefreier Transfer über die Oberfläche, Livespiel mit Halbzeitansprache bis zum Abpfiff, Einstellungen (Name, helles Design), Online-Liga mit CPU-Team und einem Spieltag, Admin-Bereich. Braucht `DATABASE_URL` (um die Test-E-Mail zu bestätigen) und einen Server mit `ADMIN_EMAILS=admin-e2e@example.com`.
+- `pnpm e2e:i18n [Screenshot-Ordner] [--all]` (Englisch): öffnet die Hauptseiten und ein Livespiel mit Sprache Englisch und meldet sichtbare deutsche Reste (höchstens `MAX_GERMAN`=3 pro Seite) sowie Hydrations- und Konsolenfehler.
 - `pnpm e2e:a11y [--report]` (Barrierefreiheit): prüft 18 Seiten im dunklen und 7 im hellen Design mit axe-core gegen WCAG 2.1 A/AA. Schwere oder kritische Verstösse lassen die CI scheitern; `--report` listet auch die leichteren.
 
 ### Lasttest

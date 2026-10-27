@@ -237,7 +237,8 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .feature { border-right: none !important; border-bottom: 1px solid var(--line) !important; }
   .feature:last-child { border-bottom: none !important; }
 }
-.auth-wrap { min-height: 100dvh; display: grid; place-items: center; padding: 20px; background: var(--bg); }
+.auth-wrap { min-height: 100dvh; display: grid; place-items: center; padding: 20px; background: var(--bg); position: relative; }
+.auth-lang { position: absolute; top: 14px; right: 16px; }
 .auth-card { width: min(400px, 100%); }
 
 .skeleton { background: linear-gradient(90deg, var(--panel), var(--panel-2), var(--panel)); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 2px; }

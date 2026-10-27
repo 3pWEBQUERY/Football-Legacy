@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { LangSwitch } from "./LangSwitch";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client/api";
@@ -8,10 +9,11 @@ import { LegalLinks } from "./Legal";
 export function Shell({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
   return (
     <div className="auth-wrap">
+      <div className="auth-lang"><LangSwitch /></div>
       <div className="auth-card card stack">
         <div className="card-head"><h3>{title}</h3><span className="faint small">Football Legacy</span></div>
         <div className="row" style={{ gap: 10 }}>
-          <div className="brand-mark">FL</div>
+          <div className="brand-mark" translate="no">FL</div>
           <div className="brand-name">Football Legacy<small>{sub}</small></div>
         </div>
         {children}
