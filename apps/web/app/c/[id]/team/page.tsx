@@ -7,6 +7,7 @@ import { useGame } from "@/components/GameShell";
 import { StatusIcons, playerStatus } from "@/components/PlayerStatus";
 import { Condition, ErrorBox, Icon, Loading, Nat, Pos, Rating, Seg, SortTable, moraleLabel, type Column } from "@/components/ui";
 import { FaceName, PlayerFace } from "@/components/PlayerFace";
+import { PageTip } from "@/components/Onboarding";
 
 type Group = "ALL" | "GK" | "DEF" | "MID" | "ATT";
 const ORDER = ["GK", "DR", "DC", "DL", "DM", "MR", "MC", "ML", "AMR", "AMC", "AML", "ST"];
@@ -64,6 +65,7 @@ export default function Squad() {
 
   return (
     <>
+      <PageTip id="squad" title="Dein Kader">Klicke auf einen Spieler für sein Profil mit Attributen, Vertrag und Formkurve. Die Symbole neben dem Namen zeigen Verletzungen, Sperren und Gelbe Karten. Kondition unter 75 % kostet im Spiel Leistung.</PageTip>
       <div className="page-head">
         <div><h1>Kader</h1><p>{data.club.name} · Saison {season}</p></div>
         <Seg<Group> value={group} onChange={setGroup} options={[{ value: "ALL", label: "Alle" }, { value: "GK", label: "Tor" }, { value: "DEF", label: "Abwehr" }, { value: "MID", label: "Mittelfeld" }, { value: "ATT", label: "Angriff" }]} />

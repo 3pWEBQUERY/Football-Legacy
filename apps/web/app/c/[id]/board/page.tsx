@@ -4,6 +4,7 @@ import { api, refreshAll, useApi } from "@/lib/client/api";
 import { money, seasonLabel } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { ErrorBox, Icon, Loading, Panel, Progress, useToast } from "@/components/ui";
+import { PageTip } from "@/components/Onboarding";
 
 const GOAL_ICON: Record<string, string> = { promotion: "up", title: "trophy", position: "target", youth: "youth", finance: "euro", reputation: "star", cup: "trophy" };
 const STATUS_TONE: Record<string, string> = { "erfüllt": "badge-accent", "auf Kurs": "badge-accent", "am Anfang": "", "Rückstand": "badge-gold", "in Gefahr": "badge-danger" };
@@ -87,6 +88,7 @@ export default function BoardPage() {
 
   return (
     <>
+      <PageTip id="board" title="Der Vorstand">Das Vertrauen orientiert sich an deinem Tabellenplatz im Vergleich zum Saisonziel. Siege und erreichte Ziele der Vision helfen. Ab gutem Vertrauen kannst du Ausbauten und mehr Transferbudget beantragen.</PageTip>
       <div className="page-head">
         <div><h1>Vorstand</h1><p>{data.club.name} · Kontostand {money(data.club.balance)} · Transferbudget {money(data.club.transferBudget)}</p></div>
       </div>

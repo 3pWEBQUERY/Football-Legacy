@@ -14,6 +14,7 @@ import "./styles/inbox.css";
 import "./styles/market.css";
 import "./styles/matchday.css";
 import "./styles/history.css";
+import "./styles/onboarding.css";
 import { ToastProvider } from "@/components/ui";
 import { DialogProvider } from "@/components/Dialog";
 

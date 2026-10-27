@@ -52,7 +52,10 @@ export default function HallOfFamePage() {
         <div className="stack-sm" style={{ flex: 1, minWidth: 0 }}>
           <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
             <div><span className="faint up small">Vermächtnis von {m.name}</span><h2>{level.name}</h2><span className="dim small">{level.text}</span></div>
-            <b className="cond legacy-points">{m.points.toLocaleString("de-CH")} <small>Punkte</small></b>
+            <span className="stack-sm" style={{ alignItems: "flex-end", gap: 2 }}>
+              <b className="cond legacy-points">{m.points.toLocaleString("de-CH")} <small>Punkte</small></b>
+              {m.difficulty.factor !== 1 && <span className="faint small">Schwierigkeit {m.difficulty.label}: ×{String(m.difficulty.factor).replace(".", ",")}</span>}
+            </span>
           </div>
           {m.next ? (
             <>

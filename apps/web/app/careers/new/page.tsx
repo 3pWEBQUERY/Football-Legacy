@@ -20,6 +20,8 @@ export default function NewCareer() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [own, setOwn] = useState(false);
+  const [difficulty, setDifficulty] = useState("normal");
+  const levels = useApi<Record<string, { label: string; text: string; legacy: number }>>("difficulties");
   const [custom, setCustom] = useState({ name: "", shortName: "", city: "", primary: "#1f4e9c", secondary: "#ffffff", founded: 2026, stadiumName: "" });
 
   useEffect(() => {
@@ -37,7 +39,7 @@ export default function NewCareer() {
     if (!country || !club) return;
     setBusy(true);
     try {
-      const res = await api<{ id: string }>("careers", { body: { managerName: name || "Manager", countryCode: country, clubIndex: club.index, seed, custom: own ? custom : null } });
+      const res = await api<{ id: string }>("careers", { body: { managerName: name || "Manager", countryCode: country, clubIndex: club.index, seed, custom: own ? custom : null, difficulty } });
       router.push(`/c/${res.id}`);
     } catch (e) {
       toast((e as Error).message, "error");
@@ -129,6 +131,16 @@ export default function NewCareer() {
                   </div>
                   <button className="btn btn-primary btn-lg" disabled={busy || (own && (custom.name.trim().length < 3 || custom.shortName.trim().length < 2 || custom.city.trim().length < 2))} onClick={create}>{busy ? "Welt wird erstellt …" : own ? "Verein gründen" : "Übernehmen"}</button>
                 </div>
+                {levels.data && (
+                  <div className="difficulty-pick" role="radiogroup" aria-label="Schwierigkeitsgrad">
+                    {Object.entries(levels.data).map(([k, v]) => (
+                      <button key={k} role="radio" aria-checked={difficulty === k} className={`difficulty-opt ${difficulty === k ? "active" : ""}`} onClick={() => setDifficulty(k)}>
+                        <b>{v.label}</b><small>{v.text}</small>
+                        {v.legacy !== 1 && <span className="faint">Vermächtnis ×{String(v.legacy).replace(".", ",")}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <label className="row" style={{ gap: 8, marginTop: 14, paddingLeft: 6, cursor: "pointer" }}>
                   <input type="checkbox" checked={own} onChange={(e) => setOwn(e.target.checked)} />
                   <span><b>Eigenen Verein gründen</b> <span className="dim small">– dein Verein übernimmt Ligaplatz, Kader und Stadion von {club.name}</span></span>

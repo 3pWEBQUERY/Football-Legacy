@@ -5,6 +5,7 @@ import { api, useApi } from "@/lib/client/api";
 import { useTheme } from "@/lib/client/theme";
 import { useGame } from "@/components/GameShell";
 import { ErrorBox, Loading, Modal, Panel, Seg, useToast } from "@/components/ui";
+import { useOnboarding } from "@/components/Onboarding";
 
 function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
@@ -22,6 +23,7 @@ export default function SettingsPage() {
   const [theme, setTheme] = useTheme();
   const me = useApi<any>("auth/me");
   const settings = useApi<any>(`careers/${id}/settings`);
+  const onboarding = useOnboarding();
   const [name, setName] = useState("");
   const [pw, setPw] = useState({ old: "", next: "", repeat: "" });
   const [del, setDel] = useState<{ open: boolean; password: string; confirm: string }>({ open: false, password: "", confirm: "" });
@@ -76,7 +78,7 @@ export default function SettingsPage() {
   return (
     <>
       <div className="page-head">
-        <div><h1>Einstellungen</h1><p>Konto, Darstellung und Spieloptionen</p></div>
+        <div><h1>Einstellungen</h1><p>Konto, Darstellung und Spieloptionen{onboarding.state ? ` · Schwierigkeitsgrad ${onboarding.state.difficulty.label}` : ""}</p></div>
       </div>
       <div className="grid grid-2" style={{ alignItems: "start" }}>
         <div className="stack">

@@ -5,6 +5,7 @@ import { money } from "@/lib/client/format";
 import { MobileSubnav, useGame } from "@/components/GameShell";
 import { ErrorBox, Loading, Pos, Rating, SortTable } from "@/components/ui";
 import { FaceName } from "@/components/PlayerFace";
+import { PageTip } from "@/components/Onboarding";
 
 export default function Contracts() {
   const { id } = useGame();
@@ -17,6 +18,7 @@ export default function Contracts() {
   return (
     <>
       <MobileSubnav section="market" />
+      <PageTip id="contracts" title="Verträge im Blick">Läuft ein Vertrag aus, geht der Spieler im Sommer ablösefrei. Verlängere wichtige Spieler rechtzeitig – je näher das Vertragsende, desto mehr verlangt der Berater.</PageTip>
       <div className="page-head">
         <div>
           <h1>Verträge</h1>

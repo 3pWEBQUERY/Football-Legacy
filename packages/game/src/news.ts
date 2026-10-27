@@ -398,6 +398,20 @@ export async function newsWeekly(db: pg.PoolClient, career: CareerRow, week: num
   const rng = new Rng(seedFor(career.seed, "news-week", career.season, week));
   const squad = await getPlayers(db, career.id, [club.id]);
 
+  // Co-Trainer: Erinnerung an auslaufende Verträge wichtiger Spieler (Saisonstart und Winter)
+  const expiring = [...squad].sort((a, b) => b.rating - a.rating).slice(0, 18)
+    .filter((p) => !p.loan && p.contract && p.contract.untilSeason <= career.season);
+  if (expiring.length && week >= 2 && !(await recently(db, career, "contract_expiry", 120))) {
+    await send(db, career, {
+      category: "contract", title: `${expiring.length} ${expiring.length === 1 ? "Vertrag läuft" : "Verträge laufen"} zum Saisonende aus`, sender: await staffSender(db, career, club, "coach"),
+      blocks: [
+        { t: "p", text: "Chef, diese Stammkräfte haben nur noch bis zum Saisonende Vertrag. Ohne Verlängerung gehen sie im Sommer ablösefrei – verlängern kannst du im Spielerprofil oder unter Transfers → Verträge." },
+        { t: "players", items: expiring.map((p) => ({ id: p.id, name: fullName(p), pos: p.position, value: String(p.rating), note: `${p.age} Jahre · ${formatMoney(p.contract!.wage)}/Woche` })) },
+      ],
+      priority: 2, kind: "contract_expiry", action: { type: "page", path: "/market/contracts", label: "Zu den Verträgen" },
+    });
+  }
+
   // Medien: Gerücht über einen unserer Leistungsträger
   if (rng.chance(0.3)) {
     const star = rng.pick([...squad].sort((a, b) => b.rating - a.rating).slice(0, 4));

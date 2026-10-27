@@ -7,6 +7,7 @@ import { useGame } from "@/components/GameShell";
 import { CategoryIcon, Crest, Empty, FormChips, Icon, Loading, Panel, Progress, Rating, useToast } from "@/components/ui";
 import { useConfirm, usePrompt } from "@/components/Dialog";
 import { Inbox } from "@/components/Inbox";
+import { FirstSteps, WelcomeTour } from "@/components/Onboarding";
 
 export default function Office() {
   const { id, shell: d, advance, busy, pendingMessage, clearPendingMessage } = useGame();
@@ -79,6 +80,8 @@ export default function Office() {
 
   return (
     <>
+      <WelcomeTour clubName={d.club?.name} objective={d.board?.objective} />
+      <FirstSteps base={base} />
       {(c.status === "unemployed" || d.jobOffers?.length > 0) && (
         <Panel title={c.status === "unemployed" ? "Du bist vereinslos" : "Jobangebote"} icon="board" actions={<Link className="btn btn-ghost btn-sm" href={`${base}/career/jobs`}>Freie Stellen</Link>}>
           <p className="dim" style={{ marginTop: 0, marginBottom: d.jobOffers?.length ? 10 : 0 }}>
@@ -183,6 +186,7 @@ export default function Office() {
                 {m.action?.type === "transfers" && <Link className="btn btn-primary" href={`${base}/market`}>Zur Transfer-Zentrale</Link>}
                 {m.action?.type === "negotiation" && <Link className="btn btn-primary" href={`${base}/market?neg=${m.action.negotiationId}`}>Zur Verhandlung</Link>}
                 {m.action?.type === "player" && <Link className="btn" href={`${base}/player/${m.action.playerId}`}>Spielerprofil öffnen</Link>}
+                {m.action?.type === "page" && <Link className="btn btn-primary" href={`${base}${m.action.path}`}>{m.action.label}</Link>}
                 {m.category === "medical" && m.action?.type !== "tactic" && <Link className="btn btn-ghost" href={`${base}/team/medical`}>Zur Medizin</Link>}
                 {offer && (
                   <>

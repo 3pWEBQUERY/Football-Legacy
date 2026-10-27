@@ -16,4 +16,5 @@ export const shared = {
   retrainId: 0,
   retrainPos: "",
   nationCode: "",
+  onboardingId: "",
 };

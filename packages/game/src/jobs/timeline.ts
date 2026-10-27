@@ -4,6 +4,7 @@ import type pg from "pg";
 import { query } from "../db";
 import { addArticle } from "../media";
 import { addInbox, getLeagues, type CareerRow } from "../repo";
+import { difficultySettings } from "../difficulty";
 import { OFFER_DAYS, absDay, addOffer, assess, expectationText, fill, getMarket, liteClubs, makeOffer, pruneOffers, resolveApplications, saveMarket, standings, vacate, type JobMarket } from "./core";
 
 /** Täglich: Bewerbungen beantworten, freie Stellen neu besetzen, Angebote verfallen lassen. */
@@ -90,9 +91,10 @@ export async function jobsWeek(db: pg.PoolClient, career: CareerRow): Promise<vo
   // Eigener Stuhl: Warnung und Entlassung während der Saison
   if (career.club_id && career.status === "active" && career.week >= 8 && career.week < career.season_weeks) {
     const conf = career.board.confidence;
-    if (conf < 12) {
+    const sack = difficultySettings(career).sackSeason;
+    if (conf < sack) {
       await dismissUser(db, career, m, "Der Vorstand hat das Vertrauen verloren und dich mit sofortiger Wirkung freigestellt.");
-    } else if (conf < 25 && m.warned !== career.season) {
+    } else if (conf < sack + 13 && m.warned !== career.season) {
       m.warned = career.season;
       await addInbox(db, career.id, career.season, career.week, "board", "Ultimatum des Vorstands",
         `Die Ergebnisse reichen nicht. Das Vertrauen des Vorstands liegt bei ${conf}/100 – wenn sich nicht schnell etwas ändert, bist du deinen Job los.`);

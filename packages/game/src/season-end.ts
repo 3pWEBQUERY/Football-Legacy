@@ -14,6 +14,8 @@ import { buildReview, saveReview, type SeasonReview } from "./review";
 import { academySeasonEnd } from "./academy";
 import { movements, recordRetirements, recordSeason } from "./history/record";
 import { reviewVision, type VisionReview } from "./history/vision";
+import { refreshFinances, seasonStart, trimFreeAgents, trimSquads } from "./season-economy";
+import { difficultySettings } from "./difficulty";
 
 export interface SeasonSummary {
   season: number;
@@ -29,6 +31,7 @@ export interface SeasonSummary {
 
 export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<SeasonSummary> {
   const w = await loadWorld(db, career);
+  const start = seasonStart(w);
   const rng = new Rng(seedFor(career.seed, "season-end", career.season));
   const notes: RewardNote[] = [];
   const fixtures = await query<FixtureRow>(db, "select * from fixtures where career_id = $1 and season = $2", [career.id, career.season]);
@@ -175,7 +178,9 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
       m.points += 100;
     }
     const gap = position - career.board.targetPosition;
-    career.board.confidence = Math.max(0, Math.min(100, career.board.confidence + (positionOk ? 15 : -gap * 6) + (userClub.balance >= career.board.financeTarget ? 5 : -10)));
+    // Ziel erreicht: +10, deutlich übertroffen +5 extra; verfehlt: je Platz −6; ein Abstieg wiegt zusätzlich schwer
+    const sporting = positionOk ? 10 + (gap <= -3 ? 5 : 0) : -gap * 6;
+    career.board.confidence = Math.max(0, Math.min(100, Math.round(career.board.confidence + sporting + (userClub.balance >= career.board.financeTarget ? 5 : -10) - (relegated ? 15 : 0))));
     m.reputation = Math.max(1, Math.min(100, m.reputation + (positionOk ? 4 : -3) + (champion ? 6 : 0) + (promoted ? 5 : 0) - (relegated ? 6 : 0)));
     // Mehrjährige Vision des Vorstands
     const vision = career.board.vision;
@@ -188,7 +193,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
       });
       career.board.confidence = Math.max(0, Math.min(100, career.board.confidence + visionReview.delta));
     }
-    dismissed = career.board.confidence < 20;
+    dismissed = career.board.confidence < difficultySettings(career).sackEnd;
   }
 
   // Spieler: Saisonbilanz, Alterung, Rücktritte, Verträge
@@ -280,13 +285,10 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   career.next_player_id = nextId;
   await academySeasonEnd(db, career, rng, newSeason);
 
-  // Freie Spieler ohne Verein länger als eine Saison und älter als 32 hören auf
-  for (const p of [...w.freeAgents]) {
-    if (p.age >= 33 || (p.rating < 40 && rng.chance(0.4))) {
-      retiredAll.push({ player: p, clubId: null });
-      removePlayer(w, p);
-    }
-  }
+  // Kader und Markt der Vereinslosen begrenzen, Finanzprofile für die neue Saison
+  trimSquads(w, career);
+  for (const p of trimFreeAgents(w, rng)) retiredAll.push({ player: p, clubId: null });
+  refreshFinances(w, career, start);
   const retired = await recordRetirements(db, career, w, retiredAll);
 
   // Stärke neu berechnen

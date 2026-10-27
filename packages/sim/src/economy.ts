@@ -10,6 +10,8 @@ export interface ClubFinanceProfile {
   merchWeekly: number;
   stadiumCostWeekly: number;
   staffWeekly: number;
+  /** Gehaltsniveau, aus dem das Profil berechnet wurde */
+  baseWages?: number;
 }
 
 export interface FinanceEntry {
@@ -43,24 +45,32 @@ export function wageBill(players: Pick<Player, "contract" | "loan">[], loanedOut
  * Finanzprofil eines Vereins. Wird bei der Aktivierung aus Kader und Ruf
  * abgeleitet, sodass ein durchschnittlich geführter Verein etwa ausgeglichen wirtschaftet.
  */
-export function financeProfile(club: { countryCode: string; reputation: number; capacity: number }, wages: number, tier: number): ClubFinanceProfile {
+export function financeProfile(club: { countryCode: string; reputation: number; capacity: number }, wages: number, tier: number, margin = 1.06): ClubFinanceProfile {
   const country = COUNTRY_BY_CODE[club.countryCode];
   const strength = country?.strength ?? 3;
   // Ticketerlöse sollen etwa ein Drittel der Gehälter decken – sonst wird der Ticketpreis gesenkt
   const basePrice = Math.round(6 + strength * 4 + club.reputation / 6 - (tier - 1) * 3);
   const ticketPrice = Math.max(5, Math.min(basePrice, Math.round((wages * 0.4) / Math.max(1, club.capacity * 0.35))));
   const avgTickets = club.capacity * 0.7 * ticketPrice * 0.5; // jede zweite Woche ein Heimspiel
-  const target = wages * 1.12;
+  const stadiumCostWeekly = round100(club.capacity * 0.9 + 2000);
+  const staffWeekly = round100(wages * 0.08 + 1500);
+  // Einnahmen decken alle laufenden Kosten; (margin − 1) × Gehälter bleiben als Überschuss
+  const target = wages * margin + stadiumCostWeekly + staffWeekly;
   const rest = Math.max(target - avgTickets, wages * 0.25);
   return {
     ticketPrice,
     sponsorWeekly: round100(rest * 0.42),
     tvWeekly: round100(rest * 0.45),
     merchWeekly: round100(rest * 0.13),
-    stadiumCostWeekly: round100(club.capacity * 0.9 + 2000),
-    staffWeekly: round100(wages * 0.08 + 1500),
+    stadiumCostWeekly,
+    staffWeekly,
+    baseWages: Math.round(wages),
   };
 }
+
+/** Relative Vermarktungskraft einer Liga-Stufe (TV, Sponsoren). */
+export const TIER_MONEY = [1, 0.55, 0.32, 0.2, 0.14, 0.1];
+export const tierMoney = (tier: number) => TIER_MONEY[Math.min(TIER_MONEY.length - 1, Math.max(0, tier - 1))];
 
 function round100(v: number) {
   return Math.round(v / 100) * 100;

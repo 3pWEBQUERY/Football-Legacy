@@ -64,6 +64,9 @@ async function createSale(db: Db, career: CareerRow, p: Player, seller: ClubRow,
   });
 }
 
+/** So oft ziehen KI-Vereine pro Saison eine Ausstiegsklausel beim eigenen Verein. */
+const CLAUSES_PER_SEASON = 1;
+
 /**
  * KI-Vereine machen Angebote für Spieler des Nutzers. intensity 1 = normale Woche,
  * 2 = letzte Tage des Fensters. force erzwingt ein Angebot (für Tests).
@@ -82,13 +85,21 @@ export async function aiSaleOffers(db: Db, career: CareerRow, rng: Rng, opts: { 
   const forced = opts.force ? squad.find((p) => p.id === opts.force!.playerId) : undefined;
   let made = 0;
 
-  // Ausstiegsklauseln: je günstiger die Klausel im Verhältnis zum Wert, desto eher wird sie gezogen
+  // Ausstiegsklauseln: nur grössere Vereine ziehen sie, eher bei günstigen Klauseln –
+  // und höchstens CLAUSES_PER_SEASON-mal pro Saison beim eigenen Verein
+  const pulled = (await query<{ n: number }>(db,
+    "select count(*)::int as n from negotiations where career_id = $1 and kind = 'sell' and season = $2 and log->0->>'text' like 'Ausstiegsklausel%'",
+    [career.id, career.season]))[0]?.n ?? 0;
   for (const p of squad.filter((x) => x.contract?.releaseClause)) {
     const clause = p.contract!.releaseClause!;
     const isForced = forced?.id === p.id && opts.force?.clause;
     if (opts.force && !isForced) continue;
-    if (!isForced && !rng.chance(Math.min(0.5, 0.06 * intensity * Math.max(0.3, (p.value * 1.4) / clause)))) continue;
-    const bidders = clubs.filter((c) => c.transfer_budget >= clause && c.rating >= p.rating - 6 && c.reputation >= user.reputation - 10);
+    if (!isForced) {
+      if (pulled + made >= CLAUSES_PER_SEASON) break;
+      const bargain = Math.max(0.1, Math.min(1.5, ((p.value * 1.5) / clause) ** 2));
+      if (!rng.chance(0.012 * intensity * bargain)) continue;
+    }
+    const bidders = clubs.filter((c) => c.transfer_budget >= clause && c.rating >= p.rating - 3 && c.reputation >= user.reputation + (isForced ? -100 : 5));
     if (!bidders.length) continue;
     await createSale(db, career, p, user, rng.pick(bidders), { fee: clause, upfrontPct: 100, installmentYears: 0, sellOn: 0 }, true);
     made++;

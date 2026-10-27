@@ -77,8 +77,12 @@ Die Migrationen laufen beim Serverstart automatisch (`instrumentation.ts`), alte
 pnpm test               # alle Pakete
 pnpm sim:calibrate 400  # Statistik der Matchengine über viele Partien
 pnpm sim:season GER 1   # eine komplette Ligasaison in der Konsole
+pnpm --filter @fl/game balance 4 GER 8 4242 --active   # Balancing: mehrere Saisons ohne Browser messen
 ```
 
+Das Balancing-Skript (`packages/game/scripts/balance.ts`) legt in einer eigenen Datenbank (`BALANCE_DATABASE_URL`, Standard `football_legacy_balance` – wird geleert) eine Karriere an und spielt Saisons in der Schnellsimulation durch. Je Saison gibt es Wirtschaft des eigenen Vereins und der KI-Vereine, Spielerniveau und -bestand, Transfers, Torquote sowie den Verlauf des Vorstandsvertrauens aus. `--active` verlängert zu Saisonbeginn die Verträge der Stammspieler wie ein aktiver Manager. Zielwerte nach dem Balancing: eigener Verein bei normaler Führung leicht im Plus, KI-Vereine praktisch schuldenfrei, Kader höchstens 28 Spieler, Startelf-Niveau der Startvereine stabil, höchstens eine gezogene Ausstiegsklausel pro Saison.
+
+- `packages/sim/test/balance.test.ts` hält die Balancing-Grenzen fest (Tore, Heimvorteil, Favoriten, Überschuss der Finanzprofile).
 - `packages/sim/test` prüft Determinismus, Halbzeit-Speicherung, Spielplan, Tabelle und die Statistik über hunderte Partien (rund 2,7 Tore pro Spiel, Heimvorteil, Favorit gewinnt meistens, aber nicht immer).
 - `packages/game/test` spielt gegen eine echte PostgreSQL-Datenbank eine komplette Saison inklusive Saisonwechsel (`TEST_DATABASE_URL`, Standard `postgres://fl:fl@localhost:5432/football_legacy_test` – die Testdatenbank wird dabei geleert).
 

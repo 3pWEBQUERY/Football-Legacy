@@ -22,6 +22,8 @@ import { leagueRoundup, matchArticle, transferArticles } from "./media";
 import { nationalNewSeason, nationalTournament } from "./national";
 import { staffSeasonEnd } from "./staff";
 import { fanAdjusted, loadMgmtForWeek, weeklyFans } from "./clubmgmt";
+import { difficultySettings } from "./difficulty";
+import { onboardingTick } from "./onboarding";
 import { advanceCup, type CupWeekInfo } from "./cup";
 import { academyWeek } from "./academy";
 import { facilitiesOf } from "./facilities";
@@ -350,6 +352,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
 
   // Posteingang: eigenes Ergebnis, Verletzungen, Hinweise
   const position = userClubId ? await weeklyInbox(db, career, w, week, userFixture, results, news, injuredNow, cupInfo?.name ?? null) : null;
+  if (position && week >= 3) boardDrift(career, position);
   if (userClubId && mgmt) {
     const own = w.clubs.get(userClubId)!;
     const r = userFixture ? results.find((x) => x.id === userFixture.id) : undefined;
@@ -399,6 +402,17 @@ export async function persistWorld(db: pg.PoolClient, w: WorldState) {
   w.removedPlayers.clear();
 }
 
+/**
+ * Das Vertrauen des Vorstands zieht jede Woche in Richtung eines Werts, der
+ * sich aus Tabellenplatz und Saisonziel ergibt: im Soll ~62, je Platz besser
+ * +5, je Platz schlechter −5. Einzelne Ergebnisse schwanken nur darum herum.
+ */
+export function boardDrift(career: CareerRow, position: number) {
+  const level = Math.max(5, Math.min(95, 62 + difficultySettings(career).board + (career.board.targetPosition - position) * 5));
+  const c = career.board.confidence ?? 60;
+  career.board.confidence = Math.round((c + (level - c) * 0.08) * 10) / 10;
+}
+
 function applyUserRewards(w: WorldState, career: CareerRow, f: FixtureRow, r: MatchResult, starters: number[], notes: RewardNote[]) {
   const home = f.home_id === career.club_id;
   const own = w.clubs.get(career.club_id!)!;
@@ -413,8 +427,9 @@ function applyUserRewards(w: WorldState, career: CareerRow, f: FixtureRow, r: Ma
   const diff = own.rating - opp.rating;
   const expectation = diff > 4 ? "W" : diff < -4 ? "L" : "D";
   const res = gf > ga ? "W" : gf === ga ? "D" : "L";
-  const delta = res === "W" ? (expectation === "W" ? 1 : 3) : res === "D" ? (expectation === "W" ? -2 : expectation === "L" ? 2 : 0) : expectation === "L" ? -1 : -3;
+  const delta = res === "W" ? (expectation === "W" ? 1 : 2) : res === "D" ? (expectation === "W" ? -1.5 : expectation === "L" ? 1 : 0) : expectation === "L" ? -0.5 : -2;
   career.board.confidence = Math.max(0, Math.min(100, (career.board.confidence ?? 60) + delta));
+  onboardingTick(career, notes);
 }
 
 async function weeklyInbox(

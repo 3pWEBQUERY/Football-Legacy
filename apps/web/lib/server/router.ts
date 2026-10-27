@@ -107,8 +107,10 @@ route("POST", "careers", async (c) => ({
     clubIndex: num(c.body.clubIndex),
     seed: c.body.seed !== undefined ? num(c.body.seed) : undefined,
     custom: c.body.custom && typeof c.body.custom === "object" ? (c.body.custom as never) : null,
+    difficulty: c.body.difficulty,
   }),
 }));
+route("GET", "difficulties", async () => game.DIFFICULTY, false);
 route("DELETE", "careers/:id", async (c) => {
   await game.deleteCareer(acc(c), c.params.id);
   return { ok: true };
@@ -177,6 +179,10 @@ route("POST", career("academy/:pid"), async (c) => {
 route("GET", career("boardroom"), async (c) => game.boardView(c.params.id, acc(c)));
 route("GET", career("history"), async (c) => game.clubHistoryView(c.params.id, acc(c), c.query.get("club") ? num(c.query.get("club")) : undefined));
 route("GET", career("hall-of-fame"), async (c) => game.hallOfFameView(c.params.id, acc(c)));
+route("GET", career("onboarding"), async (c) => game.onboardingView(c.params.id, acc(c)));
+route("POST", career("onboarding"), async (c) => game.onboardingAction(c.params.id, acc(c), {
+  action: str(c.body.action) as never, page: String(c.body.page ?? ""), id: String(c.body.id ?? ""),
+} as game.OnboardingAction));
 route("POST", career("boardroom"), async (c) => game.boardRequest(c.params.id, acc(c), String(c.body.kind) as never));
 route("GET", career("scouting"), async (c) => game.scoutingView(c.params.id, acc(c)));
 route("POST", career("scouting"), async (c) => game.startAssignment(c.params.id, acc(c), {

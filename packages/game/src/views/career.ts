@@ -1,5 +1,6 @@
 /** Sichten: Karriere, Bestenlisten und Weltdaten. */
 import { ACHIEVEMENTS, CARD_PACK, COUNTRIES, COUNTRY_BY_CODE, LEVEL_TITLES, SKINS, UNLOCKS, flagEmoji } from "@fl/sim";
+import { difficultyOf, difficultySettings } from "../difficulty";
 import { readCareer } from "../career";
 import { pool, query } from "../db";
 import { careerSummary } from "./common";
@@ -19,6 +20,7 @@ export async function careerView(careerId: string, accountId: string) {
     cardPack: CARD_PACK,
     jobOffers: career.job_offers,
     history: m.history,
+    difficulty: { id: difficultyOf(career), ...difficultySettings(career) },
   };
 }
 

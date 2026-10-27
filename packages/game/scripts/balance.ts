@@ -1,0 +1,112 @@
+/**
+ * Balancing-Messung: legt eine Karriere an, simuliert mehrere Saisons ohne
+ * Eingriffe (Schnellsimulation) und gibt je Saison Kennzahlen aus – Wirtschaft
+ * des eigenen Vereins und der KI-Vereine, Torquote, Spielerniveau, Transfers
+ * und Vorstand. Nutzt eine eigene Datenbank (BALANCE_DATABASE_URL).
+ *
+ *   pnpm --filter @fl/game balance [Saisons] [Land] [Vereinsindex] [Seed]
+ */
+process.env.DATABASE_URL = process.env.BALANCE_DATABASE_URL ?? "postgres://fl:fl@localhost:5432/football_legacy_balance";
+
+const game = await import("../src/index");
+const { pool } = game;
+
+const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+/** --active: verlängert zu Saisonbeginn die Verträge der Stammspieler (wie ein aktiver Manager). */
+const active = process.argv.includes("--active");
+const [seasons = "3", country = "GER", clubIndex = "8", seed = "4242"] = args;
+const db = pool();
+await db.query("drop schema public cascade; create schema public;");
+await game.migrate();
+const { account } = await game.register(`balance${Date.now()}@example.com`, "geheim123", "Balance");
+const preview = game.previewClubs(Number(seed), country);
+const club = preview[0].clubs[Number(clubIndex)];
+const cid = await game.createCareer(account.id, { managerName: "Balance", countryCode: country, clubIndex: club.index, seed: Number(seed) });
+const acc = account.id;
+const q = async <T = Record<string, number>>(sql: string, params: unknown[] = []) => (await db.query(sql, params)).rows as T[];
+const mio = (v: number) => `${(v / 1e6).toFixed(1)} Mio.`;
+const pct = (v: number) => `${Math.round(v * 100)} %`;
+
+async function world() {
+  const [p] = await q(`select avg(p.rating)::float as rating, avg((p.data->>'age')::int)::float as age, avg((p.data->>'value')::bigint)::float as value,
+      count(*) filter (where p.rating >= 80)::int as stars, count(*)::int as n,
+      count(*) filter (where (p.data->>'age')::int <= 21 and p.rating >= 65)::int as talents
+    from players p join clubs c on c.career_id = p.career_id and c.id = p.club_id where p.career_id = $1 and c.players_generated`, [cid]);
+  const clubs = await q<{ balance: number; rating: number; own: boolean }>(`select balance::float as balance, rating, id = (select club_id from careers where id = $1) as own
+    from clubs where career_id = $1 and players_generated`, [cid]);
+  const [sq] = await q(`select percentile_cont(0.5) within group (order by n)::float as median, max(n)::int as max, count(*)::int as clubs,
+      (select count(*)::int from players where career_id = $1 and club_id is null) as free,
+      (select avg(top)::float from (select avg(r) as top from (select p.club_id, p.rating as r, row_number() over (partition by p.club_id order by p.rating desc) as rk
+         from players p join clubs c on c.career_id = p.career_id and c.id = p.club_id where p.career_id = $1 and c.players_generated) t where rk <= 11 group by club_id) x) as best11
+    from (select p.club_id, count(*) as n from players p join clubs c on c.career_id = p.career_id and c.id = p.club_id where p.career_id = $1 and c.players_generated group by p.club_id) s`, [cid]);
+  const [fixed] = await q(`select avg(top)::float as best11, count(*) filter (where top >= 78)::int as elite from (select avg(r) as top from (
+      select p.club_id, p.rating as r, row_number() over (partition by p.club_id order by p.rating desc) as rk
+        from players p where p.career_id = $1 and p.club_id = any($2::int[])) t where rk <= 11 group by club_id) x`, [cid, initial]);
+  return { p, clubs, sq, fixed };
+}
+
+// Feste Vergleichsgruppe: Vereine, die schon zum Start einen Kader haben (später aktivierte verzerren sonst den Schnitt)
+const initial = (await q<{ id: number }>("select id from clubs where career_id = $1 and players_generated", [cid])).map((c) => c.id);
+console.log(`Karriere ${cid}: ${club.name} (${preview[0].name}), ${seasons} Saisons`);
+let before = await world();
+const rows: Record<string, string | number>[] = [];
+for (let s = 0; s < Number(seasons); s++) {
+  const t0 = Date.now();
+  const career = await game.readCareer(cid, acc);
+  const season = career.season;
+  let renewed = 0;
+  if (active && career.club_id) {
+    const squad = await q<{ id: number; until: number }>(`select id, (data->'contract'->>'untilSeason')::int as until from players
+      where career_id = $1 and club_id = $2 and data->'loan' is null order by rating desc limit 22`, [cid, career.club_id]);
+    for (const p of squad.filter((x) => x.until <= season)) {
+      try {
+        const r = await game.startRenewal(cid, acc, p.id);
+        const v = await game.negotiationView(cid, acc, r.id);
+        if (v.demand && (await game.offerContract(cid, acc, r.id, v.demand)).status === "completed") renewed++;
+      } catch { /* Spieler will nicht verlängern */ }
+    }
+  }
+  let end = null;
+  const trace: number[] = [];
+  const fans: number[] = [];
+  for (let i = 0; i < 2000 && !end; i++) {
+    const a = await game.advance(cid, acc);
+    if (a.kind === "day") continue;
+    const summary = a.kind === "match" ? await game.quickMatch(cid, acc) : a.summary;
+    end = summary.seasonEnd;
+    if (a.kind === "match" && !end) {
+      const c = await game.readCareer(cid, acc);
+      trace.push(Math.round(c.board.confidence));
+      fans.push(Math.round((await q<{ s: number }>("select (club_mgmt->>'satisfaction')::float as s from careers where id = $1", [cid]))[0]?.s ?? -1));
+    }
+  }
+  console.log(`Vertrauen je Spiel: ${trace.join(" ")}`);
+  console.log(`Fanstimmung je Spiel: ${fans.join(" ")}`);
+  if (!end) throw new Error("Saisonende nicht erreicht");
+  const own = (await game.readCareer(cid, acc));
+  const fin = await q<{ kind: string; sum: number }>("select kind, sum(amount)::float as sum from finance_log where career_id = $1 and club_id = $2 and season = $3 group by kind order by kind", [cid, own.club_id, season]);
+  const tr = await q(`select count(*)::int as n, coalesce(avg(fee),0)::float as avg, coalesce(max(fee),0)::float as max,
+      count(*) filter (where to_club = $3 or from_club = $3)::int as own
+    from transfers where career_id = $1 and season = $2 and status = 'completed' and fee > 0`, [cid, season, own.club_id]);
+  const cs = await q(`select avg(gf + ga)::float / nullif(avg(played),0) as gpg from club_seasons where career_id = $1 and season = $2 and played > 0`, [cid, season]);
+  const after = await world();
+  const ai = after.clubs.filter((c) => !c.own);
+  const aiBal = ai.map((c) => c.balance).sort((a, b) => a - b);
+  const median = (xs: number[]) => xs.length ? xs[Math.floor(xs.length / 2)] : 0;
+  const beforeAi = before.clubs.filter((c) => !c.own).map((c) => c.balance).sort((a, b) => a - b);
+  const ownBefore = before.clubs.find((c) => c.own)?.balance ?? 0;
+  const ownAfter = after.clubs.find((c) => c.own)?.balance ?? 0;
+  const income = fin.filter((f) => f.sum > 0).reduce((a, f) => a + f.sum, 0);
+  const costs = fin.filter((f) => f.sum < 0).reduce((a, f) => a + f.sum, 0);
+  console.log(`\n=== Saison ${season} (${((Date.now() - t0) / 1000).toFixed(0)} s) – Platz ${end.position}, ${end.points} Punkte${end.champion ? ", Meister" : ""}${end.promoted ? ", Aufstieg" : ""}${end.relegated ? ", Abstieg" : ""}${end.dismissed ? ", ENTLASSEN" : ""}`);
+  console.log(`Eigener Verein: ${mio(ownBefore)} → ${mio(ownAfter)} (${ownAfter >= ownBefore ? "+" : ""}${mio(ownAfter - ownBefore)}) | Einnahmen ${mio(income)} Ausgaben ${mio(-costs)} | Vertrauen ${own.board.confidence}${active ? ` | verlängert ${renewed}` : ""}`);
+  console.log(`  ${fin.map((f) => `${f.kind} ${mio(f.sum)}`).join(" · ")}`);
+  console.log(`KI-Vereine: Median ${mio(median(beforeAi))} → ${mio(median(aiBal))} | im Minus ${ai.filter((c) => c.balance < 0).length}/${ai.length} | reichster ${mio(aiBal[aiBal.length - 1] ?? 0)}`);
+  console.log(`Spieler: Ø Stärke ${before.p.rating.toFixed(1)} → ${after.p.rating.toFixed(1)} | Stars ≥80 ${before.p.stars} → ${after.p.stars} | Talente ${before.p.talents} → ${after.p.talents} | Ø Alter ${after.p.age.toFixed(1)} | Ø Marktwert ${mio(after.p.value)} | Spieler ${before.p.n} → ${after.p.n}`);
+  console.log(`Kader: Median ${after.sq.median} Spieler, grösster ${after.sq.max}, Vereine ${after.sq.clubs} | Vereinslose ${before.sq.free} → ${after.sq.free} | Ø beste Elf ${before.sq.best11.toFixed(1)} → ${after.sq.best11.toFixed(1)} (Startvereine ${before.fixed.best11.toFixed(1)} → ${after.fixed.best11.toFixed(1)})`);
+  console.log(`Transfers mit Ablöse: ${tr[0].n} (eigene ${tr[0].own}), Ø ${mio(tr[0].avg)}, Rekord ${mio(tr[0].max)} | Tore/Spiel ${(cs[0]?.gpg ?? 0).toFixed(2)}`);
+  rows.push({ season, position: end.position, own: Math.round(ownAfter - ownBefore), aiMedian: Math.round(median(aiBal) - median(beforeAi)), rating: +after.p.rating.toFixed(1), stars: after.p.stars, best11: +after.fixed.best11.toFixed(1), squad: after.sq.median, free: after.sq.free, gpg: +(cs[0]?.gpg ?? 0).toFixed(2), confidence: own.board.confidence });
+  before = after;
+}
+console.log("\nZusammenfassung", JSON.stringify(rows));
+await db.end();

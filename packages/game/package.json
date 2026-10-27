@@ -9,7 +9,8 @@
   "scripts": {
     "migrate": "tsx src/migrate-cli.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "balance": "tsx scripts/balance.ts"
   },
   "dependencies": {
     "@fl/sim": "workspace:*",

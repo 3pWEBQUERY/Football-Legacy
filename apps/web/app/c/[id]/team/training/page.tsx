@@ -5,6 +5,7 @@ import { api, refreshAll, useApi } from "@/lib/client/api";
 import { money } from "@/lib/client/format";
 import { MobileSubnav, useGame } from "@/components/GameShell";
 import { ErrorBox, Icon, Loading, Progress, Seg, useToast } from "@/components/ui";
+import { PageTip } from "@/components/Onboarding";
 
 const FOCUS = [
   { id: "balanced", label: "Ausgewogen", icon: "board", text: "Alle Bereiche gleichmässig – solide Entwicklung." },
@@ -52,6 +53,7 @@ export default function Training() {
   return (
     <>
       <MobileSubnav section="team" />
+      <PageTip id="training" title="Training">Der Schwerpunkt bestimmt, welche Attribute wachsen. Hohe Intensität bringt mehr Fortschritt, aber auch mehr Verletzungen und weniger Kondition. Junge Spieler mit Potenzial profitieren am meisten – vor allem mit Spielzeit.</PageTip>
       <div className="page-head">
         <div>
           <h1>Training & Stab</h1>

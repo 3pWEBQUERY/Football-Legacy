@@ -9,6 +9,7 @@ import { type Db, lockCareer, one, pool, query, tx } from "./db";
 import { GameError } from "./errors";
 import { insertContinental, planContinental } from "./continental";
 import { visionFor } from "./history/vision";
+import { applyDifficultyStart, parseDifficulty } from "./difficulty";
 import {
   type Board, type CareerRow, type ClubRow, type LeagueRow, addInbox, getCareer, getClubs, getLeagues, getPlayers,
   insertFixtures, insertPlayers, saveCareer, saveClubs,
@@ -243,6 +244,8 @@ export interface CreateCareerInput {
   countryCode: string;
   clubIndex: number;
   seed?: number;
+  /** Schwierigkeitsgrad: leicht, normal oder schwer */
+  difficulty?: unknown;
   /** Eigener Verein: ersetzt den gewählten Verein in dessen Liga */
   custom?: { name: string; shortName: string; city: string; primary: string; secondary: string; founded: number; stadiumName: string } | null;
 }
@@ -339,6 +342,9 @@ export async function createCareer(accountId: string, input: CreateCareerInput):
     const userLeague = leagues.get(userClubRow.league_id)!;
     career.club_id = userClubRow.id;
     const userClub = homeClubs.find((c) => c.id === userClubRow.id)!;
+    career.manager.difficulty = parseDifficulty(input.difficulty);
+    applyDifficultyStart(userClub, userLeague.tier, career.manager.difficulty);
+    await saveClubs(db, career.id, [userClub]);
     career.board = await boardObjectives(db, career, userClub, userLeague);
     await saveCareer(db, career);
     await scheduleSeason(db, career);
@@ -360,8 +366,10 @@ export async function createCareer(accountId: string, input: CreateCareerInput):
     );
     await addInbox(
       db, career.id, career.season, 0, "tips", "Dein Assistent: die ersten Schritte",
-      "1. Team → Aufstellung: Wähle Formation und Startelf.\n2. Team → Taktik: Stelle Tempo, Pressing und Risiko ein.\n" +
-        "3. Markt: Suche nach Verstärkungen und behalte das Budget im Blick.\n4. Büro: Erledige die Tagesmissionen für Erfahrung und Manager-Punkte.",
+      "Im Büro findest du die Checkliste „Erste Schritte“ – jeder erledigte Schritt bringt Erfahrung:\n" +
+        "1. Vorstand: Saisonziel und Dreijahres-Vision ansehen.\n2. Team → Taktik: Formation und Startelf festlegen.\n" +
+        "3. Team → Training: Schwerpunkt und Intensität wählen.\n4. Transfers: Spieler suchen und Verträge im Blick behalten.\n\n" +
+        "Fragen? Das „?“ oben rechts öffnet Hilfe & Glossar.",
     );
     return career.id;
   });

@@ -29,6 +29,10 @@ export interface ManagerProfile {
   postTalkDone?: number;
   /** Nachrichtenkategorien, bei denen "Weiter" anhält */
   stopOn?: Record<string, boolean>;
+  /** Schwierigkeitsgrad der Karriere */
+  difficulty?: "easy" | "normal" | "hard";
+  /** Einstieg: Tour, Checkliste und Seitentipps */
+  onboarding?: { tourDone?: boolean; dismissed?: boolean; visited?: Record<string, boolean>; tips?: Record<string, boolean>; rewarded?: Record<string, boolean> };
 }
 
 export interface SeasonRecord {

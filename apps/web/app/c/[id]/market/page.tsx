@@ -10,6 +10,7 @@ import { Sheet } from "@/components/Sheet";
 import { usePrompt } from "@/components/Dialog";
 import { NegotiationModal, type NegotiationTarget } from "@/components/Negotiation";
 import { SaleModal } from "@/components/SaleNegotiation";
+import { PageTip } from "@/components/Onboarding";
 
 const STAGE: Record<string, { label: string; cls: string }> = {
   club: { label: "Verein", cls: "badge-blue" }, contract: { label: "Vertrag", cls: "badge-warn" }, done: { label: "Unterschrieben", cls: "badge-accent" },
@@ -86,6 +87,7 @@ export default function TransferHub() {
   const wageDelta = wage - b.wage;
   return (
     <>
+      <PageTip id="transfers" title="Transfer-Zentrale">Hier laufen alle Verhandlungen zusammen. Ein Transfer hat zwei Stufen: Erst einigst du dich mit dem Verein über die Ablöse, dann mit dem Spieler über den Vertrag. Angebote für deine Spieler beantwortest du ebenfalls hier – sie verfallen nach einer Woche.</PageTip>
       <div className="page-head">
         <div>
           <h1>Transfer-Zentrale</h1>

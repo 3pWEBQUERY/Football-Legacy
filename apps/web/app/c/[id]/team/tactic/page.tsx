@@ -12,6 +12,7 @@ import { Condition, ErrorBox, Icon, Loading, Panel, Seg, moraleLabel, useNotes, 
 import { api, useApi } from "@/lib/client/api";
 import { POS_LABEL } from "@/lib/client/format";
 import { ATTACK_KEYS, CORNER_LABEL, DEFEND_KEYS, FormationIcon, GROUP, MENTALITY_TEXT, MentalityIcon, Meter, PHASE_HINT, ROLE_CODE, SlotMenu, VIEW_LABEL, fill, formationText, squadNumbers, starsFor, styleText, type Phase, type SheetKey, type ViewMode } from "@/components/TacticParts";
+import { PageTip } from "@/components/Onboarding";
 
 /** Nicht einsatzfähig: verletzt oder gesperrt. */
 const out = (p: any) => p.injuryWeeks > 0 || p.suspendedWeeks > 0;
@@ -253,6 +254,7 @@ export default function TacticPage() {
 
   return (
     <>
+      <PageTip id="tactic" title="So funktioniert die Taktik">Ziehe Spieler auf die Positionen der Formation. Eine Spielerkarte zeigt, wie gut er auf die Position passt. Mentalität, Pressing und Tempo verändern die Spielweise; neue Einstellungen brauchen etwas Zeit, bis die Mannschaft sie verinnerlicht (Vertrautheit).</PageTip>
       <div className="page-head">
         <div>
           <h1>Taktik</h1>

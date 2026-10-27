@@ -122,7 +122,7 @@ export async function weeklyFans(
   m.voices = [...voices, ...m.voices].slice(0, 14);
   // Vorstand reagiert auf die Stimmung
   if (m.satisfaction < 30) career.board.confidence = Math.max(0, career.board.confidence - 1);
-  else if (m.satisfaction > 75) career.board.confidence = Math.min(100, career.board.confidence + 0.5);
+  else if (m.satisfaction > 75) career.board.confidence = Math.min(100, career.board.confidence + 0.3);
   // Proteste bei sehr schlechter Stimmung
   const since = m.lastProtest ? (m.lastProtest.season === career.season ? career.day - m.lastProtest.day : 999) : 999;
   if (m.satisfaction < 25 && since > 30) {

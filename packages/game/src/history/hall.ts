@@ -5,6 +5,7 @@
  */
 import { pool, query } from "../db";
 import { readCareer } from "../career";
+import { difficultyOf, difficultySettings } from "../difficulty";
 
 /** Vermächtnis-Punkte: Titel zählen am meisten, Beständigkeit gibt den Rest. */
 export const LEGACY_LEVELS = [
@@ -31,7 +32,8 @@ export async function hallOfFameView(careerId: string, accountId: string) {
   const career = await readCareer(careerId, accountId);
   const m = career.manager;
   const t = m.totals;
-  const points = legacyPoints(t);
+  const diff = difficultySettings(career);
+  const points = Math.round(legacyPoints(t) * diff.legacy);
   const levelIndex = LEGACY_LEVELS.reduce((i, l, j) => (points >= l.min ? j : i), 0);
   const next = LEGACY_LEVELS[levelIndex + 1] ?? null;
 
@@ -92,7 +94,8 @@ export async function hallOfFameView(careerId: string, accountId: string) {
 
   return {
     manager: {
-      name: career.manager_name, reputation: Math.round(m.reputation), level: m.level, points, levels: LEGACY_LEVELS, levelIndex,
+      name: career.manager_name, reputation: Math.round(m.reputation),
+      difficulty: { id: difficultyOf(career), label: diff.label, factor: diff.legacy }, level: m.level, points, levels: LEGACY_LEVELS, levelIndex,
       next: next ? { name: next.name, min: next.min, missing: next.min - points } : null,
       totals: { ...t, cups: t.cups ?? 0, continental: t.continental ?? 0, matches: t.wins + t.draws + t.losses },
       winRate: t.wins + t.draws + t.losses ? Math.round((t.wins / (t.wins + t.draws + t.losses)) * 100) : 0,

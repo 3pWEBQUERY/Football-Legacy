@@ -6,6 +6,7 @@ import { useGame } from "@/components/GameShell";
 import { Empty, ErrorBox, Icon, Loading, Modal, Nat, Pos, useToast } from "@/components/ui";
 import { PlayerFace } from "@/components/PlayerFace";
 import { useConfirm } from "@/components/Dialog";
+import { PageTip } from "@/components/Onboarding";
 
 function Stars({ n }: { n: number }) {
   return (
@@ -43,6 +44,7 @@ export default function YouthPage() {
 
   return (
     <>
+      <PageTip id="youth" title="Jugendakademie">Einmal pro Saison kommt am Jugendtag ein neuer Jahrgang. Ziehe Talente mit hohem Potenzial in die erste Mannschaft hoch – Eigengewächse zählen auch für die Vision des Vorstands.</PageTip>
       <div className="page-head">
         <div>
           <h1>Jugendakademie</h1>

@@ -9,6 +9,7 @@ import { PlayerFace } from "@/components/PlayerFace";
 import { Select } from "@/components/Select";
 import { Stars } from "@/components/PitchBoard";
 import { NegotiationModal, type NegotiationTarget } from "@/components/Negotiation";
+import { PageTip } from "@/components/Onboarding";
 
 const POS_OPTIONS = [
   { value: "", label: "Alle Positionen" }, { value: "GK", label: "Torwart" }, { value: "DR", label: "Rechter Verteidiger" }, { value: "DC", label: "Innenverteidiger" },
@@ -100,6 +101,7 @@ export default function MarketSearch() {
   const season = data?.career.season;
   return (
     <>
+      <PageTip id="search" title="Spielersuche">Filtere nach Position, Alter, Stärke und Marktwert. Werte unbekannter Spieler sind Schätzungen – je besser dein Scouting, desto genauer. Spieler mit Ausstiegsklausel kannst du ohne Zustimmung des Vereins holen.</PageTip>
       <div className="page-head">
         <div>
           <h1>Spielersuche</h1>

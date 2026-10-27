@@ -7,6 +7,7 @@ import { fmtDate, money, seasonLabel } from "@/lib/client/format";
 import { Crest, Icon, Modal, Progress, useNotes, useToast } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
 import { WeekSummaryView } from "./WeekSummary";
+import { OnboardingProvider } from "./Onboarding";
 
 interface ShellCtx {
   id: string;
@@ -34,7 +35,7 @@ const NAV = [
   { key: "market", label: "Transfers", icon: "transfer", href: "/market", subs: [{ href: "/market", label: "Transfer-Zentrale" }, { href: "/market/search", label: "Spielersuche" }, { href: "/market/scouting", label: "Scouting" }, { href: "/market/contracts", label: "Verträge" }, { href: "/market/finances", label: "Finanzen" }] },
   { key: "competition", label: "Wettbewerb", icon: "trophy", href: "/competition", subs: [{ href: "/competition", label: "Tabelle & Spielplan" }, { href: "/competition/cup", label: "Pokal" }, { href: "/competition/continental", label: "Kontinentalpokal" }, { href: "/competition/stats", label: "Statistiken" }, { href: "/competition/awards", label: "Auszeichnungen" }] },
   { key: "national", label: "Nationalteam", icon: "flag", href: "/national", subs: [{ href: "/national", label: "Übersicht" }, { href: "/national/squad", label: "Kader & Taktik" }, { href: "/national/matches", label: "Spiele" }] },
-  { key: "career", label: "Karriere", icon: "star", href: "/career", subs: [{ href: "/career", label: "Manager" }, { href: "/career/jobs", label: "Freie Stellen" }, { href: "/career/review", label: "Saisonrückblick" }, { href: "/career/hall", label: "Ruhmeshalle" }, { href: "/career/collection", label: "Sammlung & Shop" }, { href: "/career/leaderboards", label: "Ranglisten" }, { href: "/career/settings", label: "Einstellungen" }] },
+  { key: "career", label: "Karriere", icon: "star", href: "/career", subs: [{ href: "/career", label: "Manager" }, { href: "/career/jobs", label: "Freie Stellen" }, { href: "/career/review", label: "Saisonrückblick" }, { href: "/career/hall", label: "Ruhmeshalle" }, { href: "/career/collection", label: "Sammlung & Shop" }, { href: "/career/leaderboards", label: "Ranglisten" }, { href: "/career/settings", label: "Einstellungen" }, { href: "/career/help", label: "Hilfe" }] },
 ];
 
 function activeSection(path: string, base: string) {
@@ -129,7 +130,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
 
   const d = shell.data;
   const ctx: ShellCtx = { id, shell: d, advance, busy, reloadShell: shell.reload, pendingMessage, clearPendingMessage: () => setPendingMessage(null) };
-  if (fullscreen) return <Ctx.Provider value={ctx}>{children}</Ctx.Provider>;
+  if (fullscreen) return <Ctx.Provider value={ctx}><OnboardingProvider careerId={id}>{children}</OnboardingProvider></Ctx.Provider>;
 
   const c = d?.career;
   const hasMatch = !!d?.next;
@@ -144,6 +145,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
 
   return (
     <Ctx.Provider value={ctx}>
+    <OnboardingProvider careerId={id}>
       <div className="app" style={clubStyle}>
         <header className="topbar">
           <Link href="/careers" className="brand" title="Karrieren">
@@ -236,6 +238,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
               </Link>
             )}
             <div className="mn-cell" style={{ gap: 4 }}>
+              <Link className="btn btn-ghost btn-sm" href={`${base}/career/help`} title="Hilfe & Glossar" aria-label="Hilfe & Glossar"><b className="cond" style={{ fontSize: 15, lineHeight: 1 }}>?</b></Link>
               <ThemeToggle compact />
               <Link className="btn btn-ghost btn-sm" href="/careers" title="Alle Karrieren"><Icon name="users" size={15} /></Link>
             </div>
@@ -265,6 +268,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
       <Modal open={!!summary} onClose={() => setSummary(null)} wide>
         {summary && <WeekSummaryView summary={summary} base={base} onClose={() => setSummary(null)} />}
       </Modal>
+    </OnboardingProvider>
     </Ctx.Provider>
   );
 }
