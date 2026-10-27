@@ -193,7 +193,7 @@ function aiMentality(state: MatchState, side: Side) {
   const target = aiMentalityTarget(team.aiCoach.base, diff, minuteOf(state.tick));
   if (target === (team.mentality ?? 0)) return;
   const more = target > (team.mentality ?? 0);
-  applyChange(state, side, { mentality: target });
+  applyChange(state, side, { mentality: target, quiet: true });
   pushEvent(state, "tactic", side, more ? `${team.name} riskiert jetzt mehr und rückt auf.` : `${team.name} zieht sich zurück und verteidigt das Ergebnis.`, {});
 }
 
@@ -285,6 +285,8 @@ export interface TacticChange {
   /** Wechsel: Slot → ID des Bankspielers */
   subs?: { slot: number; playerId: number }[];
   autoSubs?: boolean;
+  /** Ohne eigene Tickermeldung (der Aufrufer schreibt eine passendere) */
+  quiet?: boolean;
 }
 
 export function applyChange(state: MatchState, side: Side, change: TacticChange) {
@@ -326,7 +328,7 @@ export function applyChange(state: MatchState, side: Side, change: TacticChange)
     const benchIdx = team.players.findIndex((p) => p.id === sub.playerId && p.slot === -1);
     if (benchIdx >= 0) substitute(state, side, sub.slot, benchIdx);
   }
-  if (changed) pushEvent(state, "tactic", side, newFormation ? `${team.short} stellt um auf ${team.formation}.` : `${team.short} passt die taktische Ausrichtung an.`, {});
+  if (changed && !change.quiet) pushEvent(state, "tactic", side, newFormation ? `${team.short} stellt um auf ${team.formation}.` : `${team.short} passt die taktische Ausrichtung an.`, {});
 }
 
 export interface PlayerMatchLine {
