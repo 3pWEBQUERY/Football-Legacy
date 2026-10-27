@@ -1,21 +1,16 @@
 import Link from "next/link";
-import { LegalPage, Missing, operator } from "@/components/Legal";
+import { LegalPage, OperatorCard } from "@/components/Legal";
 
 export const metadata = { title: "Datenschutz – Football Legacy" };
 export const dynamic = "force-dynamic";
 
 export default function DatenschutzPage() {
-  const o = operator();
   return (
     <LegalPage title="Datenschutzerklärung" updated="Oktober 2026">
       <p>Wir erheben nur die Daten, die für das Spiel nötig sind. Es gibt keine Werbung, kein Tracking und keine Analyse-Dienste. Diese Erklärung gilt nach der Datenschutz-Grundverordnung (DSGVO) und dem Schweizer Datenschutzgesetz (DSG).</p>
 
       <h2>1. Verantwortlicher</h2>
-      <p>
-        {o.name ?? <Missing what="Name (LEGAL_NAME)" />}<br />
-        {o.address.length ? o.address.map((l, i) => <span key={i}>{l}<br /></span>) : <><Missing what="Anschrift (LEGAL_ADDRESS)" /><br /></>}
-        E-Mail: {o.email ? <a href={`mailto:${o.email}`}>{o.email}</a> : <Missing what="E-Mail (LEGAL_EMAIL)" />}
-      </p>
+      <OperatorCard role="Verantwortlich für die Datenbearbeitung" />
 
       <h2>2. Welche Daten wir verarbeiten</h2>
       <ul>

@@ -48,10 +48,12 @@ export function wageBill(players: Pick<Player, "contract" | "loan">[], loanedOut
 export function financeProfile(club: { countryCode: string; reputation: number; capacity: number }, wages: number, tier: number, margin = 1.06): ClubFinanceProfile {
   const country = COUNTRY_BY_CODE[club.countryCode];
   const strength = country?.strength ?? 3;
-  // Ticketerlöse sollen etwa ein Drittel der Gehälter decken – sonst wird der Ticketpreis gesenkt
+  // Erwartete Zuschauer pro Heimspiel und Heimspiele je abgerechneter Woche (wie in der Saison tatsächlich)
+  const fans = club.capacity * expectedAttendanceRate(club.reputation);
+  // Ticketerlöse sollen höchstens etwa 40 % der Gehälter decken – sonst wird der Ticketpreis gesenkt
   const basePrice = Math.round(6 + strength * 4 + club.reputation / 6 - (tier - 1) * 3);
-  const ticketPrice = Math.max(5, Math.min(basePrice, Math.round((wages * 0.4) / Math.max(1, club.capacity * 0.35))));
-  const avgTickets = club.capacity * 0.7 * ticketPrice * 0.5; // jede zweite Woche ein Heimspiel
+  const ticketPrice = Math.max(5, Math.min(basePrice, Math.round((wages * 0.4) / Math.max(1, fans * HOME_GAMES_PER_WEEK))));
+  const avgTickets = fans * ticketPrice * HOME_GAMES_PER_WEEK;
   const stadiumCostWeekly = round100(club.capacity * 0.9 + 2000);
   const staffWeekly = round100(wages * 0.08 + 1500);
   // Einnahmen decken alle laufenden Kosten; (margin − 1) × Gehälter bleiben als Überschuss
@@ -66,6 +68,18 @@ export function financeProfile(club: { countryCode: string; reputation: number; 
     staffWeekly,
     baseWages: Math.round(wages),
   };
+}
+
+/**
+ * Liga-Heimspiele je abgerechneter Woche: Laufende Posten werden vom ersten bis
+ * zum letzten Ligaspieltag gebucht (rund 42 Wochen), darin liegen 17–19
+ * Heimspiele (18er- bzw. 20er-Liga).
+ */
+export const HOME_GAMES_PER_WEEK = 0.42;
+
+/** Auslastung, mit der ein Verein im Schnitt rechnen kann (wie attendance() bei mittlerer Form und gleich starkem Gegner). */
+export function expectedAttendanceRate(reputation: number): number {
+  return clamp(0.45 + reputation / 220 + reputation / 600, 0.2, 1);
 }
 
 /** Relative Vermarktungskraft einer Liga-Stufe (TV, Sponsoren). */

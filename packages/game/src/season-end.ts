@@ -187,9 +187,10 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
       m.points += 100;
     }
     const gap = position - career.board.targetPosition;
-    // Ziel erreicht: +10, deutlich übertroffen +5 extra; verfehlt: je Platz −6; ein Abstieg wiegt zusätzlich schwer
-    const sporting = positionOk ? 10 + (gap <= -3 ? 5 : 0) : -gap * 6;
-    career.board.confidence = Math.max(0, Math.min(100, Math.round(career.board.confidence + sporting + (userClub.balance >= career.board.financeTarget ? 5 : -10) - (relegated ? 15 : 0))));
+    // Die Saison wirkt schon über die Wochen; am Ende nur noch ein kleiner Ausschlag:
+    // Ziel erreicht +4, deutlich übertroffen +3 extra; verfehlt je Platz −3 (höchstens −12); Abstieg zusätzlich −10
+    const sporting = positionOk ? 4 + (gap <= -3 ? 3 : 0) : -Math.min(12, gap * 3);
+    career.board.confidence = Math.max(0, Math.min(100, Math.round(career.board.confidence + sporting + (userClub.balance >= career.board.financeTarget ? 2 : -6) - (relegated ? 10 : 0))));
     m.reputation = Math.max(1, Math.min(100, m.reputation + (positionOk ? 4 : -3) + (champion ? 6 : 0) + (promoted ? 5 : 0) - (relegated ? 6 : 0)));
     // Mehrjährige Vision des Vorstands
     const vision = career.board.vision;

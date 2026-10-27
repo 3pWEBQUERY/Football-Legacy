@@ -189,7 +189,9 @@ export function generateYouthIntake(
   nextId: () => number,
 ): Player[] {
   const rng = new Rng(seedFor(worldSeed, "youth", club.id, season));
-  const count = rng.int(2, 4);
+  // Ein 26er-Kader braucht bei rund 18 Profijahren etwa 1,5 neue Spieler pro Saison;
+  // gute Akademien bringen etwas mehr hervor
+  const count = 1 + (rng.chance(0.3 + academyQuality / 200) ? 1 : 0) + (rng.chance(0.06) ? 1 : 0);
   const positions: Position[] = ["GK", "DC", "DR", "DL", "DM", "MC", "AMC", "AMR", "AML", "ST", "MR", "ML"];
   const out: Player[] = [];
   for (let i = 0; i < count; i++) {

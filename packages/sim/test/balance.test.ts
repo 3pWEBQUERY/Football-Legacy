@@ -4,7 +4,7 @@
  * halten. Schlägt ein Test fehl, hat sich das Gleichgewicht verschoben.
  */
 import { describe, expect, it } from "vitest";
-import { defaultTactic, financeProfile, generateSquad, playMatch, retirementChance, tierMoney, wageBill, weeklyFinances, type Player } from "../src/index";
+import { attendance, defaultTactic, financeProfile, generateSquad, playMatch, retirementChance, tierMoney, wageBill, weeklyFinances, type Player } from "../src/index";
 
 let nextPid = 1;
 function team(clubId: number, rating: number) {
@@ -40,15 +40,26 @@ describe("Balancing", () => {
     expect(s.home).toBeLessThan(0.85);
   }, 60_000);
 
-  it("Finanzprofil: laufende Einnahmen decken alle Kosten mit kleinem Überschuss", () => {
-    const squad = generateSquad(11, { id: 1, countryCode: "GER", rating: 66, reputation: 60 }, 2026, () => nextPid++);
-    const wages = wageBill(squad);
-    for (const margin of [1.0, 1.06, 1.14]) {
-      const profile = financeProfile({ countryCode: "GER", reputation: 60, capacity: 30_000 }, wages, 1, margin);
-      // Zwei Wochen: einmal mit Heimspiel (70 % Auslastung), einmal ohne
-      const sum = [...weeklyFinances(profile, wages, { attendance: 21_000 }), ...weeklyFinances(profile, wages, null)].reduce((s, e) => s + e.amount, 0) / 2;
-      expect(sum / wages).toBeGreaterThan(margin - 1 - 0.03);
-      expect(sum / wages).toBeLessThan(margin - 1 + 0.03);
+  it("Finanzprofil: eine echte Saison deckt alle Kosten mit kleinem Überschuss – bei kleinen wie grossen Vereinen", () => {
+    // Laufende Posten über 42 Wochen, 18 Heimspiele mit der Zuschauerformel des Spiels
+    const clubs = [
+      { rating: 52, reputation: 22, capacity: 9_000, tier: 3 },
+      { rating: 60, reputation: 40, capacity: 18_000, tier: 2 },
+      { rating: 66, reputation: 60, capacity: 30_000, tier: 1 },
+      { rating: 76, reputation: 88, capacity: 70_000, tier: 1 },
+    ];
+    for (const c of clubs) {
+      const squad = generateSquad(11, { id: c.rating, countryCode: "GER", rating: c.rating, reputation: c.reputation }, 2026, () => nextPid++);
+      const wages = wageBill(squad);
+      for (const margin of [1.0, 1.06, 1.14]) {
+        const profile = financeProfile({ countryCode: "GER", reputation: c.reputation, capacity: c.capacity }, wages, c.tier, margin);
+        const fans = attendance(c.capacity, c.reputation, 7, c.reputation);
+        let sum = 0;
+        for (let w = 0; w < 42; w++) sum += weeklyFinances(profile, wages, w % 7 < 3 ? { attendance: fans } : null).reduce((s, e) => s + e.amount, 0);
+        const perWeek = sum / 42 / wages;
+        expect(perWeek, `Ruf ${c.reputation}, Marge ${margin}`).toBeGreaterThan(margin - 1 - 0.03);
+        expect(perWeek, `Ruf ${c.reputation}, Marge ${margin}`).toBeLessThan(margin - 1 + 0.03);
+      }
     }
     expect(tierMoney(1)).toBeGreaterThan(tierMoney(2));
     expect(tierMoney(9)).toBeGreaterThan(0);

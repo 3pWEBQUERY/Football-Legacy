@@ -20,6 +20,24 @@ export function operator() {
   return { name, address, email, complete: !!(name && address.length && email) };
 }
 
+/** Betreiber und Kontakt als Adressblock (Impressum und Datenschutz). */
+export function OperatorCard({ role = "Betreiber" }: { role?: string }) {
+  const o = operator();
+  return (
+    <div className="legal-card">
+      <address>
+        <span className="legal-card-label">{role}</span>
+        <b>{o.name ?? <Missing what="Name (LEGAL_NAME)" />}</b>
+        {o.address.length ? o.address.map((l, i) => <span key={i}>{l}</span>) : <Missing what="Anschrift (LEGAL_ADDRESS)" />}
+      </address>
+      <div>
+        <span className="legal-card-label">Kontakt</span>
+        {o.email ? <a href={`mailto:${o.email}`}>{o.email}</a> : <Missing what="E-Mail (LEGAL_EMAIL)" />}
+      </div>
+    </div>
+  );
+}
+
 export function LegalPage({ title, updated, children }: { title: string; updated: string; children: ReactNode }) {
   return (
     <div className="legal">
@@ -28,6 +46,7 @@ export function LegalPage({ title, updated, children }: { title: string; updated
           <div className="brand-mark">FL</div>
           <div className="brand-name">Football Legacy<small>{title}</small></div>
         </Link>
+        <Link href="/careers" className="btn btn-ghost btn-sm">Zurück zum Spiel</Link>
       </header>
       <article className="legal-body card">
         <h1>{title}</h1>

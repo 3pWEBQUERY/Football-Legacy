@@ -12,7 +12,7 @@ import { type WorldState, movePlayer, removePlayer, squadOf } from "./world-stat
 /** Grösster Kader, den KI-Vereine in die neue Saison mitnehmen. */
 export const MAX_AI_SQUAD = 28;
 /** Vereinslose je aktivem Verein, mehr hält der Markt nicht. */
-const FREE_AGENTS_PER_CLUB = 2;
+const FREE_AGENTS_PER_CLUB = 1.5;
 
 export interface SeasonStart { tier: Map<number, number>; reputation: Map<number, number> }
 
@@ -63,9 +63,10 @@ export function trimSquads(w: WorldState, career: CareerRow): number {
     if (squad.length <= MAX_AI_SQUAD) continue;
     const ranks = squadRanks(squad);
     const prospect = (p: Player) => p.age <= 20 && p.potential >= p.rating + 8;
+    // Die schwächsten Ergänzungsspieler gehen – nicht einfach die ältesten
     const out = squad
       .filter((p) => (ranks.get(p.id) ?? 99) > 18 && !prospect(p))
-      .sort((a, b) => b.age - a.age || a.rating - b.rating)
+      .sort((a, b) => a.rating - b.rating || b.age - a.age)
       .slice(0, squad.length - MAX_AI_SQUAD);
     for (const p of out) {
       movePlayer(w, p, null);
@@ -88,7 +89,7 @@ export function trimFreeAgents(w: WorldState, rng: Rng): Player[] {
     if (p.age >= 33 || (p.age >= 30 && rng.chance(0.5)) || (p.rating < 45 && rng.chance(0.5))) retire(p);
   }
   const clubs = [...w.clubs.values()].filter((c) => c.players_generated).length;
-  const cap = Math.max(150, clubs * FREE_AGENTS_PER_CLUB);
+  const cap = Math.max(150, Math.round(clubs * FREE_AGENTS_PER_CLUB));
   if (w.freeAgents.length > cap) {
     const worst = [...w.freeAgents].sort((a, b) => a.rating - b.rating || b.age - a.age).slice(0, w.freeAgents.length - cap);
     worst.forEach(retire);

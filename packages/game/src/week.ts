@@ -435,7 +435,8 @@ export async function persistWorld(db: pg.PoolClient, w: WorldState) {
 export function boardDrift(career: CareerRow, position: number) {
   const level = Math.max(5, Math.min(95, 62 + difficultySettings(career).board + (career.board.targetPosition - position) * 5));
   const c = career.board.confidence ?? 60;
-  career.board.confidence = Math.round((c + (level - c) * 0.08) * 10) / 10;
+  // Langsame Annäherung: das Urteil des Vorstands reicht über mehr als eine Saison
+  career.board.confidence = Math.round((c + (level - c) * 0.05) * 10) / 10;
 }
 
 function applyUserRewards(w: WorldState, career: CareerRow, f: FixtureRow, r: MatchResult, starters: number[], notes: RewardNote[], derby: RivalryKind | null = null) {
