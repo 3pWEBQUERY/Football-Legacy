@@ -45,6 +45,8 @@ Ein tiefgehender Fussball-Manager im Browser: Kader, Taktik, Transfers und Saiso
 | Vorverträge | Ab dem 1. Januar mit Spielern im letzten Vertragsjahr anderer Vereine: nur Vertragsgespräch, Wechsel im Sommer ablösefrei. KI-Vereine werben auch deine auslaufenden Spieler ab, die Sportdirektion warnt zum Jahreswechsel |
 | U19-Liga | Die Akademie spielt eine eigene Saison gegen die Nachwuchsteams der Ligakonkurrenten (Tabelle, Ergebnisse, Torschützen). Eigene Spiele laufen durch die Matchengine; Einsatzminuten treiben die Entwicklung. Kleine Akademien werden zum Start mit bestehendem Nachwuchs aufgefüllt |
 | Mannschaftsrat | Kapitän und vier Führungsspieler; ihre Stimmung färbt auf die Kabine ab. Einmal im Monat ein Anliegen (Einsatzzeiten, Belastung, Ergebnisse, Prämie, Verträge) mit zwei Antworten und Wirkung auf die Moral; unbeantwortet verfällt es nach 14 Tagen |
+| KI-Gegner | Regelbasierte KI-Trainer: Mentalität nach Spielstand (bei Rückstand offensiver, knappe Führung absichern), Grundausrichtung je Gegner, Rotation in englischen Wochen und im Pokal. Jeder Trainer hat eine Spielidee (Formation und Stil), ein Trainerwechsel stellt das Team um. KI-Vereine setzen Ergänzungsspieler auf die Transferliste, verleihen Talente und bieten bei deinen Verhandlungen mit (Konkurrenzangebot mit Frist) |
+| Claude im Spiel (optional) | Mit `ANTHROPIC_API_KEY` und Einwilligung in den Einstellungen: eigene Antworten in der Pressekonferenz (Claude Sonnet 5.5 ordnet sie festen Wirkungen zu), Spielberichte von Claude und ein Co-Trainer-Chat auf Basis der Spieldaten. Strukturierte Ausgaben, Rückfall auf Vorlagen, 80 Anfragen pro Tag und Konto |
 | Stadionton | Synthetisch im Browser erzeugt (keine Audiodateien): Zuschauer, Raunen bei Chancen, Torjubel bzw. Stöhnen je nach Heim- und Gästeblock, Trillerpfiffe. Schalter im Spiel, Lautstärke in den Einstellungen (pro Gerät) |
 | Installierbare App | Web-App-Manifest, Symbole, Service Worker mit Offline-Hinweis; „App installieren“ auf der Karrierenseite und in den Einstellungen |
 | Push-Mitteilungen | Web Push (VAPID) für Online-Ligen (Spieltage, Saisonstart, Beitritte, Nachrichten) und lange Berechnungen, wenn die Seite inzwischen geschlossen wurde. Themen pro Gerät wählbar, Testmitteilung |
@@ -115,6 +117,7 @@ Beim ersten Start legt der Server das Schema selbst an und startet den Hintergru
 | Variable | Zweck |
 |---|---|
 | `RESEND_API_KEY` | API-Schlüssel von [Resend](https://resend.com) für E-Mails (Passwort zurücksetzen). Ohne Schlüssel wird nichts verschickt, nur protokolliert. |
+| `ANTHROPIC_API_KEY` | API-Schlüssel von [Anthropic](https://console.anthropic.com) für die freiwilligen KI-Funktionen (Claude Sonnet 5.5). Ohne Schlüssel sind sie ausgeschaltet. |
 | `MAIL_FROM` | Absender, z. B. `Football Legacy <noreply@deine-domain.ch>`. Die Domain muss bei Resend verifiziert sein; ohne eigene Domain kann `onboarding@resend.dev` nur an die E-Mail des Resend-Kontos senden. |
 | `APP_URL` | Öffentliche Adresse für Links in E-Mails. Optional – auf Railway wird `RAILWAY_PUBLIC_DOMAIN` verwendet. |
 | `ADMIN_EMAILS` | Kommagetrennte E-Mail-Adressen, die das Fehlerprotokoll unter `/admin/fehler` sehen dürfen. |
