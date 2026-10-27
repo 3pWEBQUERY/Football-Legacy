@@ -36,6 +36,10 @@ describe("Charakter, Push und Hintergrunddienst", () => {
     expect(s.topics).toEqual(["online", "jobs"]);
     expect((await game.testPush(shared.accountId)).sent).toBe(1);
     expect(sent.at(-1)?.payload.body).toContain("eingerichtet");
+    // Datenauskunft enthält die Geräte-Abos
+    const data = await game.exportAccountData(shared.accountId);
+    expect(data.pushDevices).toHaveLength(1);
+    expect(data.pushDevices[0].user_agent).toBe("Vitest");
   });
 
   it("Tägliche Online-Liga: fälliger Spieltag wird im Hintergrund gespielt und gemeldet", async () => {

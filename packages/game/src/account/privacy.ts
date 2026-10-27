@@ -13,9 +13,11 @@ export async function exportAccountData(accountId: string) {
   const results = await query(db,
     "select season, club_name, league_name, position, points, champion, promoted, relegated from season_results where account_id = $1 order by season", [accountId]);
   const sessions = await one<{ n: number }>(db, "select count(*)::int as n from sessions where account_id = $1 and expires_at > now()", [accountId]);
+  const pushDevices = await query(db,
+    "select endpoint, user_agent, topics, created_at, last_used from push_subscriptions where account_id = $1 order by created_at", [accountId]);
   return {
     exportedAt: new Date().toISOString(),
     note: "Spielstände (Vereine, Spieler, Spiele) sind Spieldaten und können im Spiel eingesehen werden. Das Passwort wird nur als Hash gespeichert und ist nicht enthalten.",
-    account, careers, seasonResults: results, activeSessions: sessions?.n ?? 0,
+    account, careers, seasonResults: results, activeSessions: sessions?.n ?? 0, pushDevices,
   };
 }
