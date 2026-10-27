@@ -6,13 +6,14 @@ import type { Player } from "../types";
 import { EnginePlayer, EnginePlayerStats, EngineTeam, EngineTeamStats, MatchSetup, MatchState, PITCH_H, PITCH_W, Side, TeamSetup } from "./types";
 import { basePosition, kickoff, leadership, pushEvent } from "./util";
 import { bigGameFactor, hasTrait, injuryFactor } from "../traits";
+import { WEATHER_MODS, WEATHER_STAMINA } from "../conditions";
 
 function newStats(): EnginePlayerStats {
   return { goals: 0, assists: 0, shots: 0, onTarget: 0, passes: 0, passesOk: 0, tackles: 0, dribbles: 0, saves: 0, fouls: 0, keyPasses: 0, rating: 6.0 };
 }
 
 function newTeamStats(): EngineTeamStats {
-  return { shots: 0, onTarget: 0, xg: 0, possession: 0, passes: 0, passesOk: 0, fouls: 0, corners: 0, yellow: 0, red: 0 };
+  return { shots: 0, onTarget: 0, xg: 0, possession: 0, passes: 0, passesOk: 0, fouls: 0, corners: 0, yellow: 0, red: 0, offsides: 0 };
 }
 
 /** Kapitän und Stellvertreter: gewählt oder die besten Anführer der Startelf. Wirkung bis +1,6 % auf alle Aktionen. */
@@ -112,6 +113,12 @@ export function createMatch(setup: MatchSetup): MatchState {
     pendingPenalty: false,
     lineupHistory: [],
   };
+  if (setup.conditions) {
+    state.conditions = { weather: setup.conditions.weather, temperature: setup.conditions.temperature, referee: setup.conditions.referee };
+    const mods = WEATHER_MODS[setup.conditions.weather];
+    if (Object.keys(mods).length) state.weatherMods = { ...mods };
+    if (WEATHER_STAMINA[setup.conditions.weather] !== 1) state.staminaFactor = WEATHER_STAMINA[setup.conditions.weather];
+  }
   let sum = 0;
   let n = 0;
   for (const team of state.teams) {

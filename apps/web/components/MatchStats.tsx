@@ -13,6 +13,7 @@ export function StatRows({ stats, names, mine }: { stats: [any, any]; names?: [s
     ["Passquote", `${Math.round((h.passesOk / Math.max(1, h.passes)) * 100)}%`, `${Math.round((a.passesOk / Math.max(1, a.passes)) * 100)}%`, h.passesOk / Math.max(1, h.passes), a.passesOk / Math.max(1, a.passes)],
     ["Ecken", h.corners, a.corners, h.corners, a.corners],
     ["Fouls", h.fouls, a.fouls, h.fouls, a.fouls],
+    ...(h.offsides !== undefined ? [["Abseits", h.offsides, a.offsides ?? 0, h.offsides, a.offsides ?? 0] as [string, number, number, number, number]] : []),
     ["Gelbe Karten", h.yellow, a.yellow, h.yellow, a.yellow],
   ];
   return (

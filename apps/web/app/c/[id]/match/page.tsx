@@ -1,4 +1,5 @@
 "use client";
+import { ConditionsBar } from "@/components/Conditions";
 import { SoundToggle } from "@/components/SoundToggle";
 import { crowd, playEvent } from "@/lib/client/sound";
 import Link from "next/link";
@@ -278,6 +279,7 @@ export default function MatchDay() {
                 <div className="center"><div className="score" style={{ fontSize: 28 }}>VS</div></div>
                 <div className={`team away ${previewMine === 1 ? "mine" : "opp"}`} style={previewMine === 1 ? { ["--mine" as string]: preview.away.colors.primary } : undefined}><div><strong>{preview.away.name}</strong><div className="faint small">Gast · Stärke {preview.away.rating}</div>{previewMine === 1 && <span className="mine-tag">Dein Team</span>}</div><Crest colors={preview.away.colors} name={preview.away.name} size={64} /></div>
               </div>
+              <ConditionsBar c={preview.conditions} />
               {preview.analysis && (
                 <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)" }} className="small">
                   <div><span className="faint up">Gegneranalyse</span> · Formation <b>{preview.analysis.formation}</b> · Schlüsselspieler</div>
@@ -348,6 +350,7 @@ export default function MatchDay() {
         <div className="center">
           <div className="score">{score[0]} – {score[1]}</div>
           <div className="clock">{phase === "halftime" ? "HZ" : phase === "fulltime" ? "Ende" : `${minute}'`}</div>
+          <ConditionsBar c={m.conditions} compact />
         </div>
         <div className={`team away ${sideClass(1)}`}>{side === 1 && <span className="mine-tag">Du</span>}<strong className="truncate">{away.name}</strong><Crest colors={away.colors} name={away.name} size={34} /></div>
       </div>

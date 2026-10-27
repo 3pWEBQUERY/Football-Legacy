@@ -1,4 +1,5 @@
 "use client";
+import { ConditionsBar } from "@/components/Conditions";
 import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/lib/client/api";
 import { useGame } from "@/components/GameShell";
@@ -29,6 +30,7 @@ export default function Report() {
           <div className="team away"><strong className="truncate">{data.away.name}</strong><Crest colors={data.away.colors} name={data.away.name} size={40} /></div>
         </div>
         <div className="faint small up" style={{ textAlign: "center", padding: "6px 0", borderTop: "1px solid var(--line)" }}>{f.cup_id ? "Pokal" : `${f.round}. Spieltag`} · Abpfiff{f.pen_home !== null ? ` · ${f.pen_home}:${f.pen_away} im Elfmeterschiessen` : ""}</div>
+        {data.conditions && <div style={{ borderTop: "1px solid var(--line)" }}><ConditionsBar c={data.conditions} compact /></div>}
       </div>
       {r && shots.length > 0 && (
         <div className="grid grid-2" style={{ alignItems: "start" }}>

@@ -299,7 +299,7 @@ const EVENT_SHAPE: Record<string, { icon?: string; color: string; block?: boolea
   yellow: { color: "#f2c230", block: true }, red: { color: "#e5534b", block: true }, sub: { icon: "swap", color: "var(--accent)" },
   injury: { icon: "medical", color: "var(--neg)" }, corner: { icon: "flag", color: "var(--text-3)" }, freekick: { icon: "target", color: "var(--text-3)" },
   halftime: { icon: "pause", color: "var(--text-3)" }, fulltime: { icon: "whistle", color: "var(--text-3)" }, tactic: { icon: "board", color: "var(--text-3)" },
-  foul: { icon: "close", color: "var(--warn)" }, kickoff: { icon: "whistle", color: "var(--text-3)" },
+  foul: { icon: "close", color: "var(--warn)" }, kickoff: { icon: "whistle", color: "var(--text-3)" }, offside: { icon: "flag", color: "var(--warn)" },
 };
 
 export function EventIcon({ type }: { type: string }) {

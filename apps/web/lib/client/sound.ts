@@ -180,7 +180,7 @@ export function playEvent(type: string, mine: boolean, home: boolean) {
     case "kickoff": s.whistle("short"); break;
     case "halftime": s.whistle("long"); break;
     case "fulltime": s.whistle("triple"); break;
-    case "foul": case "freekick": s.whistle("short"); break;
+    case "foul": case "freekick": case "offside": s.whistle("short"); break;
     case "yellow": case "red":
       s.whistle("short");
       s.burst({ gain: 0.22, attack: 0.15, hold: 0.4, release: 0.9, freq: 900, to: 1300, q: 1.2 }); // Pfiffe

@@ -74,7 +74,7 @@ function updateCondition(state: MatchState, rng: Rng) {
     for (const idx of onPitch(team)) {
       const p = team.players[idx];
       const isGk = slotDef(team, p.slot).position === "GK";
-      const drain = (isGk ? 0.012 : 0.07) * intensity * (1.25 - p.attrs.stamina / 40) * (1.1 - p.attrs.workRate / 100);
+      const drain = (isGk ? 0.012 : 0.07) * intensity * (1.25 - p.attrs.stamina / 40) * (1.1 - p.attrs.workRate / 100) * (state.staminaFactor ?? 1);
       p.stamina = Math.max(15, p.stamina - drain);
       if (!isGk && rng.chance(0.000022 * (1 + (100 - p.stamina) / 40) * (0.8 + team.style.hardness / 250) * (p.fragile ?? 1))) {
         injure(state, side, p);
@@ -328,6 +328,8 @@ export interface MatchResult {
   motm: number | null;
   /** Alle Torschüsse (Schusskarte, xG-Verlauf) */
   shots?: ShotRecord[];
+  /** Wetter und Schiedsrichter */
+  conditions?: MatchState["conditions"];
 }
 
 export function result(state: MatchState): MatchResult {
@@ -359,6 +361,7 @@ export function result(state: MatchState): MatchResult {
     awayGoals: state.teams[1].goals,
     events: state.events,
     stats: [state.teams[0].stats, state.teams[1].stats],
+    conditions: state.conditions,
     players,
     motm,
     shots: state.shots ?? [],

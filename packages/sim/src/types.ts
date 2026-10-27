@@ -232,7 +232,7 @@ export interface League {
 
 export type MatchEventType =
   | "goal" | "own_goal" | "penalty_goal" | "penalty_miss" | "shot" | "save" | "miss" | "chance"
-  | "yellow" | "red" | "foul" | "sub" | "injury" | "corner" | "freekick" | "kickoff" | "halftime" | "fulltime" | "tactic";
+  | "yellow" | "red" | "foul" | "sub" | "injury" | "corner" | "freekick" | "kickoff" | "halftime" | "fulltime" | "tactic" | "offside";
 
 export interface MatchEvent {
   minute: number;

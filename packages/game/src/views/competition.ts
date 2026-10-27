@@ -1,4 +1,6 @@
 /** Sichten: Liga-Wettbewerb und Spielberichte. */
+import { conditionsView } from "../conditions";
+import type { MatchConditions } from "@fl/sim";
 import { COUNTRIES, flagEmoji, type Player } from "@fl/sim";
 import { isoDate } from "../calendar-view";
 import { readCareer } from "../career";
@@ -74,5 +76,6 @@ export async function matchReport(careerId: string, accountId: string, fixtureId
   const report = await one<{ data: unknown }>(pool(), "select data from match_reports where fixture_id = $1 and career_id = $2", [fixtureId, career.id]);
   const home = (await getClub(pool(), career.id, f.home_id))!;
   const away = (await getClub(pool(), career.id, f.away_id))!;
-  return { career: careerSummary(career), fixture: f, home: clubSummary(home), away: clubSummary(away), report: report?.data ?? null };
+  const conditions = conditionsView((report?.data as { conditions?: MatchConditions } | null)?.conditions);
+  return { career: careerSummary(career), fixture: f, home: clubSummary(home), away: clubSummary(away), report: report?.data ?? null, conditions };
 }

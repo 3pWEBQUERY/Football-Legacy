@@ -16,6 +16,7 @@ import { advanceDay, nextSlotDay, type DayResult } from "./day";
 import { competitionOf } from "./cup";
 import { assistantAdvice } from "./advice";
 import { derbyRecord, derbySetup, rivalryBetween } from "./rivals";
+import { conditionsView, fixtureConditions } from "./conditions";
 
 async function nextUserFixture(db: pg.PoolClient | import("pg").Pool, career: CareerRow): Promise<FixtureRow | null> {
   if (!career.club_id) return null;
@@ -93,6 +94,7 @@ async function buildMatch(db: pg.PoolClient, career: CareerRow, f: FixtureRow): 
   const fam = await userFamiliarity(db, career, userClub);
   return createMatch(derbySetup({
     seed: seedFor(career.seed, "match", f.id),
+    conditions: fixtureConditions(career, f, home.country_code),
     home: teamSetup(home, hs, userIsHome ? userTactic : aiTactic(home, hs), userIsHome ? autoSubs : true, userIsHome ? fam : undefined),
     away: teamSetup(away, as, userIsHome ? aiTactic(away, as) : userTactic, userIsHome ? true : autoSubs, userIsHome ? undefined : fam),
   }, await rivalryBetween(db, career, home.id, away.id), f.cup_id != null));
@@ -121,6 +123,7 @@ function presentation(state: MatchState) {
       })),
     })),
     lineupHistory: state.lineupHistory,
+    conditions: conditionsView(state.conditions),
     tick: state.tick,
     finished: state.finished,
   };
@@ -279,6 +282,8 @@ export async function matchPreview(db: pg.Pool, career: CareerRow) {
     analysis,
     rivalry: await rivalryBetween(db, career, home.id, away.id),
     derbyRecord: await derbyRecord(db, career, career.club_id!, oppId),
+    // Wettervorhersage und angesetzter Schiedsrichter
+    conditions: conditionsView(fixtureConditions(career, f, home.country_code)),
     window: windowFor(career, career.calendar?.slots[f.week - 1]?.day ?? career.day),
     day: career.calendar?.slots[f.week - 1]?.day ?? null,
     today: isMatchday(career),

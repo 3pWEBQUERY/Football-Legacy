@@ -47,6 +47,7 @@ export function pass(state: MatchState, rng: Rng, side: Side, carrier: EnginePla
     - (pick.fwd < 14 ? Math.max(0, lineHigh) * 0.05 : 0);
   // Steilpässe hinter eine hohe Abwehrlinie
   const through = pick.fwd > 14 && ax(side, target.x) > 0.6;
+  if (through && offside(state, rng, side, target, lineHigh)) return;
   if (through) p += lineHigh * 0.2 * (eff(state, side, target, "pace") / 12) + (style.passLength - 50) / 1000;
   p = clamp(p, 0.25, 0.97);
 
@@ -87,6 +88,25 @@ export function pass(state: MatchState, rng: Rng, side: Side, carrier: EnginePla
       maybeCounter(state, rng, oppSide, style.risk);
     }
   }
+}
+
+/**
+ * Abseits bei Steilpässen: je höher die gegnerische Linie, desto öfter steht
+ * der Empfänger zu weit vorne. Gutes Timing (Antizipation, Laufwege) hilft.
+ */
+function offside(state: MatchState, rng: Rng, side: Side, target: EnginePlayer, lineHigh: number): boolean {
+  const timing = (eff(state, side, target, "offTheBall") + eff(state, side, target, "anticipation") - 24) / 80;
+  if (!rng.chance(clamp(0.05 + lineHigh * 0.14 - timing * 0.6, 0.015, 0.18))) return false;
+  const team = state.teams[side];
+  const oppSide: Side = side === 0 ? 1 : 0;
+  team.stats.offsides = (team.stats.offsides ?? 0) + 1;
+  target.st.rating -= 0.02;
+  pushEvent(state, "offside", side, `Abseits! ${target.short} startet zu früh.`, { playerId: target.id, playerName: target.name });
+  // Indirekter Freistoss für die verteidigende Mannschaft
+  const keeper = nearestOf(state, oppSide, target.x, target.y);
+  if (keeper >= 0) giveBall(state, oppSide, keeper, target.x, target.y);
+  state.lastPasser = null;
+  return true;
 }
 
 export function dribble(state: MatchState, rng: Rng, side: Side, carrier: EnginePlayer, pressure: { idx: number; d: number }) {
@@ -181,8 +201,10 @@ function foul(state: MatchState, rng: Rng, side: Side, victim: EnginePlayer, opp
   const inBox = vA > 0.843 && Math.abs(vB - 0.5) < 0.295 && rng.chance(0.7);
   const hard = defTeam.style.hardness / 100;
   const cardRoll = rng.next();
-  const pYellow = (0.3 + hard * 0.16 + (eff(state, oppSide, offender, "aggression") - 12) / 60) * (inBox ? 1.4 : 1);
-  const pRed = 0.003 + hard * 0.005;
+  // Strenge Schiedsrichter zücken öfter Karten
+  const strict = state.conditions?.referee.strictness ?? 1;
+  const pYellow = (0.3 + hard * 0.16 + (eff(state, oppSide, offender, "aggression") - 12) / 60) * (inBox ? 1.4 : 1) * strict;
+  const pRed = (0.003 + hard * 0.005) * strict;
   if (cardRoll < pRed) {
     sendOff(state, oppSide, offender, "red");
   } else if (cardRoll < pRed + pYellow) {

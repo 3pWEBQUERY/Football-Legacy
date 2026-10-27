@@ -64,6 +64,7 @@ export interface EngineTeamStats {
   corners: number;
   yellow: number;
   red: number;
+  offsides?: number;
 }
 
 export interface EngineTeam {
@@ -129,6 +130,10 @@ export interface MatchState {
   lastPasser: number | null;
   pendingPenalty: boolean;
   shots?: ShotRecord[];
+  /** Spielbedingungen: Wetter (Faktoren je Attribut, Konditionsverbrauch) und Schiedsrichter */
+  conditions?: { weather: import("../conditions").WeatherKind; temperature: number; referee: import("../conditions").Referee };
+  weatherMods?: Partial<Record<AttrKey, number>>;
+  staminaFactor?: number;
   lineupHistory: { tick: number; side: Side; slot: number; playerId: number }[];
 }
 
@@ -151,6 +156,8 @@ export interface MatchSetup {
   homeAdvantage?: number;
   /** Grosses Spiel (Derby, Pokal-K.-o., Relegation, Kontinentalpokal): Wettkampftypen legen zu, Nervöse lassen nach */
   big?: boolean;
+  /** Wetter und Schiedsrichter (ohne Angabe: neutrale Bedingungen) */
+  conditions?: import("../conditions").MatchConditions;
 }
 
 /** Ein Frame: [ballX, ballY, ballführende Seite, 11x Heim (x,y), 11x Gast (x,y)] in Dezimetern, -1 = leer. */

@@ -23,6 +23,7 @@ import { nationalNewSeason, nationalTournament } from "./national";
 import { staffSeasonEnd } from "./staff";
 import { fanAdjusted, loadMgmtForWeek, weeklyFans } from "./clubmgmt";
 import { difficultySettings } from "./difficulty";
+import { fixtureConditions } from "./conditions";
 import { RIVALRY_LABEL, type RivalryKind, derbySetup, loadRivalries, rivalryOf } from "./rivals";
 import { onboardingTick } from "./onboarding";
 import { advanceCup, type CupWeekInfo } from "./cup";
@@ -75,7 +76,7 @@ async function saveReport(db: pg.PoolClient, careerId: string, fixtureId: number
   await query(
     db,
     "insert into match_reports(fixture_id, career_id, data) values ($1,$2,$3) on conflict (fixture_id) do update set data = excluded.data",
-    [fixtureId, careerId, JSON.stringify({ events, stats: r.stats, players: r.players, motm: r.motm, shots: r.shots ?? [], ...extra })],
+    [fixtureId, careerId, JSON.stringify({ events, stats: r.stats, players: r.players, motm: r.motm, shots: r.shots ?? [], conditions: r.conditions ?? null, ...extra })],
   );
 }
 
@@ -185,7 +186,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
       const ht = isUser && home.id === userClubId && home.tactic ? validateTactic(home.tactic, hs) : aiTactic(home, hs);
       const at = isUser && away.id === userClubId && away.tactic ? validateTactic(away.tactic, as) : aiTactic(away, as);
       const fam = isUser ? await userFamiliarity(db, career, w.clubs.get(userClubId!)!) : undefined;
-      const r = playMatch(derbySetup({ seed: seedFor(career.seed, "match", f.id), home: teamSetup(home, hs, ht, true, home.id === userClubId ? fam : undefined), away: teamSetup(away, as, at, true, away.id === userClubId ? fam : undefined) }, rivalryOf(rivals, home.id, away.id), f.cup_id != null));
+      const r = playMatch(derbySetup({ seed: seedFor(career.seed, "match", f.id), conditions: fixtureConditions(career, f, home.country_code), home: teamSetup(home, hs, ht, true, home.id === userClubId ? fam : undefined), away: teamSetup(away, as, at, true, away.id === userClubId ? fam : undefined) }, rivalryOf(rivals, home.id, away.id), f.cup_id != null));
       hg = r.homeGoals;
       ag = r.awayGoals;
       applyMatchToPlayers(w, rng, r, home.id, away.id, physio, injuredNow).forEach((id) => minutes.set(id, 90));

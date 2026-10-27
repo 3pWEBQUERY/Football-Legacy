@@ -85,6 +85,9 @@ export function eff(state: MatchState, side: Side, p: EnginePlayer, key: AttrKey
   const boost = (team.spirit ?? 0) + (team.shout && state.tick < team.shout.until ? team.shout.boost : 0) + leaderBoost(team, state.tick);
   if (boost) raw *= 1 + boost;
   if (p.clutch) raw *= p.clutch;
+  // Wetter: nasser Rasen, Schnee, Wind
+  const wm = state.weatherMods?.[key];
+  if (wm) raw *= wm;
   // Gegneranweisungen des anderen Teams gegen diesen Spieler
   const mark = state.teams[side === 0 ? 1 : 0].marks?.[p.id];
   if (mark && key !== "goalkeeping") raw *= MARK_FACTOR[mark](key);
