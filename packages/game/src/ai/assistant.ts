@@ -21,7 +21,7 @@ async function history(careerId: string): Promise<ChatMessage[]> {
   return (await one<{ messages: ChatMessage[] }>(pool(), "select messages from ai_chats where career_id = $1", [careerId]))?.messages ?? [];
 }
 
-const system = (coach: string, club: string) => `Du bist ${coach}, Co-Trainer von ${club} im Fussballmanager-Spiel "Football Legacy". Der Spieler ist dein Cheftrainer und fragt dich um Rat.
+export const assistantSystem = (coach: string, club: string) => `Du bist ${coach}, Co-Trainer von ${club} im Fussballmanager-Spiel "Football Legacy". Der Spieler ist dein Cheftrainer und fragt dich um Rat.
 Antworte kurz und konkret (höchstens 130 Wörter), wie ein erfahrener Co-Trainer im Gespräch: mit Bezug auf die Daten, mit klaren Empfehlungen, aber die Entscheidung trifft der Cheftrainer.
 Wenn die Daten eine Frage nicht beantworten, sag das ehrlich. Bei Fragen ausserhalb des Spiels lenkst du freundlich zurück zum Fussball.
 Nutze keine Überschriften oder Tabellen, höchstens eine kurze Aufzählung.
@@ -79,7 +79,7 @@ export async function askAssistant(careerId: string, accountId: string, question
   const coach = await staffSender(pool(), career, club, "coach");
   const past = (await history(career.id)).slice(-HISTORY);
   const res = await generate({
-    accountId, feature: "assistant", system: system(coach.name, club.name), context: await careerContext(career),
+    accountId, feature: "assistant", system: assistantSystem(coach.name, club.name), context: await careerContext(career),
     messages: [...past.map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content: text }],
     maxTokens: 2500,
   }, true);

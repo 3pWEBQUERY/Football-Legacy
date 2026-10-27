@@ -19,6 +19,7 @@ export { academyView, promoteYouth, releaseYouth } from "./academy";
 export { answerCouncil, councilFor } from "./council";
 export { aiConfigured, aiStatus, setAiTransport, AI_MODEL } from "./ai/claude";
 export { askAssistant, assistantView, clearAssistant } from "./ai/assistant";
+export { aiSelfTest } from "./ai/selftest";
 export { boardRequest, boardView } from "./facilities";
 export { clubHistoryView, hallOfFameView } from "./history";
 export { giveTeamTalk, teamTalkState } from "./teamtalk";

@@ -5,7 +5,7 @@
  */
 import { WEATHER, type WeatherKind } from "@fl/sim";
 import { one, pool, query } from "../db";
-import { STYLE_RULES, aiEnabled, generate, parseJson } from "./claude";
+import { STYLE_RULES, aiEnabled, generate, parseJson, type AiRequest } from "./claude";
 
 const SYSTEM = `Du bist Sportredakteur einer Fussballzeitung im Spiel "Football Legacy" und schreibst den Spielbericht über die Mannschaft des Spielers.
 Länge: 90 bis 150 Wörter, zwei kurze Absätze, lebendig und sachlich wie in einer echten Sportzeitung. Erwähne das Ergebnis, die Torschützen mit Minute und die Besonderheiten aus den Daten (Wetter, Karten, Statistik, Tabellenplatz), wenn sie relevant sind.
@@ -50,6 +50,11 @@ export function matchFacts(input: { competition: string; home: string; away: str
   return lines.join("\n");
 }
 
+/** Anfrage an Claude (ohne Konto) – auch für den Selbsttest. */
+export function matchRequest(facts: string): Omit<AiRequest, "accountId"> {
+  return { feature: "match", system: SYSTEM, messages: [{ role: "user", content: facts }], schema: SCHEMA, maxTokens: 2000 };
+}
+
 /** Vorlagenartikel durch einen Claude-Text ersetzen (läuft nach dem Spieltag im Hintergrund). */
 export async function rewriteMatchArticle(accountId: string, articleId: number, fixtureId: number, input: Parameters<typeof matchFacts>[0]) {
   if (!(await aiEnabled(accountId))) return;
@@ -59,7 +64,7 @@ export async function rewriteMatchArticle(accountId: string, articleId: number, 
     await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
   }
   const rep = await one<{ data: ReportData }>(pool(), "select data from match_reports where fixture_id = $1", [fixtureId]);
-  const res = await generate({ accountId, feature: "match", system: SYSTEM, messages: [{ role: "user", content: matchFacts(input, rep?.data ?? null) }], schema: SCHEMA, maxTokens: 2000 });
+  const res = await generate({ accountId, ...matchRequest(matchFacts(input, rep?.data ?? null)) });
   const out = parseJson<{ headline: string; body: string }>(res);
   if (!out?.headline || !out.body) return;
   await query(pool(), "update media set title = $2, body = $3, ai = true where id = $1", [articleId, out.headline.slice(0, 120), out.body.slice(0, 2000)]);

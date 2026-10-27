@@ -16,4 +16,7 @@ export async function register() {
   }
   const { startWorkerProcess } = await import("./lib/server/worker-process");
   startWorkerProcess();
+  // KI-Anbindung prüfen (nur mit ANTHROPIC_API_KEY, höchstens alle 12 Stunden)
+  const { aiSelfTest } = await import("@fl/game");
+  void aiSelfTest().catch((e) => console.error("[ai] Selbsttest fehlgeschlagen", e));
 }

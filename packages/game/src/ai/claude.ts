@@ -50,13 +50,21 @@ const anthropic: AiTransport = async (req) => {
     ],
     messages: req.messages,
   });
-  if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") return null;
+  if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") {
+    console.warn(`[ai] ${req.feature}: keine Antwort (${res.stop_reason}${res.stop_details?.category ? `, ${res.stop_details.category}` : ""})`);
+    return null;
+  }
   const text = res.content.map((b) => (b.type === "text" ? b.text : "")).join("").trim();
   if (!text) return null;
   return { text, inputTokens: res.usage.input_tokens + (res.usage.cache_read_input_tokens ?? 0), outputTokens: res.usage.output_tokens };
 };
 
 let transport: AiTransport = anthropic;
+
+/** Direkter Aufruf ohne Einwilligungs- und Limitprüfung (nur für den Selbsttest des Servers). */
+export function callClaude(req: AiRequest): Promise<AiResponse | null> {
+  return transport(req);
+}
 
 /** Für Tests: Antworten vorgeben. Ohne Argument wieder die echte API. */
 export function setAiTransport(t?: AiTransport) {

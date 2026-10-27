@@ -3,11 +3,11 @@
  * festen Antworten zu (deren Wirkung gilt) und schreibt die Reaktion der
  * Journalisten samt Schlagzeile.
  */
-import { STYLE_RULES, generate, parseJson } from "./claude";
+import { STYLE_RULES, generate, parseJson, type AiRequest, type AiResponse } from "./claude";
 
 export const FREE_ANSWER_MAX = 400;
 
-interface PressQuestion { id: string; text: string; answers: { text: string; tone: string }[] }
+export interface PressQuestion { id: string; text: string; answers: { text: string; tone: string }[] }
 export interface FreeAnswerResult { choice: number; tone: string; reaction: string; headline: string; respectful: boolean }
 
 const SYSTEM = `Du bewertest Antworten eines Fussballtrainers in einer Pressekonferenz im Spiel "Football Legacy".
@@ -30,7 +30,8 @@ const SCHEMA = {
   additionalProperties: false,
 };
 
-export async function rateFreeAnswer(accountId: string, q: PressQuestion, answer: string, context: string): Promise<FreeAnswerResult> {
+/** Anfrage an Claude (ohne Konto) – auch für den Selbsttest. */
+export function pressRequest(q: PressQuestion, answer: string, context: string): Omit<AiRequest, "accountId"> {
   const text = answer.trim().slice(0, FREE_ANSWER_MAX);
   const prompt = [
     `Lage: ${context}`,
@@ -40,11 +41,19 @@ export async function rateFreeAnswer(accountId: string, q: PressQuestion, answer
     "",
     `Freie Antwort des Trainers: """${text}"""`,
   ].join("\n");
-  const res = await generate({ accountId, feature: "press", system: SYSTEM, messages: [{ role: "user", content: prompt }], schema: SCHEMA, maxTokens: 1200 }, true);
+  return { feature: "press", system: SYSTEM, messages: [{ role: "user", content: prompt }], schema: SCHEMA, maxTokens: 1200 };
+}
+
+/** Antwort von Claude prüfen; bei ungültiger Antwort die neutralste Option. */
+export function readFreeAnswer(res: AiResponse | null, q: PressQuestion): FreeAnswerResult {
   const out = parseJson<Omit<FreeAnswerResult, "tone">>(res);
   if (!out || !Number.isInteger(out.choice) || out.choice < 0 || out.choice >= q.answers.length) {
     // Ungültige Antwort der KI: neutralste Option, ohne erfundene Reaktion
     return { choice: q.answers.length - 1, tone: q.answers[q.answers.length - 1].tone, reaction: "Die Journalisten notieren deine Antwort.", headline: "", respectful: true };
   }
   return { ...out, tone: q.answers[out.choice].tone, reaction: out.reaction.slice(0, 300), headline: out.headline.slice(0, 90) };
+}
+
+export async function rateFreeAnswer(accountId: string, q: PressQuestion, answer: string, context: string): Promise<FreeAnswerResult> {
+  return readFreeAnswer(await generate({ accountId, ...pressRequest(q, answer, context) }, true), q);
 }

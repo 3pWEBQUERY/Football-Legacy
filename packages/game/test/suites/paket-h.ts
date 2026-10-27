@@ -68,6 +68,18 @@ describe("Paket H: Claude", () => {
     expect(seen.at(-1)!.messages[0].content).toMatch(/Wettbewerb: Liga/);
   });
 
+  it("Selbsttest beim Serverstart: drei Funktionen mit echten Anfragen", async () => {
+    fake((req) => req.feature === "press" ? JSON.stringify({ choice: 1, reaction: "Die Journalisten notieren.", headline: "Kampfansage vor dem Heimspiel", respectful: true })
+      : req.feature === "match" ? JSON.stringify({ headline: "Musterberg dreht das Spiel", body: "Ein Bericht in zwei Absätzen." })
+      : "Ich würde Jonas Brandt aufstellen: Er ist in Form und fit.");
+    process.env.AI_SELFTEST = "force";
+    const lines: string[] = [];
+    await game.aiSelfTest((l) => lines.push(l));
+    delete process.env.AI_SELFTEST;
+    expect(lines.filter((l) => l.includes(": ok in")).length).toBe(3);
+    expect(seen.at(-1)!.context).toMatch(/SV Musterberg/);
+  });
+
   it("Ausfall und Tageslimit: verständlicher Fehler, Protokoll ohne Inhalte", async () => {
     const { cid, acc } = shared.sponsorCareer!;
     fake(() => null);
