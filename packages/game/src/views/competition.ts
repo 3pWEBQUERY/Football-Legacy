@@ -6,6 +6,7 @@ import { one, pool, query } from "../db";
 import { GameError } from "../errors";
 import { getClub, getLeagues, type FixtureRow } from "../repo";
 import { careerSummary, clubSummary, standings } from "./common";
+import { playoffLeagues } from "../playoffs";
 
 // ---------------------------------------------------------------- Wettbewerb
 
@@ -43,9 +44,18 @@ export async function competitionView(careerId: string, accountId: string, leagu
       avgRating: r.data.stats.apps ? Math.round((r.data.stats.ratingSum / r.data.stats.apps) * 100) / 100 : 0,
     }));
   }
+  // Relegationsplätze (falls diese Liga an einer Relegation beteiligt ist)
+  const allLeagues = await getLeagues(pool(), career.id);
+  const po = playoffLeagues(allLeagues, league.country_code);
+  const down = po.find((p) => p.upper.id === league.id);
+  const up = po.find((p) => p.lower.id === league.id);
   return {
     career: careerSummary(career),
-    league: { id: league.id, name: league.name, tier: league.tier, countryCode: league.country_code, flag: flagEmoji(league.country_code), active: league.active, promotion: league.promotion, relegation: league.relegation, size: league.size },
+    league: {
+      id: league.id, name: league.name, tier: league.tier, countryCode: league.country_code, flag: flagEmoji(league.country_code), active: league.active,
+      promotion: up ? up.n - 1 : league.promotion, relegation: down ? down.n - 1 : league.relegation, size: league.size,
+      playoffUp: up ? up.n : null, playoffDown: down ? league.size - down.n + 1 : null,
+    },
     table: s.rows,
     weeks: [...weeks.entries()].map(([week, matches]) => {
       const day = career.calendar?.slots[week - 1]?.day;

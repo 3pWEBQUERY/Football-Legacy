@@ -18,7 +18,7 @@ export interface CupRow {
   current_round: number;
   winner_club_id: number | null;
   runner_up_club_id: number | null;
-  kind: "national" | "continental";
+  kind: "national" | "continental" | "playoff";
   groups: number[][] | null;
 }
 
@@ -39,7 +39,7 @@ export function fixtureWinner(f: Pick<FixtureRow, "home_id" | "away_id" | "home_
 /** Schliesst eine Pokalrunde ab und lost die nächste aus. */
 export async function advanceCup(db: pg.PoolClient, career: CareerRow, w: WorldState, cupId: number, notes: RewardNote[]): Promise<CupWeekInfo | null> {
   const cup = await one<CupRow>(db, "select * from cups where id = $1 and career_id = $2", [cupId, career.id]);
-  if (!cup || cup.winner_club_id) return null;
+  if (!cup || cup.winner_club_id || cup.kind === "playoff") return null;
   const roundFixtures = await query<FixtureRow>(db, "select * from fixtures where career_id = $1 and cup_id = $2 and cup_round = $3", [career.id, cupId, cup.current_round]);
   if (!roundFixtures.length || roundFixtures.some((f) => !f.played)) return null;
   if (cup.kind === "continental" && cup.current_round <= GROUP_ROUNDS) return advanceGroupStage(db, career, w, cup, roundFixtures, notes);

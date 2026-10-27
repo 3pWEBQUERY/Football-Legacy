@@ -1,5 +1,5 @@
 /** Sichten: Kader, Taktik, Spielerprofil und Vereinsseite. */
-import { DUTY_LABEL, EXPECTED_SHARE, FORMATIONS, INSTRUCTION_CONFLICTS, INSTRUCTION_LABEL, MENTALITY_LABEL, ROLES, STYLE_LABEL, STYLE_PRESETS, askingPrice, defaultStatuses, defaultTactic, ratingForSlot, squadRanks, statusOf, tacticIntensity, validateTactic, type SquadStatus } from "@fl/sim";
+import { DUTY_LABEL, EXPECTED_SHARE, FORMATIONS, INSTRUCTION_CONFLICTS, INSTRUCTION_LABEL, MENTALITY_LABEL, ROLES, STYLE_LABEL, STYLE_PRESETS, askingPrice, defaultStatuses, defaultTactic, ratingForSlot, squadRanks, statusOf, tacticIntensity, leadership, validateTactic, type SquadStatus } from "@fl/sim";
 import { scoutLimit } from "../actions";
 import { readCareer } from "../career";
 import { one, pool, query } from "../db";
@@ -64,6 +64,27 @@ export async function tacticView(careerId: string, accountId: string) {
     familiarity: familiarityOf(tst, tactic),
     formationFamiliarity: tst.formation,
     intensity: tacticIntensity(tactic.style, tactic.mentality ?? 0, tactic.instructions),
+    // Kapitän: die besten Anführer des Kaders (Gelassenheit, Entscheidungen, Einsatz, Erfahrung)
+    leaders: [...players].map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, position: p.position, value: Math.round(leadership(p) * 100) }))
+      .sort((a, b) => b.value - a.value).slice(0, 8),
+    opponent: await nextOpponent(career, club.id),
+  };
+}
+
+/** Nächster Pflichtspielgegner mit seinen wichtigsten Spielern (für Gegneranweisungen). */
+async function nextOpponent(career: Awaited<ReturnType<typeof readCareer>>, clubId: number) {
+  const f = await one<{ home_id: number; away_id: number }>(pool(),
+    "select home_id, away_id from fixtures where career_id = $1 and season = $2 and not played and $3 in (home_id, away_id) order by week, round limit 1",
+    [career.id, career.season, clubId]);
+  if (!f) return null;
+  const oppId = f.home_id === clubId ? f.away_id : f.home_id;
+  const opp = await getClub(pool(), career.id, oppId);
+  if (!opp) return null;
+  const squad = await getPlayers(pool(), career.id, [oppId]);
+  const k = await knowledgeFor(career, squad, (await getClub(pool(), career.id, clubId))?.league_id ?? null);
+  return {
+    club: clubSummary(opp), home: f.away_id === clubId,
+    players: [...squad].sort((a, b) => b.rating - a.rating).slice(0, 14).map((p) => playerView(p, k.of(p))),
   };
 }
 

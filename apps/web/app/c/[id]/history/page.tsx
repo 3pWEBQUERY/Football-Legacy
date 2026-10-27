@@ -111,6 +111,19 @@ export default function HistoryPage() {
       <Panel title="Trophäenschrank" icon="trophy">
         <TrophyShelf items={data.honours} empty="Noch keine Titel – jede Saison ist eine neue Chance." />
       </Panel>
+      {data.rivals?.length > 0 && (
+        <Panel title="Rivalen" icon="fire">
+          <div className="rival-list">
+            {data.rivals.map((r: any) => (
+              <Link key={r.id} href={`/c/${id}/history?club=${r.id}`} className="rival">
+                <span className="badge badge-derby">{r.kind === "derby" ? "Stadtderby" : "Erzrivale"}</span>
+                <b className="truncate">{r.name}</b>
+                <span className="faint small nowrap">{r.record.w + r.record.d + r.record.l ? `${r.record.w}S ${r.record.d}U ${r.record.l}N · ${r.record.gf}:${r.record.ga}` : "noch kein Duell"}</span>
+              </Link>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       <Seg value={tab} onChange={setTab} options={[
         { value: "seasons", label: "Saisons" }, { value: "records", label: "Rekorde" },

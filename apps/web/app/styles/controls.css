@@ -96,6 +96,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .table .c { text-align: center; }
 .table tr.zone-promo td:first-child { box-shadow: inset 3px 0 0 var(--pos); }
 .table tr.zone-releg td:first-child { box-shadow: inset 3px 0 0 var(--neg); }
+.table tr.zone-playoff td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
 .table .name { font-weight: 600; }
 
 /* Tabs */

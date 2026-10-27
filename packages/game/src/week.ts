@@ -23,6 +23,7 @@ import { nationalNewSeason, nationalTournament } from "./national";
 import { staffSeasonEnd } from "./staff";
 import { fanAdjusted, loadMgmtForWeek, weeklyFans } from "./clubmgmt";
 import { difficultySettings } from "./difficulty";
+import { RIVALRY_LABEL, type RivalryKind, derbySetup, loadRivalries, rivalryOf } from "./rivals";
 import { onboardingTick } from "./onboarding";
 import { advanceCup, type CupWeekInfo } from "./cup";
 import { academyWeek } from "./academy";
@@ -33,6 +34,8 @@ import { aiSaleOffers, negotiationsDaily, paymentsSeasonStart, transferDeadline 
 import { matchAnalysis, milestones, newsWeekly, send, staffSender } from "./news";
 import { familiarityTick, userFamiliarity } from "./tactics";
 import { type WorldState, loadWorld, squadOf } from "./world-state";
+import { getSponsor, sponsorBonus, sponsorWeekly } from "./sponsors";
+import { createPlayoffs, firstLegs, resolvePlayoffs } from "./playoffs";
 
 export interface WeekResultLine {
   fixtureId: number;
@@ -156,6 +159,10 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   const injuredNow = new Set<number>();
   const attendances = new Map<number, number>();
   const userLeagueId = userClubId ? w.clubs.get(userClubId)?.league_id : undefined;
+  const rivals = await loadRivalries(db, career);
+  const playoffWeek = career.calendar?.slots[week - 1]?.kind === "playoff";
+  const legs1 = playoffWeek ? await firstLegs(db, career) : new Map<number, FixtureRow>();
+  const userDerby = userFixture ? rivalryOf(rivals, userFixture.home_id, userFixture.away_id) : null;
 
   for (const f of fixtures) {
     const home = w.clubs.get(f.home_id)!;
@@ -171,28 +178,31 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
       ag = r.awayGoals;
       applyMatchToPlayers(w, rng, r, home.id, away.id, physio, injuredNow).forEach((id) => minutes.set(id, 90));
       await saveReport(db, career.id, f.id, r);
-      applyUserRewards(w, career, f, r, opts.userMatch.starters, notes);
+      applyUserRewards(w, career, f, r, opts.userMatch.starters, notes, userDerby);
     } else if (detailed) {
       const hs = squadOf(w, home.id);
       const as = squadOf(w, away.id);
       const ht = isUser && home.id === userClubId && home.tactic ? validateTactic(home.tactic, hs) : aiTactic(home, hs);
       const at = isUser && away.id === userClubId && away.tactic ? validateTactic(away.tactic, as) : aiTactic(away, as);
       const fam = isUser ? await userFamiliarity(db, career, w.clubs.get(userClubId!)!) : undefined;
-      const r = playMatch({ seed: seedFor(career.seed, "match", f.id), home: teamSetup(home, hs, ht, true, home.id === userClubId ? fam : undefined), away: teamSetup(away, as, at, true, away.id === userClubId ? fam : undefined) });
+      const r = playMatch(derbySetup({ seed: seedFor(career.seed, "match", f.id), home: teamSetup(home, hs, ht, true, home.id === userClubId ? fam : undefined), away: teamSetup(away, as, at, true, away.id === userClubId ? fam : undefined) }, rivalryOf(rivals, home.id, away.id)));
       hg = r.homeGoals;
       ag = r.awayGoals;
       applyMatchToPlayers(w, rng, r, home.id, away.id, physio, injuredNow).forEach((id) => minutes.set(id, 90));
       if (f.league_id === userLeagueId || isUser) await saveReport(db, career.id, f.id, r);
       if (isUser) {
         const starters = (home.id === userClubId ? ht : at).lineup.filter((x): x is number => x !== null);
-        applyUserRewards(w, career, f, r, starters, notes);
+        applyUserRewards(w, career, f, r, starters, notes, userDerby);
       }
     } else {
       [hg, ag] = quickResult(rng, home.rating, away.rating);
     }
     // Pokal: bei Unentschieden direkt Elfmeterschiessen
     let pens: [number, number] | null = null;
-    if (f.cup_id && f.group_no === null && hg === ag) {
+    // Relegation: im Rückspiel entscheidet bei Gleichstand nach beiden Spielen das Elfmeterschiessen
+    const first = playoffWeek && f.cup_round === 2 && f.group_no !== null ? legs1.get(f.group_no) : undefined;
+    const tied = first ? hg + (first.away_goals ?? 0) === ag + (first.home_goals ?? 0) : f.cup_id && f.group_no === null && hg === ag;
+    if (tied) {
       const prng = new Rng(seedFor(career.seed, "penalties", f.id));
       if (home.players_generated && away.players_generated) {
         const hs = shootersFrom(squadOf(w, home.id));
@@ -207,9 +217,21 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     if (f.cup_id) cupLines.push(line);
     else if (f.league_id === userLeagueId) lines.push(line);
     // Zuschauer und Ticketerlöse für das Heimteam
-    if (home.players_generated && home.finance) attendances.set(home.id, attendance(home.capacity, home.reputation, 7, away.reputation));
+    // Derbys sind ausverkauft
+    if (home.players_generated && home.finance) {
+      attendances.set(home.id, rivalryOf(rivals, home.id, away.id) ? Math.round(home.capacity * 0.98) : attendance(home.capacity, home.reputation, 7, away.reputation));
+    }
   }
   await saveFixtureResults(db, career.id, results);
+  await createPlayoffs(db, career, week);
+  if (playoffWeek) await resolvePlayoffs(db, career);
+  // Leistungsvertrag des Sponsors: Prämie für jeden Sieg
+  const ur = userFixture ? results.find((x) => x.id === userFixture.id) : undefined;
+  if (ur && userClubId && (userFixture!.home_id === userClubId ? ur.home > ur.away : ur.away > ur.home)) {
+    const own = w.clubs.get(userClubId)!;
+    own.balance += await sponsorBonus(db, career, own, "win");
+    w.dirtyClubs.add(own.id);
+  }
   const cupId = fixtures.find((f) => f.cup_id)?.cup_id ?? null;
   let cupInfo: CupWeekInfo | null = null;
   if (cupId) cupInfo = await advanceCup(db, career, w, cupId, notes);
@@ -292,6 +314,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   // Laufende Posten nach vergangener Zeit seit dem letzten Ligaspieltag (Winterpause zählt mit)
   const span = career.calendar ? weeksSincePreviousLeague(career.calendar, week) : midweek ? 0 : 1;
   const mgmt = userClubId ? await loadMgmtForWeek(db, career) : null;
+  const sponsor = userClubId ? sponsorWeekly(await getSponsor(db, career, userClubId), career.season) : null;
   for (const club of w.clubs.values()) {
     if (!club.players_generated || !club.finance) continue;
     const squad = squadOf(w, club.id);
@@ -302,6 +325,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
       const adj = fanAdjusted(mgmt, club.finance, att ?? 0, club.capacity);
       profile = adj.profile;
       if (att !== undefined) att = adj.attendance;
+      if (sponsor !== null) profile = { ...profile, sponsorWeekly: sponsor };
     }
     const entries = weeklyFinances(profile, wageBill(squad, loanedOut.get(club.id) ?? []), att ? { attendance: att } : null)
       .map((e) => (e.kind === "tickets" ? e : { ...e, amount: Math.round(e.amount * span) }))
@@ -361,8 +385,9 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
       "select player_name from transfers where career_id = $1 and kind = 'offer_in' and status = 'completed' and from_club = $2 and season = $3 and week = $4 and fee >= 8000000",
       [career.id, userClubId, career.season, week - 1]);
     await weeklyFans(db, career, mgmt, own,
-      r && userFixture ? { gf: homeSide ? r.home : r.away, ga: homeSide ? r.away : r.home, opponent: w.clubs.get(homeSide ? userFixture.away_id : userFixture.home_id)?.name ?? "", home: homeSide } : null,
+      r && userFixture ? { gf: homeSide ? r.home : r.away, ga: homeSide ? r.away : r.home, opponent: w.clubs.get(homeSide ? userFixture.away_id : userFixture.home_id)?.name ?? "", home: homeSide, derby: !!userDerby } : null,
       position, sold.map((x) => x.player_name));
+    if (r && userFixture && userDerby) await derbyNews(db, career, w, userFixture, homeSide ? r.home : r.away, homeSide ? r.away : r.home, userDerby);
   }
   if (userClubId && !midweek) await leagueRoundup(db, career, w.clubs.get(userClubId)!.league_id, week);
   await announceNotes(db, career, notes);
@@ -413,7 +438,7 @@ export function boardDrift(career: CareerRow, position: number) {
   career.board.confidence = Math.round((c + (level - c) * 0.08) * 10) / 10;
 }
 
-function applyUserRewards(w: WorldState, career: CareerRow, f: FixtureRow, r: MatchResult, starters: number[], notes: RewardNote[]) {
+function applyUserRewards(w: WorldState, career: CareerRow, f: FixtureRow, r: MatchResult, starters: number[], notes: RewardNote[], derby: RivalryKind | null = null) {
   const home = f.home_id === career.club_id;
   const own = w.clubs.get(career.club_id!)!;
   const opp = w.clubs.get(home ? f.away_id : f.home_id)!;
@@ -427,8 +452,16 @@ function applyUserRewards(w: WorldState, career: CareerRow, f: FixtureRow, r: Ma
   const diff = own.rating - opp.rating;
   const expectation = diff > 4 ? "W" : diff < -4 ? "L" : "D";
   const res = gf > ga ? "W" : gf === ga ? "D" : "L";
-  const delta = res === "W" ? (expectation === "W" ? 1 : 2) : res === "D" ? (expectation === "W" ? -1.5 : expectation === "L" ? 1 : 0) : expectation === "L" ? -0.5 : -2;
+  const base = res === "W" ? (expectation === "W" ? 1 : 2) : res === "D" ? (expectation === "W" ? -1.5 : expectation === "L" ? 1 : 0) : expectation === "L" ? -0.5 : -2;
+  // Derbys zählen beim Vorstand anderthalbfach, die Spieler feiern oder leiden mit
+  const delta = derby ? base * 1.5 : base;
   career.board.confidence = Math.max(0, Math.min(100, (career.board.confidence ?? 60) + delta));
+  if (derby && res !== "D") {
+    for (const id of starters) {
+      const p = w.players.get(id);
+      if (p) { p.morale = Math.max(5, Math.min(100, p.morale + (res === "W" ? 4 : -3))); w.dirtyPlayers.add(id); }
+    }
+  }
   onboardingTick(career, notes);
 }
 
@@ -487,4 +520,16 @@ async function weeklyInbox(
       `Der Kontostand (${formatMoney(club.balance)}) liegt unter der Vorgabe von ${formatMoney(career.board.financeTarget)}. Bitte reduziere die Kosten.`);
   }
   return position;
+}
+
+/** Nach dem Derby: Schlagzeile der Fans im Posteingang. */
+async function derbyNews(db: pg.PoolClient, career: CareerRow, w: WorldState, f: FixtureRow, gf: number, ga: number, kind: RivalryKind) {
+  const opp = w.clubs.get(f.home_id === career.club_id ? f.away_id : f.home_id);
+  if (!opp) return;
+  const title = gf > ga ? `Derbysieg gegen ${opp.name}!` : gf < ga ? `Derbyniederlage gegen ${opp.name}` : `Derby-Remis gegen ${opp.name}`;
+  const body = gf > ga
+    ? `${gf}:${ga} im ${RIVALRY_LABEL[kind]} – die Fans feiern bis tief in die Nacht. Für die Stimmung im Umfeld gibt es kaum etwas Wertvolleres.`
+    : gf < ga ? `${gf}:${ga} im ${RIVALRY_LABEL[kind]}. Eine Niederlage gegen ${opp.name} tut doppelt weh – Fans und Vorstand erwarten eine Reaktion.`
+      : `${gf}:${ga} im ${RIVALRY_LABEL[kind]}. Keiner hat die Oberhand gewonnen – das Rückspiel wird umso heisser.`;
+  await addInbox(db, career.id, career.season, career.week, "match", title, body, { type: "fixture", fixtureId: f.id });
 }

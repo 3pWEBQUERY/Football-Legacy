@@ -1,7 +1,7 @@
 /** Matchengine: Geometrie, Hilfsfunktionen und Bewegung der Spieler. */
 import { Rng, clamp } from "../rng";
 import { FORMATIONS, familiarityFactor, slotMod } from "../tactics";
-import type { AttrKey, MatchEvent, MatchEventType } from "../types";
+import type { AttrKey, MatchEvent, MatchEventType, OppInstructionKind } from "../types";
 import { EnginePlayer, EngineTeam, MatchState, PITCH_H, PITCH_W, SIDE_NAME, SPREAD, Side, TICKS_PER_MINUTE } from "./types";
 
 // ---------------------------------------------------------------- Hilfsfunktionen
@@ -45,14 +45,46 @@ export function onPitch(team: EngineTeam): number[] {
 }
 
 /** Effektiver Attributwert unter Berücksichtigung von Ausdauer, Form, Moral und Heimvorteil. */
+/** Wirkung der Gegneranweisungen auf ein Attribut des markierten Spielers. */
+const WEAK_FOOT = new Set<AttrKey>(["dribbling", "finishing", "crossing", "longShots", "passing", "technique"]);
+const MARK_FACTOR: Record<OppInstructionKind, (key: AttrKey) => number> = {
+  tight: () => 0.93,
+  hard: () => 0.95,
+  weakfoot: (key) => (WEAK_FOOT.has(key) ? 0.93 : 1),
+};
+
+/** Führung auf dem Platz: Kapitän, sonst Stellvertreter, sonst niemand. */
+export function leaderBoost(team: EngineTeam, tick = -1): number {
+  const l = team.lead;
+  if (!l) return 0;
+  // Pro Tick zwischengespeichert – eff() läuft sehr oft
+  if (l.tick === tick && l.value !== undefined) return l.value;
+  const cap = l.cap !== null ? team.players[l.cap] : undefined;
+  const vice = l.vice !== null ? team.players[l.vice] : undefined;
+  const value = cap && cap.slot >= 0 && !cap.red ? l.capBoost : vice && vice.slot >= 0 && !vice.red ? l.viceBoost : 0;
+  l.tick = tick;
+  l.value = value;
+  return value;
+}
+
+/** Führungsqualität 0–1 aus Gelassenheit, Entscheidungen, Einsatz und Erfahrung. */
+export function leadership(p: Pick<EnginePlayer, "attrs" | "age">): number {
+  const mind = (p.attrs.composure + p.attrs.decisions + p.attrs.workRate) / 60;
+  const experience = Math.min(1, Math.max(0.4, (p.age - 18) / 12));
+  return Math.max(0, Math.min(1, mind * experience));
+}
+
 export function eff(state: MatchState, side: Side, p: EnginePlayer, key: AttrKey): number {
   const condition = (0.7 + 0.3 * (p.stamina / 100)) * (0.95 + (p.form / 10) * 0.1) * (0.97 + (p.morale / 100) * 0.06);
   // Unterschiede werden um das Spielniveau gestaucht, damit Favoriten gewinnen, aber nicht immer
   let raw = p.attrs[key] * condition * (side === 0 ? state.homeAdvantage : 1) * familiarityFactor(state.teams[side].familiarity);
   // Ansprache und Zurufe von der Seitenlinie
   const team = state.teams[side];
-  const boost = (team.spirit ?? 0) + (team.shout && state.tick < team.shout.until ? team.shout.boost : 0);
+  const boost = (team.spirit ?? 0) + (team.shout && state.tick < team.shout.until ? team.shout.boost : 0) + leaderBoost(team, state.tick);
   if (boost) raw *= 1 + boost;
+  // Gegneranweisungen des anderen Teams gegen diesen Spieler
+  const mark = state.teams[side === 0 ? 1 : 0].marks?.[p.id];
+  if (mark && key !== "goalkeeping") raw *= MARK_FACTOR[mark](key);
   return 12 + (raw - state.level) * SPREAD;
 }
 

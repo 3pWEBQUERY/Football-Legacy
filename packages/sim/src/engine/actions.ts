@@ -125,7 +125,9 @@ export function dribble(state: MatchState, rng: Rng, side: Side, carrier: Engine
     return;
   }
   // Zweikampf verloren – eventuell Foul
-  const foulP = 0.1 * (0.4 + eff(state, oppSide, def, "aggression") / 14) * (0.5 + hard);
+  // „Hart angehen“ als Gegneranweisung: deutlich mehr Fouls am markierten Spieler
+  const hardMark = defTeam.marks?.[carrier.id] === "hard" ? 1.6 : 1;
+  const foulP = 0.1 * (0.4 + eff(state, oppSide, def, "aggression") / 14) * (0.5 + hard) * hardMark;
   if (rng.chance(foulP)) {
     foul(state, rng, side, carrier, oppSide, def);
     return;

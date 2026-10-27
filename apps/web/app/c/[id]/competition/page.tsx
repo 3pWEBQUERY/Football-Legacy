@@ -44,7 +44,7 @@ function Competition() {
               </thead>
               <tbody>
                 {data.table.map((r: any) => {
-                  const zone = r.position <= (l.tier === 1 ? 1 : l.promotion) ? "zone-promo" : r.position > l.size - l.relegation ? "zone-releg" : "";
+                  const zone = r.position <= (l.tier === 1 ? 1 : l.promotion) ? "zone-promo" : r.position > l.size - l.relegation ? "zone-releg" : r.position === l.playoffUp || r.position === l.playoffDown ? "zone-playoff" : "";
                   return (
                     <tr key={r.clubId} className={`clickable ${zone} ${r.clubId === data.userClubId ? "highlight" : ""}`} onClick={() => router.push(`/c/${id}/club/${r.clubId}`)}>
                       <td className="c num">{r.position}</td>
@@ -65,7 +65,8 @@ function Competition() {
           </div>
           <div className="row small faint" style={{ padding: "10px 14px", gap: 16 }}>
             <span className="row" style={{ gap: 6 }}><span style={{ width: 10, height: 10, background: "var(--accent)", borderRadius: 2 }} />{l.tier === 1 ? "Meister" : "Aufstieg"}</span>
-            {l.relegation > 0 && <span className="row" style={{ gap: 6 }}><span style={{ width: 10, height: 10, background: "var(--danger)", borderRadius: 2 }} />Abstieg</span>}
+            {(l.playoffUp || l.playoffDown) && <span className="row" style={{ gap: 6 }}><span style={{ width: 10, height: 10, background: "var(--warn)", borderRadius: 2 }} />Relegation</span>}
+            {l.relegation > 0 && <span className="row" style={{ gap: 6 }}><span style={{ width: 10, height: 10, background: "var(--neg)", borderRadius: 2 }} />Abstieg</span>}
           </div>
         </div>
         <div className="card stack">

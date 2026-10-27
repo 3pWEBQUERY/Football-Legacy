@@ -11,6 +11,7 @@ import { readCareer, withCareer } from "./career";
 import { GameError } from "./errors";
 import { addArticle } from "./media";
 import { type CareerRow, type ClubRow, addFinance, addInbox, getClub, getPlayers, saveCareer, saveClubs } from "./repo";
+import { sponsorView } from "./sponsors";
 
 export type TicketLevel = "low" | "normal" | "high" | "premium";
 export const TICKET_LEVELS: Record<TicketLevel, { label: string; price: number; demand: number; mood: number }> = {
@@ -89,7 +90,7 @@ export async function loadMgmtForWeek(db: Db, career: CareerRow): Promise<ClubMg
  */
 export async function weeklyFans(
   db: pg.PoolClient, career: CareerRow, m: ClubMgmt, club: ClubRow,
-  result: { gf: number; ga: number; opponent: string; home: boolean } | null, position: number | null, soldStars: string[],
+  result: { gf: number; ga: number; opponent: string; home: boolean; derby?: boolean } | null, position: number | null, soldStars: string[],
 ) {
   const rng = new Rng(seedFor(career.seed, "fans", career.season, career.week));
   let delta = TICKET_LEVELS[m.ticketLevel].mood;
@@ -97,7 +98,9 @@ export async function weeklyFans(
   const say = (text: string, tone: "pos" | "neg" | "neutral") => voices.push({ season: career.season, day: career.day, text, tone });
   if (result) {
     const diff = result.gf - result.ga;
-    delta += diff > 0 ? 2 + Math.min(2, diff - 1) * 0.5 : diff === 0 ? -0.3 : -2 - Math.min(2, -diff - 1) * 0.5;
+    // Im Derby zählt das Ergebnis für die Fans doppelt
+    delta += (diff > 0 ? 2 + Math.min(2, diff - 1) * 0.5 : diff === 0 ? -0.3 : -2 - Math.min(2, -diff - 1) * 0.5) * (result.derby ? 2 : 1);
+    if (result.derby) say(diff > 0 ? `Derbysieger! Gegen ${result.opponent} zählt nur das.` : diff < 0 ? `Gegen ${result.opponent} verloren – das darf nicht passieren.` : `Unentschieden gegen ${result.opponent}. Nächstes Mal holen wir uns die Stadt.`, diff > 0 ? "pos" : diff < 0 ? "neg" : "neutral");
     if (diff >= 3) say(rng.pick([`Was für ein Auftritt gegen ${result.opponent}! So wollen wir unsere Mannschaft sehen.`, `${result.gf}:${result.ga} – das war Werbung für den Verein.`]), "pos");
     else if (diff > 0) say(rng.pick(["Drei Punkte, die Richtung stimmt.", `Verdienter Sieg gegen ${result.opponent}. Weiter so!`, "Die Mannschaft kämpft – das honorieren wir."]), "pos");
     else if (diff === 0) say(rng.pick(["Ein Punkt ist zu wenig für unsere Ansprüche.", `Gegen ${result.opponent} muss mehr drin sein.`, "Ordentlich, aber vorne fehlt die Durchschlagskraft."]), "neutral");
@@ -170,6 +173,7 @@ export async function clubManagementView(careerId: string, accountId: string) {
     actions: Object.entries(FAN_ACTIONS).map(([k, a]) => ({ key: k, ...a, wait: cooldownLeft(m, k as FanActionKey, career) })),
     renamed: m.renamed,
     balance: club.balance,
+    sponsor: await sponsorView(pool(), career, club),
   };
 }
 

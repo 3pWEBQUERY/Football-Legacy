@@ -9,6 +9,7 @@ import { GameError } from "../errors";
 import { coachOf, getMarket } from "../jobs/core";
 import { type CareerRow, type FixtureRow, getClub, getPlayers } from "../repo";
 import type { MatchMark, TopScorer } from "./record";
+import { derbyRecord, rivalsOf } from "../rivals";
 
 export interface ClubSeasonRow {
   season: number; club_id: number; league_id: number; league_name: string; tier: number; position: number;
@@ -157,5 +158,6 @@ export async function clubHistoryView(careerId: string, accountId: string, clubI
     coaches: coaches.reverse(),
     legends,
     legendRule: LEGEND,
+    rivals: await Promise.all((await rivalsOf(db, career, id)).map(async (r) => ({ ...r, record: await derbyRecord(db, career, id, r.id) }))),
   };
 }

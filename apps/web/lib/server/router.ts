@@ -247,6 +247,7 @@ route("GET", career("verein"), async (c) => game.clubManagementView(c.params.id,
 route("POST", career("verein/tickets"), async (c) => game.setTicketLevel(c.params.id, acc(c), str(c.body.level) as never));
 route("POST", career("verein/fans"), async (c) => game.fanAction(c.params.id, acc(c), str(c.body.action) as never));
 route("POST", career("verein/identity"), async (c) => game.updateIdentity(c.params.id, acc(c), c.body));
+route("POST", career("verein/sponsor"), async (c) => game.chooseSponsor(c.params.id, acc(c), str(c.body.kind) as never));
 route("GET", career("staff"), async (c) => game.staffView(c.params.id, acc(c)));
 route("POST", career("staff/hire"), async (c) => game.hireStaff(c.params.id, acc(c), num(c.body.candidateId)));
 route("POST", career("staff/fire"), async (c) => game.fireStaff(c.params.id, acc(c), num(c.body.memberId)));

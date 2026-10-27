@@ -10,14 +10,18 @@ import { coachOf, getMarket } from "../jobs/core";
 import { addArticle } from "../media";
 import type { CareerRow, FixtureRow, LeagueRow } from "../repo";
 import type { WorldState } from "../world-state";
+import type { PlayoffPair } from "../playoffs";
 
 export interface MatchMark { season: number; oppId: number; oppName: string; gf: number; ga: number; home: boolean; competition: string }
 export interface TopScorer { playerId: number; name: string; goals: number }
 
 interface CupRow { id: number; kind: string; name: string; rounds: { round: number; name: string }[]; winner_club_id: number | null; runner_up_club_id: number | null }
 
-/** Wer steigt auf, wer ab? Gleiche Regel wie beim Wechsel der Ligen am Saisonende. */
-export function movements(w: WorldState, tables: Map<number, number[]>) {
+/**
+ * Wer steigt auf, wer ab? Gleiche Regel wie beim Wechsel der Ligen am Saisonende.
+ * Mit Relegation steigen n−1 Vereine direkt, der letzte Platz entscheidet sich im Duell.
+ */
+export function movements(w: WorldState, tables: Map<number, number[]>, playoffs: PlayoffPair[] = []) {
   const up = new Set<number>();
   const down = new Set<number>();
   const byCountry = new Map<string, LeagueRow[]>();
@@ -29,8 +33,11 @@ export function movements(w: WorldState, tables: Map<number, number[]>) {
       const upper = leagues[i];
       const lower = leagues[i + 1];
       const n = Math.min(upper.relegation, lower.promotion);
-      const d = n ? (tables.get(upper.id) ?? []).slice(-n) : [];
-      const u = (tables.get(lower.id) ?? []).slice(0, n);
+      const po = playoffs.find((p) => p.upperLeague === upper.id && p.lowerLeague === lower.id && p.winnerId);
+      const direct = po ? n - 1 : n;
+      const d = direct ? (tables.get(upper.id) ?? []).slice(-direct) : [];
+      const u = (tables.get(lower.id) ?? []).slice(0, direct);
+      if (po && po.winnerId === po.lowerId) { d.push(po.upperId); u.push(po.lowerId); }
       d.forEach((id) => down.add(id));
       u.forEach((id) => up.add(id));
       moves.push({ upper, lower, down: d, up: u });
@@ -87,12 +94,12 @@ function extremes(w: WorldState, fixtures: FixtureRow[], cups: CupRow[], season:
  * Archiviert die abgelaufene Saison. Muss vor Auf-/Abstieg und vor dem
  * Zurücksetzen der Spielerstatistiken laufen.
  */
-export async function recordSeason(db: Db, career: CareerRow, w: WorldState, standings: Map<number, StandingRow[]>, fixtures: FixtureRow[]) {
+export async function recordSeason(db: Db, career: CareerRow, w: WorldState, standings: Map<number, StandingRow[]>, fixtures: FixtureRow[], playoffs: PlayoffPair[] = []) {
   const season = career.season;
   const cups = await query<CupRow>(db, "select id, kind, name, rounds, winner_club_id, runner_up_club_id from cups where career_id = $1 and season = $2", [career.id, season]);
   const cupsBy = cupResults(cups, fixtures);
   const { best, worst } = extremes(w, fixtures, cups, season);
-  const { up, down } = movements(w, new Map([...standings].map(([id, rows]) => [id, rows.map((r) => r.clubId)])));
+  const { up, down } = movements(w, new Map([...standings].map(([id, rows]) => [id, rows.map((r) => r.clubId)])), playoffs);
   const market = await getMarket(db, career.id);
   const rows: Record<string, unknown>[] = [];
   for (const [leagueId, table] of standings) {

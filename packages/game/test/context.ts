@@ -17,4 +17,5 @@ export const shared = {
   retrainPos: "",
   nationCode: "",
   onboardingId: "",
+  sponsorCareer: null as { cid: string; acc: string } | null,
 };

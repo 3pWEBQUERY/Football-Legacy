@@ -14,6 +14,7 @@ import {
   type Board, type CareerRow, type ClubRow, type LeagueRow, addInbox, getCareer, getClubs, getLeagues, getPlayers,
   insertFixtures, insertPlayers, saveCareer, saveClubs,
 } from "./repo";
+import { playoffLeagues } from "./playoffs";
 
 export const START_SEASON = 2026;
 
@@ -170,6 +171,11 @@ export async function scheduleSeason(db: Db, career: CareerRow) {
       kinds.push("cup");
       r++;
     }
+  }
+  // Relegation nach dem letzten Spieltag (Hin- und Rückspiel)
+  if (playoffLeagues(leagues, cupCountry).length) {
+    kinds.push("playoff", "playoff");
+    cal += 2;
   }
   career.season_weeks = cal;
   career.calendar = buildCalendar(kinds);

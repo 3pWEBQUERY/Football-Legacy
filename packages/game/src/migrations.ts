@@ -535,4 +535,18 @@ create index if not exists password_resets_account on password_resets(account_id
 create index if not exists password_resets_ip on password_resets(ip, created_at);
 `,
   },
+  {
+    name: "021_rivalries_sponsors.sql",
+    sql: `
+create table if not exists rivalries (
+  career_id uuid not null references careers(id) on delete cascade,
+  club_a int not null,
+  club_b int not null,
+  kind text not null,
+  primary key (career_id, club_a, club_b)
+);
+create index if not exists rivalries_b on rivalries(career_id, club_b);
+alter table careers add column if not exists sponsor jsonb;
+`,
+  },
 ];

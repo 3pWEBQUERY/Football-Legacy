@@ -16,6 +16,8 @@ import { movements, recordRetirements, recordSeason } from "./history/record";
 import { reviewVision, type VisionReview } from "./history/vision";
 import { refreshFinances, seasonStart, trimFreeAgents, trimSquads } from "./season-economy";
 import { difficultySettings } from "./difficulty";
+import { sponsorBonus } from "./sponsors";
+import { seasonPlayoffs } from "./playoffs";
 
 export interface SeasonSummary {
   season: number;
@@ -62,8 +64,11 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   const userTable = userLeague ? tables.get(userLeague.id)! : [];
   const position = userClub ? userTable.indexOf(userClub.id) + 1 : 0;
   const champion = position === 1;
-  const promoted = !!userLeague && userLeague.tier > 1 && position > 0 && position <= userLeague.promotion;
-  const relegated = !!userLeague && userLeague.relegation > 0 && position > userLeague.size - userLeague.relegation;
+  // Auf- und Abstieg inklusive Relegation
+  const playoffs = await seasonPlayoffs(db, career);
+  const moves = movements(w, tables, playoffs);
+  const promoted = !!userClub && moves.up.has(userClub.id);
+  const relegated = !!userClub && moves.down.has(userClub.id);
 
   // Saisonrückblick der eigenen Liga (vor Auf- und Abstieg, solange die Statistiken stehen)
   let review: SeasonReview | null = null;
@@ -93,8 +98,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   }
 
   // Vereinsgeschichte: Saison archivieren, solange Ligen und Statistiken stehen
-  await recordSeason(db, career, w, standings, fixtures);
-  const moves = movements(w, tables);
+  await recordSeason(db, career, w, standings, fixtures, playoffs);
 
   // Meister der aktiven Ligen für die News
   const champions = [...w.leagues.values()]
@@ -148,6 +152,11 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
     const cf = await query<FixtureRow>(db, "select * from fixtures where career_id = $1 and cup_id = $2 and $3 in (home_id, away_id) order by cup_round desc limit 1", [career.id, cupRow[0].id, career.club_id]);
     if (cupRow[0].winner_club_id === career.club_id) cupResult = "Pokalsieger";
     else if (cf[0]) cupResult = cupRow[0].rounds.find((r) => r.round === cf[0].cup_round)?.name;
+  }
+  // Titelprämie des Sponsors (Meisterschaft oder Pokalsieg)
+  if (userClub && (champion || cupResult === "Pokalsieger")) {
+    userClub.balance += await sponsorBonus(db, career, userClub, "title", champion ? "Meisterprämie Sponsor" : "Pokalprämie Sponsor");
+    w.dirtyClubs.add(userClub.id);
   }
   if (userClub && userLeague && pts) {
     m.history.push({

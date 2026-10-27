@@ -13,6 +13,7 @@ import { EXPECTED_SHARE, SQUAD_STATUS, SQUAD_STATUS_LABEL, type SquadStatus } fr
 import { useConfirm } from "@/components/Dialog";
 import { NegotiationModal } from "@/components/Negotiation";
 import { SaleModal } from "@/components/SaleNegotiation";
+import { addToCompare } from "@/lib/client/compare";
 
 const POS_LONG: Record<string, string> = { GK: "Torwart", DR: "Rechter Verteidiger", DC: "Innenverteidiger", DL: "Linker Verteidiger", DM: "Defensives Mittelfeld", MR: "Rechtes Mittelfeld", MC: "Zentrales Mittelfeld", ML: "Linkes Mittelfeld", AMR: "Rechtsaussen", AMC: "Offensives Mittelfeld", AML: "Linksaussen", ST: "Stürmer" };
 
@@ -170,6 +171,7 @@ export default function PlayerPage() {
             </>
           ) : (
             <>
+              <button className="btn" onClick={() => { addToCompare(id, p.id); router.push(`/c/${id}/compare`); }}><Icon name="swap" size={15} /> Vergleichen</button>
               <button className="btn" disabled={busy} onClick={async () => { const r = await action("shortlist"); if (r) { toast(r.shortlisted ? "Zur Beobachtungsliste hinzugefügt" : "Von der Beobachtungsliste entfernt"); reload(); } }}>
                 <Icon name="eye" size={15} /> {data.shortlisted ? "Beobachtet" : "Beobachten"}
               </button>

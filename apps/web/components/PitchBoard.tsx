@@ -25,6 +25,8 @@ export interface BoardSlot {
   badges?: StatusBadge[];
   /** Nicht einsatzfähig (verletzt, gesperrt, Länderspiel) */
   out?: boolean;
+  /** Trägt die Kapitänsbinde */
+  captain?: boolean;
 }
 
 /**
@@ -160,6 +162,7 @@ export function PitchBoard({ slots, selected, onSelect, onMove, onContext, toolb
               </div>
             </div>
             {s.warn && <span className="fm-warn" title={s.warn}>!</span>}
+            {s.captain && <span className="pitch-captain" title="Kapitän">C</span>}
           </div>
         </div>
       ))}

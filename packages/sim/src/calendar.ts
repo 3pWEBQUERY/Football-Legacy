@@ -5,7 +5,7 @@
  * Lange Ligen machen eine Winterpause.
  */
 
-export type SlotKind = "league" | "cup" | "intl";
+export type SlotKind = "league" | "cup" | "intl" | "playoff";
 
 export interface CalendarSlot {
   /** Spielrunde (entspricht career.week nach der Verarbeitung) */
@@ -87,6 +87,9 @@ export function buildCalendar(kinds: SlotKind[]): SeasonCalendar {
     if (kind === "league") {
       day = saturdays[leagueNo++];
       lastLeagueDay = day;
+    } else if (kind === "playoff") {
+      // Relegation: Donnerstag nach dem letzten Spieltag, Rückspiel am Montag darauf
+      day = lastDay + (kinds[i - 1] === "playoff" ? 4 : 5);
     } else if (kind === "intl") {
       // Dienstag nach dem letzten Ligaspieltag
       day = leagueNo === 0 ? FIRST_MATCHDAY - 4 : lastLeagueDay + 3;

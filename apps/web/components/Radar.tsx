@@ -1,6 +1,6 @@
 "use client";
 
-const CATS: { label: string; keys: string[] }[] = [
+export const CATS: { label: string; keys: string[] }[] = [
   { label: "Angriff", keys: ["finishing", "offTheBall", "composure"] },
   { label: "Technik", keys: ["technique", "firstTouch", "dribbling"] },
   { label: "Passspiel", keys: ["passing", "vision", "crossing"] },
@@ -8,7 +8,7 @@ const CATS: { label: string; keys: string[] }[] = [
   { label: "Physis", keys: ["pace", "strength", "stamina"] },
   { label: "Mental", keys: ["decisions", "anticipation", "workRate"] },
 ];
-const GK_CATS: { label: string; keys: string[] }[] = [
+export const GK_CATS: { label: string; keys: string[] }[] = [
   { label: "Torwartspiel", keys: ["goalkeeping"] },
   { label: "Reflexe", keys: ["agility", "anticipation"] },
   { label: "Stellungsspiel", keys: ["positioning", "decisions"] },

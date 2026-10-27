@@ -1,5 +1,5 @@
 /** Matchengine: Konstanten und Datentypen (Spieler, Teams, Spielstand, Frames). */
-import type { AttrKey, ClubColors, Duty, Formation, MatchEvent, Player, PlayerInstruction, Position, Tactic, TacticStyle } from "../types";
+import type { AttrKey, ClubColors, Duty, Formation, MatchEvent, OppInstructionKind, Player, PlayerInstruction, Position, Tactic, TacticStyle } from "../types";
 
 export const PITCH_W = 105;
 export const PITCH_H = 68;
@@ -92,6 +92,10 @@ export interface EngineTeam {
   shout?: { kind: string; until: number; boost: number } | null;
   /** Frühester Tick für den nächsten Zuruf */
   shoutReady?: number;
+  /** Kapitän und Stellvertreter (Index in players) mit ihrer Führungswirkung */
+  lead?: { cap: number | null; vice: number | null; capBoost: number; viceBoost: number; tick?: number; value?: number };
+  /** Gegneranweisungen dieses Teams: gegnerische Spieler-ID → Art */
+  marks?: Record<number, OppInstructionKind>;
 }
 
 /** Ein Torschuss für Schusskarte und xG-Verlauf (x: 0 eigene Torlinie → 1 gegnerische, y: 0 links → 1 rechts). */

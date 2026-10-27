@@ -132,7 +132,7 @@ export default function Office() {
       <div className="grid grid-main" style={{ alignItems: "start" }}>
         <div className="stack">
         {next ? (
-          <Panel title={`Nächstes Spiel · ${next.competition?.label ?? ""}`} icon={next.competition?.kind !== "league" ? "trophy" : "calendar"} actions={next.window?.open && <span className="badge badge-accent">{next.window.label}</span>}>
+          <Panel title={`Nächstes Spiel · ${next.competition?.label ?? ""}`} icon={next.competition?.kind !== "league" ? "trophy" : "calendar"} actions={<>{next.rivalry && <span className="badge badge-derby" title="Derby: volles Haus, mehr Härte, doppelte Wirkung auf Fans und Vorstand">{next.rivalry === "derby" ? "Stadtderby" : "Erzrivale"}</span>}{next.window?.open && <span className="badge badge-accent">{next.window.label}</span>}</>}>
             <div className="fixture-row">
               <Link href={`${base}/club/${next.home.id}`} className="row" style={{ gap: 12, minWidth: 0 }}>
                 <Crest colors={next.home.colors} name={next.home.name} size={48} />

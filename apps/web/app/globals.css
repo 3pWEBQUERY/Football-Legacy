@@ -31,6 +31,7 @@
   --pos-soft: rgba(54, 196, 107, 0.14);
   --neg: #e5534b;
   --neg-soft: rgba(229, 83, 75, 0.14);
+  --danger: var(--neg);
   --warn: #e8a33d;
   --warn-soft: rgba(232, 163, 61, 0.14);
   --gold: #e9c349;
@@ -177,6 +178,13 @@ small, .small { font-size: 12px; }
 .mn-cell .k { font-size: 10.5px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; display: block; }
 .mn-cell .v { font-family: var(--font-cond); font-size: 14.5px; font-weight: 700; white-space: nowrap; display: block; line-height: 1.1; }
 .mn-xp { width: 90px; }
+@media (max-width: 1360px) {
+  /* Schmale Desktop-Fenster: Leiste enger, damit nichts seitlich überläuft */
+  .mn-link { padding: 0 11px; }
+  .mn-cell { padding: 0 10px; }
+  .mn-right { min-width: 0; }
+  .mn-right > a.mn-cell:first-child { max-width: 220px; }
+}
 
 .subnav { position: sticky; top: calc(var(--head) + var(--nav)); z-index: 20; display: flex; align-items: stretch; gap: 2px; background: var(--bg); border-bottom: 1px solid var(--line); padding: 0 20px; overflow-x: auto; min-height: 40px; }
 .subnav a, .subnav button.tab {

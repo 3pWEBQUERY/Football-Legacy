@@ -15,6 +15,7 @@ import { processWeek, type WeekSummary } from "./week";
 import { advanceDay, nextSlotDay, type DayResult } from "./day";
 import { competitionOf } from "./cup";
 import { assistantAdvice } from "./advice";
+import { derbyRecord, derbySetup, rivalryBetween } from "./rivals";
 
 async function nextUserFixture(db: pg.PoolClient | import("pg").Pool, career: CareerRow): Promise<FixtureRow | null> {
   if (!career.club_id) return null;
@@ -90,11 +91,11 @@ async function buildMatch(db: pg.PoolClient, career: CareerRow, f: FixtureRow): 
   const userTactic = userClub.tactic ? validateTactic(userClub.tactic, userSquad) : aiTactic(userClub, userSquad);
   const autoSubs = career.manager.autoSubs ?? true;
   const fam = await userFamiliarity(db, career, userClub);
-  return createMatch({
+  return createMatch(derbySetup({
     seed: seedFor(career.seed, "match", f.id),
     home: teamSetup(home, hs, userIsHome ? userTactic : aiTactic(home, hs), userIsHome ? autoSubs : true, userIsHome ? fam : undefined),
     away: teamSetup(away, as, userIsHome ? aiTactic(away, as) : userTactic, userIsHome ? true : autoSubs, userIsHome ? undefined : fam),
-  });
+  }, await rivalryBetween(db, career, home.id, away.id)));
 }
 
 /** Spielerverzeichnis und Aufstellungsverlauf für die 2D-Ansicht. */
@@ -276,6 +277,8 @@ export async function matchPreview(db: pg.Pool, career: CareerRow) {
     home: { id: home.id, name: home.name, short: home.short_name, colors: home.colors, rating: home.rating },
     away: { id: away.id, name: away.name, short: away.short_name, colors: away.colors, rating: away.rating },
     analysis,
+    rivalry: await rivalryBetween(db, career, home.id, away.id),
+    derbyRecord: await derbyRecord(db, career, career.club_id!, oppId),
     window: windowFor(career, career.calendar?.slots[f.week - 1]?.day ?? career.day),
     day: career.calendar?.slots[f.week - 1]?.day ?? null,
     today: isMatchday(career),

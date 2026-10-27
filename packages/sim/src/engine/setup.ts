@@ -4,7 +4,7 @@ import { clamp } from "../rng";
 import { FORMATIONS, defaultRole, mentalityStyle } from "../tactics";
 import type { Player } from "../types";
 import { EnginePlayer, EnginePlayerStats, EngineTeam, EngineTeamStats, MatchSetup, MatchState, PITCH_H, PITCH_W, Side, TeamSetup } from "./types";
-import { basePosition, kickoff, pushEvent } from "./util";
+import { basePosition, kickoff, leadership, pushEvent } from "./util";
 
 function newStats(): EnginePlayerStats {
   return { goals: 0, assists: 0, shots: 0, onTarget: 0, passes: 0, passesOk: 0, tackles: 0, dribbles: 0, saves: 0, fouls: 0, keyPasses: 0, rating: 6.0 };
@@ -14,7 +14,19 @@ function newTeamStats(): EngineTeamStats {
   return { shots: 0, onTarget: 0, xg: 0, possession: 0, passes: 0, passesOk: 0, fouls: 0, corners: 0, yellow: 0, red: 0 };
 }
 
-function buildTeam(setup: TeamSetup): EngineTeam {
+/** Kapitän und Stellvertreter: gewählt oder die besten Anführer der Startelf. Wirkung bis +1,6 % auf alle Aktionen. */
+function leaders(t: TeamSetup["tactic"], players: EnginePlayer[], slots: (number | null)[]): EngineTeam["lead"] {
+  const idxOf = (id: number | null | undefined) => (id == null ? -1 : players.findIndex((p) => p.id === id));
+  const starters = slots.filter((x): x is number => x !== null).sort((a, b) => leadership(players[b]) - leadership(players[a]));
+  let cap = idxOf(t.captain);
+  if (cap < 0) cap = starters[0] ?? -1;
+  let vice = idxOf(t.viceCaptain);
+  if (vice < 0 || vice === cap) vice = starters.find((i) => i !== cap) ?? -1;
+  const boost = (i: number) => (i >= 0 ? 0.004 + 0.012 * leadership(players[i]) : 0);
+  return { cap: cap >= 0 ? cap : null, vice: vice >= 0 ? vice : null, capBoost: boost(cap), viceBoost: boost(vice) * 0.7 };
+}
+
+function buildTeam(setup: TeamSetup, opponentId: number): EngineTeam {
   const t = setup.tactic;
   const byId = new Map(setup.players.map((p) => [p.id, p]));
   const players: EnginePlayer[] = [];
@@ -68,6 +80,10 @@ function buildTeam(setup: TeamSetup): EngineTeam {
     setPieces: { ...t.setPieces },
     slots,
     players,
+    lead: leaders(t, players, slots),
+    marks: t.opposition && t.opposition.clubId === opponentId
+      ? Object.fromEntries(t.opposition.items.slice(0, 3).map((o) => [o.playerId, o.kind]))
+      : undefined,
     subsUsed: 0,
     autoSubs: setup.autoSubs ?? true,
     goals: 0,
@@ -83,7 +99,7 @@ export function createMatch(setup: MatchSetup): MatchState {
     ball: { x: PITCH_W / 2, y: PITCH_H / 2 },
     possession: 0,
     carrier: 0,
-    teams: [buildTeam(setup.home), buildTeam(setup.away)],
+    teams: [buildTeam(setup.home, setup.away.clubId), buildTeam(setup.away, setup.home.clubId)],
     events: [],
     homeAdvantage: setup.homeAdvantage ?? 1.06,
     level: 10,

@@ -40,3 +40,5 @@ export { STEPS as ONBOARDING_STEPS, onboardingAction, onboardingView, type Onboa
 export { checkResetToken, requestPasswordReset, resetPassword } from "./account/password-reset";
 export { exportAccountData } from "./account/privacy";
 export { sendMail, setMailTransport, type MailMessage } from "./account/mail";
+export { chooseSponsor } from "./sponsors";
+export { rivalsOf } from "./rivals";

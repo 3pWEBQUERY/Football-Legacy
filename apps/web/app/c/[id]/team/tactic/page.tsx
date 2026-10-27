@@ -13,6 +13,7 @@ import { api, useApi } from "@/lib/client/api";
 import { POS_LABEL } from "@/lib/client/format";
 import { ATTACK_KEYS, CORNER_LABEL, DEFEND_KEYS, FormationIcon, GROUP, MENTALITY_TEXT, MentalityIcon, Meter, PHASE_HINT, ROLE_CODE, SlotMenu, VIEW_LABEL, fill, formationText, squadNumbers, starsFor, styleText, type Phase, type SheetKey, type ViewMode } from "@/components/TacticParts";
 import { PageTip } from "@/components/Onboarding";
+import { TacticExtras } from "@/components/TacticExtras";
 
 /** Nicht einsatzfähig: verletzt oder gesperrt. */
 const out = (p: any) => p.injuryWeeks > 0 || p.suspendedWeeks > 0;
@@ -65,6 +66,8 @@ export default function TacticPage() {
   const extra = { duties: t.duties, instructions: t.instructions, mentality: t.mentality ?? 0 };
   const shown = phase === "base" ? base : shapePositions(base, roleIds, t.style, phase === "defend" ? "defend" : "attack", extra);
   const ghosts = phase === "both" ? shapePositions(base, roleIds, t.style, "defend", extra) : null;
+  // Kapitän: gewählt oder (automatisch) der beste Anführer in der Startelf
+  const captainId: number | null = t.captain ?? (data.leaders ?? []).find((l: any) => t.lineup.includes(l.id))?.id ?? null;
   const slots: BoardSlot[] = formation.map((s, i) => {
     const p = t.lineup[i] != null ? byId.get(t.lineup[i]) : null;
     const role = data.roles.find((r: any) => r.id === roleOf(i));
@@ -88,6 +91,7 @@ export default function TacticPage() {
       warn: p && !out(p) && r! < p.rating - 10 ? "Ungewohnte Position" : null,
       badges: playerStatus(p),
       out: !!p && out(p),
+      captain: !!p && p.id === captainId,
     };
   });
 
@@ -496,6 +500,7 @@ export default function TacticPage() {
           </div></div>
         </Panel>
       </div>
+      <TacticExtras t={t} update={update} leaders={data.leaders ?? []} opponent={data.opponent ?? null} byId={byId} />
     </>
   );
 }

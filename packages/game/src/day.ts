@@ -25,6 +25,8 @@ import { internationalDuty, isAway } from "./international";
 import { checkProjects } from "./facilities";
 import { runYouthIntake, youthIntakeDay } from "./academy";
 import { debtWeek, ensureMinimumSquad } from "./club-safety";
+import { RIVALRY_LABEL, derbyRecord, rivalryBetween } from "./rivals";
+import { sponsorDaily } from "./sponsors";
 
 export interface DayTraining {
   session: string;
@@ -105,6 +107,7 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
   await transferDeadline(db, career);
   events.push(...(await ensureMinimumSquad(db, career)));
   if (day % 7 === 0) events.push(...(await debtWeek(db, career)));
+  events.push(...(await sponsorDaily(db, career)));
   const squad = await getPlayers(db, career.id, [career.club_id]);
   const rng = new Rng(seedFor(career.seed, "day", career.season, day));
 
@@ -309,6 +312,15 @@ async function opponentReport(db: pg.PoolClient, career: CareerRow, f: FixtureRo
   const title = `Spielvorbereitung: ${opp.name}`;
   void key; void form; void injured;
   await matchPreview(db, career, f, when, (await competitionOf(db, f)).label);
+  const rivalry = await rivalryBetween(db, career, f.home_id, f.away_id);
+  if (rivalry) {
+    const rec = await derbyRecord(db, career, career.club_id!, opp.id);
+    await addInbox(db, career.id, career.season, career.week, "match", `${RIVALRY_LABEL[rivalry]}: ${opp.name} wartet!`,
+      `Am ${when} steigt das ${RIVALRY_LABEL[rivalry]} gegen ${opp.name}. Das Stadion ist ausverkauft, die Stimmung aufgeheizt – ` +
+        "im Derby wird härter gespielt, und Fans und Vorstand werden das Ergebnis doppelt so stark bewerten.\n\n" +
+        (rec.w + rec.d + rec.l ? `Bilanz: ${rec.w} Siege, ${rec.d} Unentschieden, ${rec.l} Niederlagen (${rec.gf}:${rec.ga} Tore).` : "Es ist das erste Pflichtspiel-Duell unter deiner Führung."),
+      { type: "tactic" });
+  }
   return title;
 }
 

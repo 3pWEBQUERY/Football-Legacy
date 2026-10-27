@@ -184,7 +184,16 @@ export interface Tactic {
   duties?: (Duty | null)[];
   /** Spieleranweisungen je Slot */
   instructions?: PlayerInstruction[][];
+  /** Kapitän und Stellvertreter (Spieler-IDs); ohne Angabe bestimmt die Engine den besten Anführer */
+  captain?: number | null;
+  viceCaptain?: number | null;
+  /** Gegneranweisungen für das Spiel gegen clubId */
+  opposition?: { clubId: number; items: OppInstruction[] } | null;
 }
+
+/** Anweisung gegen einen gegnerischen Spieler: eng decken, hart angehen, auf den schwachen Fuss drängen. */
+export type OppInstructionKind = "tight" | "hard" | "weakfoot";
+export interface OppInstruction { playerId: number; kind: OppInstructionKind }
 
 export type Duty = "defend" | "support" | "attack";
 export type PlayerInstruction = "shoot_more" | "dribble_more" | "pass_safe" | "cross_more" | "press_more" | "stay_back" | "get_forward";

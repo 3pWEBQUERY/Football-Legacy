@@ -60,6 +60,18 @@ export async function saveTactic(careerId: string, accountId: string, input: Tac
         const d = input.duties?.[i];
         return d === "defend" || d === "support" || d === "attack" ? d : null;
       }),
+      captain: ids.has(input.captain ?? -1) ? input.captain : null,
+      viceCaptain: ids.has(input.viceCaptain ?? -1) && input.viceCaptain !== input.captain ? input.viceCaptain : null,
+      opposition: input.opposition && Number.isInteger(input.opposition.clubId)
+        ? {
+          clubId: input.opposition.clubId,
+          items: (input.opposition.items ?? [])
+            .filter((o) => Number.isInteger(o?.playerId) && ["tight", "hard", "weakfoot"].includes(o.kind))
+            .filter((o, i, all) => all.findIndex((x) => x.playerId === o.playerId) === i)
+            .slice(0, 3)
+            .map((o) => ({ playerId: o.playerId, kind: o.kind })),
+        }
+        : null,
       instructions: slots.map((s, i) => {
         if (s.position === "GK") return [];
         const list = [...new Set((input.instructions?.[i] ?? []).filter((x) => x in INSTRUCTION_LABEL))].slice(0, 3) as PlayerInstruction[];
@@ -70,6 +82,14 @@ export async function saveTactic(careerId: string, accountId: string, input: Tac
     };
     for (const k of ["tempo", "passLength", "width", "risk", "pressing", "defensiveLine", "hardness"] as const) {
       if (typeof clean.style[k] !== "number") clean.style[k] = 50;
+    }
+    // Neue Binde: der Kapitän freut sich, der bisherige ist enttäuscht
+    if (clean.captain && clean.captain !== club.tactic?.captain) {
+      const next = squad.find((p) => p.id === clean.captain);
+      const prev = squad.find((p) => p.id === club.tactic?.captain);
+      if (next) next.morale = Math.min(100, next.morale + 6);
+      if (prev) prev.morale = Math.max(5, prev.morale - 5);
+      await savePlayers(db, career.id, [next, prev].filter((p): p is NonNullable<typeof p> => !!p));
     }
     const tactics = await getTactics(db, career, club);
     applyStyleChange(tactics, clean);

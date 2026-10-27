@@ -5,6 +5,7 @@ import { money } from "@/lib/client/format";
 import { useGame } from "@/components/GameShell";
 import { Crest, ErrorBox, Loading, Panel, Progress, Seg, useToast } from "@/components/ui";
 import { confirmFrom, useConfirm } from "@/components/Dialog";
+import { SponsorPanel } from "@/components/SponsorPanel";
 
 export default function VereinPage() {
   const { id } = useGame();
@@ -68,6 +69,7 @@ export default function VereinPage() {
 
       <div className="grid grid-main" style={{ alignItems: "start" }}>
         <div className="stack">
+          <SponsorPanel sponsor={data.sponsor} busy={busy} choose={(kind) => post("verein/sponsor", { kind })} />
           <Panel title="Fan-Kontakt" icon="users" flush>
             {data.actions.map((a: any) => (
               <div key={a.key} className="fan-action">
