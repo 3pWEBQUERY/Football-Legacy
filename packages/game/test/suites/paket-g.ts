@@ -1,6 +1,6 @@
 /** Integrationstest – Paket G: KI-Taktik, Trainerphilosophien, Kaderpflege und Konkurrenzangebote. */
 import { describe, expect, it } from "vitest";
-import { Rng } from "@fl/sim";
+import { Rng, squadRanks } from "@fl/sim";
 import { game, pool, shared } from "../context";
 import { aiContext, aiMentalityShift, aiTactic, restedPlayers } from "../../src/setup";
 import { applyPhilosophy, philosophyFor, philosophyLabel } from "../../src/philosophy";
@@ -54,9 +54,22 @@ describe("Paket G", () => {
     const rng = new Rng(7);
     for (let i = 0; i < 8; i++) aiSquadWeek(w, rng, true);
     const ai = [...w.clubs.values()].filter((c) => c.players_generated && c.id !== career.club_id);
-    const listed = ai.flatMap((c) => squadOf(w, c.id)).filter((p) => p.listed).length;
+    // Ergänzungsspieler (ab Kaderrang 21, mindestens 22 Jahre) kommen mit 25 % pro Woche auf die Liste:
+    // nach 8 Wochen also rund 90 % – unabhängig davon, wie gross die Kader gerade sind
+    let surplus = 0;
+    let listed = 0;
+    for (const c of ai) {
+      const squad = squadOf(w, c.id).filter((p) => !p.loan);
+      const ranks = squadRanks(squad);
+      for (const p of squad) {
+        if ((ranks.get(p.id) ?? 0) <= 20 || p.age < 22) continue;
+        surplus++;
+        if (p.listed) listed++;
+      }
+    }
     const loans = [...w.players.values()].filter((p) => p.loan && p.loan.parentClubId !== career.club_id && p.clubId !== career.club_id).length;
-    expect(listed).toBeGreaterThan(ai.length);
+    expect(surplus).toBeGreaterThan(ai.length / 2);
+    expect(listed / surplus).toBeGreaterThan(0.75);
     expect(loans).toBeGreaterThan(0);
   });
 
