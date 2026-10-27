@@ -4,13 +4,15 @@
  * - KI-Vereine wirtschaften nachhaltig: Verschuldete sparen, Reiche investieren.
  * - KI-Kader und der Markt der Vereinslosen wachsen nicht unbegrenzt.
  */
-import { type Player, type Rng, financeProfile, squadRanks, tierMoney, wageBill } from "@fl/sim";
+import { type Player, type Rng, financeProfile, positionGroup, squadNeed, squadRanks, tierMoney, wageBill, wageDemand, wageFactor } from "@fl/sim";
 import type { CareerRow } from "./repo";
 import { difficultySettings } from "./difficulty";
 import { type WorldState, movePlayer, removePlayer, squadOf } from "./world-state";
 
 /** Grösster Kader, den KI-Vereine in die neue Saison mitnehmen. */
 export const MAX_AI_SQUAD = 28;
+/** Kleinster Kader, mit dem KI-Vereine in die neue Saison gehen (aufgefüllt mit Vereinslosen). */
+export const MIN_AI_SQUAD = 23;
 /** Vereinslose je aktivem Verein, mehr hält der Markt nicht. */
 const FREE_AGENTS_PER_CLUB = 1.5;
 
@@ -75,6 +77,34 @@ export function trimSquads(w: WorldState, career: CareerRow): number {
     }
   }
   return released;
+}
+
+/**
+ * KI-Kader auf MIN_AI_SQUAD auffüllen: passende Vereinslose für die grösste
+ * Lücke, etwas schwächer als die Stammelf, mit Vertrag über zwei Saisons.
+ * Liefert die Zahl der Verpflichtungen.
+ */
+export function fillAiSquads(w: WorldState, career: CareerRow, rng: Rng, newSeason: number): number {
+  let signed = 0;
+  for (const club of w.clubs.values()) {
+    if (!club.players_generated || club.id === career.club_id) continue;
+    let squad = squadOf(w, club.id);
+    let guard = 0;
+    while (squad.length < MIN_AI_SQUAD && guard++ < 10) {
+      const need = squadNeed(squad, rng);
+      const fits = (p: Player) => p.age <= 32 && p.injuryWeeks === 0 && p.rating <= club.rating + 3 && p.rating >= club.rating - 12;
+      const pool = w.freeAgents.filter(fits);
+      const pick = pool.filter((p) => need && positionGroup(p.position) === need.group).sort((a, b) => b.rating - a.rating)[0]
+        ?? pool.sort((a, b) => b.rating - a.rating)[0];
+      if (!pick) break;
+      movePlayer(w, pick, club.id);
+      pick.contract = { wage: Math.round((wageDemand(pick, club.reputation) * wageFactor(pick)) / 100) * 100, untilSeason: newSeason + 1, releaseClause: null, goalBonus: 0 };
+      pick.morale = 70;
+      squad = squadOf(w, club.id);
+      signed++;
+    }
+  }
+  return signed;
 }
 
 /**

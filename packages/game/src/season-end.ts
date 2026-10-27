@@ -14,10 +14,13 @@ import { buildReview, saveReview, type SeasonReview } from "./review";
 import { academySeasonEnd } from "./academy";
 import { movements, recordRetirements, recordSeason } from "./history/record";
 import { reviewVision, type VisionReview } from "./history/vision";
-import { refreshFinances, seasonStart, trimFreeAgents, trimSquads } from "./season-economy";
+import { fillAiSquads, refreshFinances, seasonStart, trimFreeAgents, trimSquads } from "./season-economy";
 import { difficultySettings } from "./difficulty";
 import { sponsorBonus } from "./sponsors";
 import { seasonPlayoffs } from "./playoffs";
+
+/** Anteil, um den sich der Ruf je Saison dem Schnitt der Liga annähert. */
+const REPUTATION_PULL = 0.15;
 
 export interface SeasonSummary {
   season: number;
@@ -109,11 +112,14 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
   const prizeEntries: { kind: string; amount: number; label: string }[] = [];
   for (const league of w.leagues.values()) {
     const order = tables.get(league.id)!;
+    // Ruf pendelt zum Ligaschnitt zurück – sonst werden Starke immer stärker und die Liga zerfällt
+    const meanRep = order.reduce((s, id) => s + (w.clubs.get(id)?.reputation ?? 50), 0) / Math.max(1, order.length);
     order.forEach((clubId, i) => {
       const club = w.clubs.get(clubId)!;
       const pos = i + 1;
       const swing = (league.size / 2 - pos) / league.size;
-      club.reputation = Math.max(1, Math.min(100, Math.round(club.reputation + swing * 4 + (pos === 1 ? 2 : 0))));
+      const pull = (meanRep - club.reputation) * REPUTATION_PULL;
+      club.reputation = Math.max(1, Math.min(100, Math.round(club.reputation + swing * 4 + (pos === 1 ? 2 : 0) + pull)));
       if (club.players_generated && club.finance) {
         const pool = club.finance.tvWeekly * career.season_weeks * 0.5;
         const prize = prizeMoney(pos, league.size, pool * league.size / 4);
@@ -297,6 +303,7 @@ export async function endSeason(db: pg.PoolClient, career: CareerRow): Promise<S
 
   // Kader und Markt der Vereinslosen begrenzen, Finanzprofile für die neue Saison
   trimSquads(w, career);
+  fillAiSquads(w, career, rng, newSeason);
   for (const p of trimFreeAgents(w, rng)) retiredAll.push({ player: p, clubId: null });
   refreshFinances(w, career, start);
   const retired = await recordRetirements(db, career, w, retiredAll);

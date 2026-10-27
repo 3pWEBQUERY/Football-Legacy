@@ -33,6 +33,12 @@ export async function aiMarketRound(db: Db, w: WorldState, rng: Rng): Promise<Ma
   const activeClubs = [...w.clubs.values()].filter((c) => c.players_generated && c.id !== userClubId);
   const market = [...w.players.values()].filter((p) => p.clubId !== userClubId && !p.loan);
 
+  // Ligaschnitt der Stärke: wer weit vorne liegt, rüstet nicht immer weiter auf
+  const leagueRating = new Map<number, { sum: number; n: number }>();
+  for (const c of activeClubs) {
+    const r = leagueRating.get(c.league_id) ?? { sum: 0, n: 0 };
+    leagueRating.set(c.league_id, { sum: r.sum + c.rating, n: r.n + 1 });
+  }
   for (const club of activeClubs) {
     const squad = squadOf(w, club.id);
     // Überzählige Spieler abgeben
@@ -43,9 +49,12 @@ export async function aiMarketRound(db: Db, w: WorldState, rng: Rng): Promise<Ma
       continue;
     }
     if (!rng.chance(squad.length < 20 ? 0.6 : 0.16)) continue;
+    const lr = leagueRating.get(club.league_id);
+    if (lr && lr.n >= 6 && club.rating > lr.sum / lr.n + 8 && squad.length >= 22) continue;
     const need = squadNeed(squad, rng);
     if (!need) continue;
-    const minRating = Math.max(need.currentBest - 3, club.rating - 6);
+    // Dünner Kader: auch Ergänzungsspieler unter Stammelf-Niveau kommen in Frage
+    const minRating = squad.length < 22 ? club.rating - 16 : Math.max(need.currentBest - 3, club.rating - 6);
     const maxRating = club.rating + 6;
     const budget = club.transfer_budget;
     const candidates = market.filter(

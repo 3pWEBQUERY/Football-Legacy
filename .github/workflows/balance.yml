@@ -1,0 +1,48 @@
+name: Langzeit-Balancing
+
+# Simuliert 10 Saisons und prüft Wirtschaft, Altersstruktur, Torquote,
+# Vereinslose, Spielerstärke und Rechenzeit (pnpm --filter @fl/game balance … --check).
+# Dauert rund 10–15 Minuten, deshalb nicht bei jedem Push.
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: Anzahl Saisons
+        default: "10"
+
+jobs:
+  balance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fl
+          POSTGRES_PASSWORD: fl
+          POSTGRES_DB: football_legacy_balance
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fl" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      BALANCE_DATABASE_URL: postgres://fl:fl@localhost:5432/football_legacy_balance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Saisons simulieren und prüfen
+        env:
+          SEASONS: ${{ github.event.inputs.seasons || '10' }}
+        run: pnpm --filter @fl/game balance "$SEASONS" GER 8 4242 --active --check | tee balance.log
+      - name: Protokoll hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: balance
+          path: balance.log

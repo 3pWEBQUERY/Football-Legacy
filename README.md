@@ -125,6 +125,10 @@ Die Datenbank liegt auf dem Volume `postgres-volume`. Unter Postgres → Volume 
 
 `pnpm e2e [Screenshot-Ordner]` (Server muss laufen, `E2E_URL` Standard `http://localhost:3000`) registriert einen Account, startet eine Karriere, öffnet alle Hauptseiten, simuliert ein Spiel, prüft „Passwort vergessen“, die Rechtstexte und die Smartphone-Ansicht. In der CI läuft er nach dem Build gegen die Testdatenbank.
 
+### Langzeit-Balancing
+
+`pnpm --filter @fl/game balance 10 GER 8 4242 --active --check` simuliert zehn Saisons ohne Eingriffe (eigene Datenbank `BALANCE_DATABASE_URL`) und prüft Grenzwerte: KI-Vereine im Minus, Kontostände, Altersstruktur, Torquote, Vereinslose, Stärke der Startvereine und Rechenzeit pro Saison. Der Workflow „Langzeit-Balancing“ führt das jeden Montag auf dem Standard-Branch aus und lässt sich unter *Actions* auch von Hand starten.
+
 ## Nächste Schritte
 
 - Offene Entscheidungen aus dem Konzept: Monetarisierung, Magic-Link statt Passwort, Logo/Design-System, Online-Umfang (nur Ranglisten oder gemeinsame Ligen).
