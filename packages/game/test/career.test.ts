@@ -21,6 +21,7 @@ import "./suites/sicherheit";
 import "./suites/paket-f";
 import "./suites/paket-g";
 import "./suites/paket-h";
+import "./suites/paket-i";
 
 beforeAll(async () => {
   await pool().query("drop schema public cascade; create schema public;");

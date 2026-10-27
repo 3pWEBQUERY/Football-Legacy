@@ -8,10 +8,21 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (process.env.SKIP_MIGRATIONS !== "true") {
     const { migrate } = await import("@fl/game");
-    try {
-      await migrate((m) => console.log(`[db] ${m}`));
-    } catch (e) {
-      console.error("[db] Migration fehlgeschlagen", e);
+    // Die Datenbank ist beim Start nicht immer sofort erreichbar (privates Netz, Neustart):
+    // mehrfach mit wachsender Wartezeit versuchen (insgesamt gut eine Minute)
+    const waits = [2, 4, 8, 15, 30];
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await migrate((m) => console.log(`[db] ${m}`));
+        break;
+      } catch (e) {
+        if (attempt >= waits.length) {
+          console.error("[db] Migration endgültig fehlgeschlagen", e);
+          break;
+        }
+        console.warn(`[db] Migration fehlgeschlagen (${(e as Error).message}) – neuer Versuch in ${waits[attempt]} s`);
+        await new Promise((r) => setTimeout(r, waits[attempt] * 1000));
+      }
     }
   }
   const { startWorkerProcess } = await import("./lib/server/worker-process");

@@ -155,4 +155,25 @@ create table if not exists ai_log (
 create index if not exists ai_log_created on ai_log(created_at);
 `,
   },
+  {
+    name: "026_admin.sql",
+    sql: `
+-- Sperren von Konten durch Administratoren
+alter table accounts add column if not exists banned_until timestamptz;
+alter table accounts add column if not exists ban_reason text;
+-- Bearbeitung gemeldeter Nachrichten
+alter table online_reports add column if not exists resolved_at timestamptz;
+alter table online_reports add column if not exists resolution text;
+-- Protokoll der Admin-Aktionen (nachvollziehbare Moderation)
+create table if not exists admin_actions (
+  id bigserial primary key,
+  admin_email text not null,
+  action text not null,
+  target_account uuid,
+  detail jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists admin_actions_created on admin_actions(created_at desc);
+`,
+  },
 ];

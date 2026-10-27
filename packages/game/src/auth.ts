@@ -70,9 +70,14 @@ export async function login(email: string, password: string, opts: { ip?: string
     throw new GameError("E-Mail oder Passwort ist falsch.", 401);
   }
   await clear(LOGIN_PER_EMAIL, e);
+  const ban = await one<{ banned: boolean; until: string | null; reason: string | null }>(pool(),
+    "select coalesce(banned_until > now(), false) as banned, to_char(nullif(banned_until, 'infinity'), 'DD.MM.YYYY') as until, ban_reason as reason from accounts where id = $1", [row.id]);
+  if (ban?.banned) {
+    throw new GameError(`Dein Konto ist ${ban.until ? `bis ${ban.until}` : "dauerhaft"} gesperrt. Grund: ${ban.reason ?? "Verstoss gegen die Nutzungsbedingungen"}.`, 403);
+  }
   const token = await createSession(row.id);
   await touchLoginStreak(row.id);
-  const { password_hash: _ignored, ...account } = row;
+  const { password_hash: _ignored, banned_until: _b, ban_reason: _r, ...account } = row as typeof row & { banned_until?: unknown; ban_reason?: unknown };
   return { account, token };
 }
 
@@ -95,7 +100,7 @@ export async function accountForToken(token: string | undefined | null): Promise
     pool(),
     `select a.id, a.email, a.display_name, a.settings, a.login_streak, a.best_login_streak, a.last_login_day, a.terms_version, a.email_verified_at
        from sessions s join accounts a on a.id = s.account_id
-      where s.token = $1 and s.expires_at > now()`,
+      where s.token = $1 and s.expires_at > now() and (a.banned_until is null or a.banned_until < now())`,
     [hashToken(token)],
   );
 }
@@ -151,6 +156,7 @@ export async function changePassword(accountId: string, currentToken: string | n
 export async function deleteAccount(accountId: string, password: string) {
   const row = await one<{ password_hash: string }>(pool(), "select password_hash from accounts where id = $1", [accountId]);
   if (!row || !(await verifyPassword(password, row.password_hash))) throw new GameError("Das Passwort ist falsch.");
+  await query(pool(), "delete from admin_actions where target_account = $1", [accountId]);
   await query(pool(), "delete from accounts where id = $1", [accountId]);
   return { ok: true, clearCookie: true };
 }

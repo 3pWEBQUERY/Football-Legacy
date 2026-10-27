@@ -68,3 +68,13 @@
 .aic-input textarea { flex: 1; resize: vertical; min-height: 44px; }
 .aic-foot { padding: 0 16px 12px; }
 @media (max-width: 640px) { .aic-msg { max-width: 96%; } .aic-log { max-height: none; } }
+
+/* Admin-Bereich */
+.admin-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.admin-tile { display: flex; flex-direction: column; gap: 4px; text-align: left; font: inherit; color: inherit; }
+.admin-tile .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2); font-weight: 600; }
+.admin-tile .value { font-family: var(--font-cond); font-size: 30px; font-weight: 700; }
+.admin-tile .value.warn { color: var(--warn); }
+.admin-tile:disabled { cursor: default; opacity: 1; }
+.admin-tile.clickable:hover { border-color: var(--accent); }
+.admin-quote { margin: 0; padding: 8px 12px; border-left: 3px solid var(--line-2); background: var(--bg-2); white-space: pre-wrap; overflow-wrap: anywhere; }

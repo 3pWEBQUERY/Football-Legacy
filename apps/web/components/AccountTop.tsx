@@ -24,7 +24,7 @@ export function AccountTop({ onLogout }: { onLogout?: () => void }) {
         <Link className={`btn btn-ghost btn-sm ${path === "/careers" ? "active" : ""}`} href="/careers" aria-label="Spielstände"><Icon name="career" size={15} /> <span className="nav-lbl">Spielstände</span></Link>
         <Link className={`btn btn-ghost btn-sm ${path?.startsWith("/online") ? "active" : ""}`} href="/online" aria-label="Online-Ligen"><Icon name="users" size={15} /> <span className="nav-lbl">Online-Ligen</span></Link>
         <Link className="btn btn-ghost btn-sm" href="/leaderboards" aria-label="Ranglisten"><Icon name="trophy" size={15} /> <span className="nav-lbl">Ranglisten</span></Link>
-        {admin.data?.admin && <Link className={`btn btn-ghost btn-sm ${path?.startsWith("/admin") ? "active" : ""}`} href="/admin/fehler" aria-label="Fehlerprotokoll"><Icon name="info" size={15} /> <span className="nav-lbl">Fehler</span></Link>}
+        {admin.data?.admin && <Link className={`btn btn-ghost btn-sm ${path?.startsWith("/admin") ? "active" : ""}`} href="/admin" aria-label="Admin-Bereich"><Icon name="shield" size={15} /> <span className="nav-lbl">Admin</span></Link>}
         {onLogout && <button className="btn btn-ghost btn-sm" onClick={onLogout} aria-label="Abmelden"><Icon name="logout" size={15} /> <span className="nav-lbl">Abmelden</span></button>}
       </nav>
     </header>

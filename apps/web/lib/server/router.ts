@@ -118,6 +118,22 @@ route("POST", "errors", async (c) => {
 }, false);
 route("GET", "admin/errors", async (c) => game.errorOverview(c.account!.email));
 route("GET", "admin/me", async (c) => ({ admin: game.isAdmin(c.account?.email) }), false);
+const adm = (c: { account?: { email: string } | null }) => c.account!.email;
+route("GET", "admin/overview", async (c) => game.adminOverview(adm(c)));
+route("GET", "admin/reports", async (c) => game.adminReports(adm(c)));
+route("POST", "admin/reports/:pid", async (c) => {
+  const a = str(c.body.action);
+  if (a !== "dismiss" && a !== "remove" && a !== "remove_ban") throw new game.GameError("Unbekannte Aktion");
+  return game.resolveReport(adm(c), num(c.params.pid), a, num(c.body.days ?? 7));
+});
+route("GET", "admin/accounts", async (c) => game.adminAccounts(adm(c), str(c.query.get("q") ?? "")));
+route("GET", "admin/accounts/:aid", async (c) => game.adminAccount(adm(c), c.params.aid));
+route("POST", "admin/accounts/:aid/ban", async (c) => game.banAccount(adm(c), c.params.aid, c.body.days == null ? null : num(c.body.days), str(c.body.reason ?? "")));
+route("POST", "admin/accounts/:aid/unban", async (c) => game.unbanAccount(adm(c), c.params.aid));
+route("POST", "admin/accounts/:aid/rename", async (c) => game.resetDisplayName(adm(c), c.params.aid));
+route("POST", "admin/accounts/:aid/delete", async (c) => game.adminDeleteAccount(adm(c), c.params.aid));
+route("GET", "admin/ai", async (c) => game.aiUsage(adm(c)));
+route("GET", "admin/actions", async (c) => game.adminActions(adm(c)));
 route("POST", "account/terms", async (c) => game.acceptTerms(acc(c), c.body));
 route("POST", "account/profile", async (c) => game.updateProfile(acc(c), str(c.body.displayName)));
 route("POST", "account/password", async (c) => game.changePassword(acc(c), c.token ?? null, str(c.body.oldPassword), str(c.body.newPassword)));
@@ -135,7 +151,8 @@ function publicAccount(a: Account) {
 route("GET", "health", async () => {
   await game.pool().query("select 1");
   const w = await game.workerStatus().catch(() => null);
-  return { ok: true, workers: w?.workers ?? 0, queued: w?.queued ?? 0 };
+  const schema = (await game.pool().query("select max(name) as name from schema_migrations").catch(() => null))?.rows[0]?.name ?? null;
+  return { ok: true, workers: w?.workers ?? 0, queued: w?.queued ?? 0, schema };
 }, false);
 route("GET", "world", async () => game.worldMeta(), false);
 route("GET", "world/preview", async (c) => game.previewClubs(num(c.query.get("seed") ?? 1), str(c.query.get("country"))), false);
