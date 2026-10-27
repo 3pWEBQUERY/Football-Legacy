@@ -1,6 +1,7 @@
 /** Kapitän und Gegneranweisungen in der Matchengine. */
 import { describe, expect, it } from "vitest";
 import { createMatch, defaultTactic, generateSquad, leadership, playMatch, type Player } from "../src/index";
+import { eff } from "../src/engine/util";
 
 let nextPid = 50_000;
 const team = (clubId: number, rating: number, tactic?: (players: Player[]) => Partial<ReturnType<typeof defaultTactic>>) => {
@@ -31,7 +32,7 @@ describe("Kapitän und Gegneranweisungen", () => {
   it("Gegneranweisungen gelten nur gegen den genannten Gegner und schwächen den Spieler", () => {
     let base = 0;
     let marked = 0;
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 20; i++) {
       const away = team(200 + i, 68);
       const star = [...away.players].filter((p) => p.position === "ST").sort((a, b) => b.rating - a.rating)[0] ?? away.players[10];
       const plain = team(100 + i, 68);
@@ -40,10 +41,17 @@ describe("Kapitän und Gegneranweisungen", () => {
       expect(m.teams[0].marks?.[star.id]).toBe("tight");
       const other = createMatch({ seed: 7 + i, home: { ...tight, tactic: { ...tight.tactic, opposition: { clubId: 999, items: tight.tactic.opposition.items } } }, away });
       expect(other.teams[0].marks).toBeUndefined();
-      const line = (r: ReturnType<typeof playMatch>) => r.players.find((x) => x.playerId === star.id);
-      base += (line(playMatch({ seed: 7 + i, home: plain, away }))?.rating ?? 6);
-      marked += (line(playMatch({ seed: 7 + i, home: tight, away }))?.rating ?? 6);
+      // Wirksame Stärke des gedeckten Stürmers (die Note schwankt dafür zu stark von Spiel zu Spiel)
+      const strength = (s: ReturnType<typeof createMatch>) => {
+        const ep = s.teams[1].players.find((x) => x.id === star.id)!;
+        return eff(s, 1, ep, "finishing") + eff(s, 1, ep, "dribbling");
+      };
+      base += strength(createMatch({ seed: 7 + i, home: plain, away }));
+      marked += strength(m);
+      expect(strength(other)).toBeCloseTo(strength(createMatch({ seed: 7 + i, home: plain, away })), 5);
     }
-    expect(marked).toBeLessThan(base);
+    expect(marked).toBeLessThan(base * 0.97);
+    // Auch im Spiel: kein Absturz, die Partie läuft normal
+    expect(playMatch({ seed: 3, home: team(300, 68), away: team(301, 68) }).players.length).toBeGreaterThan(20);
   }, 60_000);
 });

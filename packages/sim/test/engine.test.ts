@@ -156,6 +156,8 @@ describe("Seitenlinie und Schüsse", () => {
     expect(a.boost).toBeGreaterThan(0.02);
     expect(shout(s, 0, "praise").ok).toBe(false);
     simulate(s, 120 + SHOUT_COOLDOWN);
+    // Während der Abklingzeit können Tore fallen: Spielstand für den zweiten Zuruf neu setzen
+    s.teams[0].goals = 0; s.teams[1].goals = 1;
     const b = shout(s, 0, "praise");
     expect(b.ok).toBe(true);
     expect(b.boost).toBeLessThan(0);
