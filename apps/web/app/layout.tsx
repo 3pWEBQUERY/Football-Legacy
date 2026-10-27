@@ -19,6 +19,7 @@ import "./styles/depth.css";
 import { ToastProvider } from "@/components/ui";
 import { DialogProvider } from "@/components/Dialog";
 import { PwaRegister } from "@/components/Pwa";
+import { ErrorReporter } from "@/components/ErrorReporter";
 
 export const metadata: Metadata = {
   title: "Football Legacy – Schreibe Fussball Geschichte",
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ToastProvider><DialogProvider>{children}</DialogProvider></ToastProvider>
         <PwaRegister />
+        <ErrorReporter />
       </body>
     </html>
   );

@@ -1,4 +1,5 @@
 "use client";
+import { VerifyStatus } from "@/components/VerifyEmail";
 import { Switch } from "@/components/Switch";
 import { AppSettings } from "@/components/Pwa";
 import { SoundSettings } from "@/components/SoundToggle";
@@ -80,6 +81,7 @@ export default function SettingsPage() {
           <Panel title="Konto" icon="users">
             <form className="stack" onSubmit={(e) => { e.preventDefault(); run(() => api(`account/profile`, { body: { displayName: name } }), "Name gespeichert").then(() => me.reload()); }}>
               <div className="field"><label>E-Mail</label><input className="input" value={account.email} disabled /></div>
+              <VerifyStatus verified={!!account.emailVerified} required={!!account.verificationRequired} />
               <div className="field"><label htmlFor="dn">Anzeigename (Ranglisten)</label><input id="dn" className="input" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} /></div>
               <div><button className="btn btn-primary" disabled={busy || name.trim() === account.displayName}>Speichern</button></div>
             </form>

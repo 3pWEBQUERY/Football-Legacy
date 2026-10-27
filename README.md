@@ -44,6 +44,8 @@ Ein tiefgehender Fussball-Manager im Browser: Kader, Taktik, Transfers und Saiso
 | Stadionton | Synthetisch im Browser erzeugt (keine Audiodateien): Zuschauer, Raunen bei Chancen, Torjubel bzw. Stöhnen je nach Heim- und Gästeblock, Trillerpfiffe. Schalter im Spiel, Lautstärke in den Einstellungen (pro Gerät) |
 | Installierbare App | Web-App-Manifest, Symbole, Service Worker mit Offline-Hinweis; „App installieren“ auf der Karrierenseite und in den Einstellungen |
 | Push-Mitteilungen | Web Push (VAPID) für Online-Ligen (Spieltage, Saisonstart, Beitritte, Nachrichten) und lange Berechnungen, wenn die Seite inzwischen geschlossen wurde. Themen pro Gerät wählbar, Testmitteilung |
+| Sicherheit | Registrierung ab 16 mit Zustimmung zu den Nutzungsbedingungen (bestehende Konten holen sie nach), Limits gegen Passwort-Raten (8 Fehlversuche je Adresse bzw. 30 je IP in 15 Minuten) und Massenregistrierung (5 je IP und Stunde), E-Mail-Bestätigung (Pflicht für Liga-Chat und öffentliche Ligen, sobald der Mailversand eingerichtet ist), Fehlerprotokoll für Server, Hintergrunddienst und Browser mit Übersicht für Administratoren, deutsche Fehlerseiten |
+| Chat-Moderation | Nachrichten melden (ab zwei Meldungen ausgeblendet, Gründer wird informiert), eigene Nachrichten löschen, Gründer löscht jede Nachricht, Mitglieder blockieren |
 | Hintergrunddienst | Rechenintensive Aufrufe (Weiter, Spiele, neue Karriere, Online-Spieltage) laufen über eine Warteschlange in PostgreSQL und einen eigenen Prozess; tägliche Online-Ligen spielen ihre Spieltage selbstständig |
 
 ## Architektur
@@ -111,6 +113,8 @@ Beim ersten Start legt der Server das Schema selbst an und startet den Hintergru
 | `RESEND_API_KEY` | API-Schlüssel von [Resend](https://resend.com) für E-Mails (Passwort zurücksetzen). Ohne Schlüssel wird nichts verschickt, nur protokolliert. |
 | `MAIL_FROM` | Absender, z. B. `Football Legacy <noreply@deine-domain.ch>`. Die Domain muss bei Resend verifiziert sein; ohne eigene Domain kann `onboarding@resend.dev` nur an die E-Mail des Resend-Kontos senden. |
 | `APP_URL` | Öffentliche Adresse für Links in E-Mails. Optional – auf Railway wird `RAILWAY_PUBLIC_DOMAIN` verwendet. |
+| `ADMIN_EMAILS` | Kommagetrennte E-Mail-Adressen, die das Fehlerprotokoll unter `/admin/fehler` sehen dürfen. |
+| `SENTRY_DSN` | Optional. Unerwartete Fehler gehen zusätzlich an [Sentry](https://sentry.io) (ohne SDK, über die Envelope-API). Ohne DSN bleibt es beim eigenen Fehlerprotokoll in der Datenbank (30 Tage). |
 | `WORKER_MODE` | `fork` (Standard): Webserver startet den Hintergrunddienst selbst. `off`: Dienst läuft separat. |
 | `JOB_MODE` | `auto` (Standard): Warteschlange, sobald ein Dienst läuft. `inline`: immer direkt in der Anfrage rechnen. |
 | `WORKER_CONCURRENCY` | Parallele Aufträge pro Dienst (Standard 2). |

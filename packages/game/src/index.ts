@@ -47,3 +47,8 @@ export { bg } from "./worker/tasks";
 export { startWorker } from "./worker/worker";
 export { resetWorkerCache, workerOnline, workerStatus } from "./worker/queue";
 export { playDueOnlineLeagues } from "./online";
+export { MIN_AGE, TERMS_VERSION, acceptTerms, requireConsent } from "./account/terms";
+export { requireVerified, sendVerification, verifyEmail } from "./account/verify";
+export { mailConfigured } from "./account/mail";
+export { captureException, errorOverview, guardErrorReports, isAdmin, reportError, type ErrorSource } from "./monitoring";
+export { blockOnlineAuthor, blockedList, deleteOnlinePost, reportOnlinePost, unblockOnline } from "./online-moderation";

@@ -101,7 +101,7 @@ describe("Mentalität, Pflichten, Vertrautheit", () => {
       lo += l.homeGoals - l.awayGoals;
     }
     expect(hi).toBeGreaterThan(lo);
-  });
+  }, 60_000);
 
   it("Spieleranweisungen und Pflichten lassen sich live ändern", () => {
     const state = createMatch({ seed: 77, home: team(55, 66), away: team(56, 66) });

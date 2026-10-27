@@ -227,6 +227,13 @@ a.online-row:hover { background: var(--panel-2); }
 .chat-msg.system { align-self: stretch; max-width: none; background: transparent; border: 1px dashed var(--line); color: var(--text-2); font-size: 12px; }
 .chat-author { font-weight: 700; font-size: 12px; color: var(--accent); }
 .chat-time { font-size: 11px; color: var(--text-3); align-self: flex-end; }
+.chat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 18px; }
+.chat-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+.chat-msg:hover .chat-actions, .chat-msg:focus-within .chat-actions { opacity: 1; }
+.chat-actions button { font: inherit; font-size: 11px; line-height: 1.4; padding: 0 6px; border-radius: 3px; border: 1px solid var(--line-2); background: var(--panel); color: var(--text-2); cursor: pointer; white-space: nowrap; }
+.chat-actions button:hover, .chat-actions button:focus-visible { color: var(--neg); border-color: var(--neg); }
+.chat-blocked { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 10px; border-top: 1px solid var(--line); }
+@media (hover: none) { .chat-actions { opacity: 0.85; } }
 .chat-form { gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); }
 @media (max-width: 860px) {
   .online-bar select { max-width: none; flex: 1; min-width: 0; }

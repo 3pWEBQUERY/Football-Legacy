@@ -13,6 +13,7 @@ import { GameError } from "../errors";
 import { notify } from "../account/push";
 import { playDueOnlineLeagues } from "../online";
 import { taskHandler } from "./queue";
+import { captureException } from "../monitoring";
 import "./tasks";
 
 interface JobRow { id: number; kind: string; account_id: string | null; career_id: string | null; payload: unknown[] }
@@ -69,7 +70,7 @@ export function startWorker(opts: WorkerOptions = {}) {
     } catch (e) {
       const status = e instanceof GameError ? e.status : 500;
       const message = e instanceof GameError ? e.message : "Interner Fehler bei der Berechnung";
-      if (!(e instanceof GameError)) console.error(`[worker] Auftrag ${job.id} (${job.kind})`, e);
+      if (!(e instanceof GameError)) captureException(e, { source: "worker", path: `job:${job.kind}`, accountId: job.account_id });
       await query(pool(), "update sim_jobs set status = 'failed', error = $2, finished_at = now() where id = $1", [job.id, JSON.stringify({ message, status })]);
     }
     jobs++;

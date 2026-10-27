@@ -1,5 +1,6 @@
 /** Push-Mitteilungen für Online-Ligen: Spieltage, Saisonstart, Beitritte, Nachrichten. */
 import { notifyLater } from "./account/push";
+import { blockersOf } from "./online-moderation";
 
 interface League { id: string; name: string; owner_id: string }
 interface Member { id: number; account_id: string | null; bot: boolean; manager: string; team: { name: string } }
@@ -33,10 +34,11 @@ export function pushJoin(l: League, manager: string, team: string) {
 }
 
 export function pushChat(l: League, ms: Member[], author: { id: string; name: string }, text: string) {
-  notifyLater(humans(ms, author.id), "online", {
+  // Wer den Absender blockiert hat, bekommt keine Mitteilung
+  void blockersOf(author.id).then((blocked) => notifyLater(humans(ms, author.id).filter((id) => !blocked.has(id)), "online", {
     title: `${author.name} in ${l.name}`,
     body: text.length > 140 ? `${text.slice(0, 137)}…` : text,
     url: url(l),
     tag: `online-${l.id}-chat`,
-  });
+  })).catch(() => {});
 }

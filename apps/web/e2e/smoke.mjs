@@ -47,7 +47,7 @@ try {
   step("Startseite und Rechtstexte");
   await page.goto(B);
   await page.getByRole("link", { name: "Impressum" }).first().waitFor();
-  for (const [path, heading] of [["/impressum", "Impressum"], ["/datenschutz", "Datenschutzerklärung"]]) {
+  for (const [path, heading] of [["/impressum", "Impressum"], ["/datenschutz", "Datenschutzerklärung"], ["/nutzungsbedingungen", "Nutzungsbedingungen"]]) {
     await page.goto(B + path);
     await page.getByRole("heading", { name: heading, level: 1 }).waitFor();
   }
@@ -58,6 +58,10 @@ try {
   await page.fill("#name", "E2E");
   await page.fill("#email", email);
   await page.fill("#pw", "geheim123");
+  // Ohne Altersbestätigung und Zustimmung lässt der Server keine Registrierung zu
+  const rejected = await page.evaluate(async (email) => (await fetch("/api/auth/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "x" + email, password: "geheim123", displayName: "X" }) })).status, email);
+  if (rejected !== 400) fail(`Registrierung ohne Zustimmung: Status ${rejected}`);
+  await page.locator(".consent input").check();
   await page.getByRole("button", { name: "Account erstellen" }).click();
   await page.waitForURL(/\/careers\/new/);
 

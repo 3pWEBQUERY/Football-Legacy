@@ -25,6 +25,7 @@ export default function OnlineLeaguePage() {
   const ask = useConfirm();
   const { data, error, reload } = useApi<any>(`online/${lid}`);
   const overview = useApi<any>("online");
+  const blocks = useApi<{ blocked: { id: string; name: string }[] }>("account/blocks");
   const [busy, setBusy] = useState(false);
   const [round, setRound] = useState<number | null>(null);
   const [report, setReport] = useState<any | null>(null);
@@ -82,6 +83,16 @@ export default function OnlineLeaguePage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function moderate(p: any, kind: "report" | "block" | "delete") {
+    const text = {
+      report: { title: "Nachricht melden?", message: `Die Nachricht von ${p.author} wird gemeldet. Ab zwei Meldungen wird sie für alle ausgeblendet; der Gründer der Liga wird informiert.`, confirmLabel: "Melden" },
+      block: { title: `${p.author} blockieren?`, message: "Du siehst seine Nachrichten in allen Ligen nicht mehr und bekommst dazu keine Mitteilungen. Das lässt sich jederzeit aufheben.", confirmLabel: "Blockieren" },
+      delete: { title: "Nachricht löschen?", message: "Die Nachricht wird für alle entfernt.", confirmLabel: "Löschen", danger: true },
+    }[kind];
+    if (!(await ask(text))) return;
+    await act(`posts/${p.id}/${kind}`, {}, undefined, () => { reload(); if (kind === "block") blocks.reload(); });
   }
 
   async function sendMsg(e: React.FormEvent) {
@@ -253,12 +264,30 @@ export default function OnlineLeaguePage() {
                 <div className="online-chat" ref={chatRef}>
                   {data.posts.length === 0 ? <Empty>Noch keine Nachrichten.</Empty> : data.posts.map((p: any) => (
                     <div key={p.id} className={`chat-msg ${p.system ? "system" : ""} ${p.mine ? "mine" : ""}`}>
-                      {!p.system && <span className="chat-author">{p.author}</span>}
+                      <span className="chat-head">
+                        {!p.system ? <span className="chat-author">{p.author}</span> : <span />}
+                        {(!p.system || p.canDelete) && (
+                          <span className="chat-actions">
+                            {!p.mine && !p.system && <button type="button" title="Nachricht melden" aria-label={`Nachricht von ${p.author} melden`} onClick={() => moderate(p, "report")}>Melden</button>}
+                            {!p.mine && !p.system && <button type="button" title="Verfasser blockieren" aria-label={`${p.author} blockieren`} onClick={() => moderate(p, "block")}>Blockieren</button>}
+                            {p.canDelete && <button type="button" title="Nachricht löschen" aria-label="Nachricht löschen" onClick={() => moderate(p, "delete")}>Löschen</button>}
+                          </span>
+                        )}
+                      </span>
                       <span>{p.body}</span>
                       <span className="chat-time">{new Date(p.at).toLocaleString("de-CH", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
                     </div>
                   ))}
                 </div>
+                {!!blocks.data?.blocked.length && (
+                  <div className="chat-blocked faint small">
+                    Blockiert: {blocks.data.blocked.map((b: any) => (
+                      <button key={b.id} type="button" className="btn btn-ghost btn-sm" onClick={async () => {
+                        try { toast((await api<any>(`account/blocks/${b.id}/remove`, { body: {} })).message, "success"); blocks.reload(); reload(); } catch (e) { toast((e as Error).message, "error"); }
+                      }}>{b.name} ✕</button>
+                    ))}
+                  </div>
+                )}
                 <form className="row chat-form" onSubmit={sendMsg}>
                   <input className="input" style={{ flex: 1, minWidth: 0 }} maxLength={400} placeholder="Nachricht an die Liga …" value={msg} onChange={(e) => setMsg(e.target.value)} aria-label="Nachricht" />
                   <button className="btn btn-primary" disabled={busy || !msg.trim()}>Senden</button>

@@ -11,6 +11,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -19,7 +20,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     setBusy(true);
     setError(null);
     try {
-      await api(`auth/${mode}`, { body: { email, password, displayName: name } });
+      await api(`auth/${mode}`, { body: { email, password, displayName: name, ...(mode === "register" ? { acceptTerms: consent, ageConfirmed: consent } : {}) } });
       const next = params.get("next");
       router.push(next && next.startsWith("/") ? next : mode === "register" ? "/careers/new" : "/careers");
       router.refresh();
@@ -55,13 +56,19 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           {mode === "register" && <small className="faint">Mindestens 8 Zeichen.</small>}
           {mode === "login" && <Link href="/forgot" className="small" style={{ color: "var(--accent)", alignSelf: "flex-end" }}>Passwort vergessen?</Link>}
         </div>
+        {mode === "register" && (
+          <label className="consent">
+            <input type="checkbox" required checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+            <span>Ich bin mindestens 16 Jahre alt und akzeptiere die <Link href="/nutzungsbedingungen" target="_blank">Nutzungsbedingungen</Link>. Die <Link href="/datenschutz" target="_blank">Datenschutzerklärung</Link> habe ich zur Kenntnis genommen.</span>
+          </label>
+        )}
         {error && <div className="card-soft small neg-txt" style={{ borderColor: "var(--neg)" }} role="alert">{error}</div>}
         <button className="btn btn-primary btn-lg" disabled={busy}>{busy ? "Einen Moment …" : mode === "login" ? "Anmelden" : "Account erstellen"}</button>
       </form>
       <p className="dim small" style={{ textAlign: "center" }}>
         {mode === "login" ? <>Noch kein Account? <Link href="/register" style={{ color: "var(--accent)" }}>Registrieren</Link></> : <>Schon registriert? <Link href="/login" style={{ color: "var(--accent)" }}>Anmelden</Link></>}
       </p>
-      {mode === "register" && <p className="faint small">Mit der Registrierung speicherst du deine Spielstände in der Cloud. Wir verwenden deine E-Mail nur für den Login und zum Zurücksetzen des Passworts. Mehr dazu in der <Link href="/datenschutz" style={{ color: "var(--accent)" }}>Datenschutzerklärung</Link>.</p>}
+      {mode === "register" && <p className="faint small">Mit der Registrierung speicherst du deine Spielstände in der Cloud. Wir verwenden deine E-Mail nur für den Login, die Bestätigung deiner Adresse und zum Zurücksetzen des Passworts.</p>}
       <LegalLinks />
     </div>
     </div>

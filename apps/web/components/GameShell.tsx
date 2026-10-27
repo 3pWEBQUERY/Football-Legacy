@@ -8,6 +8,7 @@ import { Crest, Icon, Modal, Progress, useNotes, useToast } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
 import { WeekSummaryView } from "./WeekSummary";
 import { OnboardingProvider } from "./Onboarding";
+import { TermsGate } from "./TermsGate";
 
 interface ShellCtx {
   id: string;
@@ -146,6 +147,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
   return (
     <Ctx.Provider value={ctx}>
     <OnboardingProvider careerId={id}>
+      <TermsGate />
       <div className="app" style={clubStyle}>
         <header className="topbar">
           <Link href="/careers" className="brand" title="Karrieren">

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/client/api";
 import { LegalLinks } from "./Legal";
 
-function Shell({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
+export function Shell({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
   return (
     <div className="auth-wrap">
       <div className="auth-card card stack">

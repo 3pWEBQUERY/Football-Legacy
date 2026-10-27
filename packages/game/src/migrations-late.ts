@@ -53,4 +53,63 @@ create table if not exists sim_workers (
 );
 `,
   },
+  {
+    name: "023_terms_security.sql",
+    sql: `
+-- Nutzungsbedingungen, Altersbestätigung und E-Mail-Bestätigung
+alter table accounts add column if not exists terms_version int not null default 0;
+alter table accounts add column if not exists terms_accepted_at timestamptz;
+alter table accounts add column if not exists age_confirmed boolean not null default false;
+alter table accounts add column if not exists email_verified_at timestamptz;
+
+create table if not exists email_verifications (
+  id bigserial primary key,
+  account_id uuid not null references accounts(id) on delete cascade,
+  token_hash text not null unique,
+  email text not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+-- Anmeldeversuche für Limits (Passwort-Raten, Massenregistrierung)
+create table if not exists auth_attempts (
+  id bigserial primary key,
+  kind text not null,
+  key text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists auth_attempts_key on auth_attempts(kind, key, created_at);
+
+-- Fehlerprotokoll (Server und Browser)
+create table if not exists error_log (
+  id bigserial primary key,
+  source text not null,
+  message text not null,
+  stack text,
+  path text,
+  account_id uuid,
+  user_agent text,
+  fingerprint text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists error_log_created on error_log(created_at);
+create index if not exists error_log_fingerprint on error_log(fingerprint, created_at);
+
+-- Moderation im Liga-Chat
+alter table online_posts add column if not exists hidden boolean not null default false;
+create table if not exists online_reports (
+  post_id bigint not null,
+  reporter_id uuid not null references accounts(id) on delete cascade,
+  reason text,
+  created_at timestamptz not null default now(),
+  primary key (post_id, reporter_id)
+);
+create table if not exists online_blocks (
+  account_id uuid not null references accounts(id) on delete cascade,
+  blocked_id uuid not null references accounts(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (account_id, blocked_id)
+);
+`,
+  },
 ];

@@ -75,7 +75,8 @@ export async function resetPassword(token: string, password: string) {
   const db = pool();
   const used = await query(db, "update password_resets set used_at = now() where id = $1 and used_at is null returning id", [reset.id]);
   if (!used.length) throw new GameError("Der Link wurde bereits verwendet.", 400);
-  await query(db, "update accounts set password_hash = $2 where id = $1", [reset.account_id, await hashPassword(password)]);
+  // Der Link kam per E-Mail – damit ist die Adresse auch bestätigt
+  await query(db, "update accounts set password_hash = $2, email_verified_at = coalesce(email_verified_at, now()) where id = $1", [reset.account_id, await hashPassword(password)]);
   await query(db, "delete from sessions where account_id = $1", [reset.account_id]);
   const account = await one<{ id: string; email: string; display_name: string }>(db, "select id, email, display_name from accounts where id = $1", [reset.account_id]);
   return { ok: true, account: account!, token: await createSession(reset.account_id) };

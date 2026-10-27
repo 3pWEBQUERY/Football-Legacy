@@ -8,6 +8,8 @@ export function LegalLinks({ className = "" }: { className?: string }) {
       <Link href="/impressum">Impressum</Link>
       <span aria-hidden="true">·</span>
       <Link href="/datenschutz">Datenschutz</Link>
+      <span aria-hidden="true">·</span>
+      <Link href="/nutzungsbedingungen">Nutzungsbedingungen</Link>
     </nav>
   );
 }

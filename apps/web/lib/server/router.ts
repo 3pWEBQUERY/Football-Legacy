@@ -52,13 +52,20 @@ const acc = (c: Ctx) => c.account!.id;
 
 // ---------------------------------------------------------------- Auth
 
+// Vom Proxy gesetzte Adresse: X-Real-IP, sonst der letzte Eintrag von X-Forwarded-For
+// (frühere Einträge kann der Browser selbst mitschicken)
+const clientIp = (c: Ctx) => c.req.headers.get("x-real-ip")?.trim() || c.req.headers.get("x-forwarded-for")?.split(",").map((x) => x.trim()).filter(Boolean).pop() || null;
+
 route("POST", "auth/register", async (c) => {
-  const { account, token } = await game.register(str(c.body.email), str(c.body.password), str(c.body.displayName));
+  const consent = game.requireConsent(c.body);
+  const { account, token } = await game.register(str(c.body.email), str(c.body.password), str(c.body.displayName), consent, { ip: clientIp(c) });
+  // Bestätigungs-Mail im Hintergrund – die Registrierung soll daran nicht scheitern
+  void game.sendVerification(account.id, c.req.nextUrl.origin).catch((e) => console.warn("[verify]", (e as Error).message));
   return { account: publicAccount(account), token: c.body.returnToken ? token : undefined, setCookie: token };
 }, false);
 
 route("POST", "auth/login", async (c) => {
-  const { account, token } = await game.login(str(c.body.email), str(c.body.password));
+  const { account, token } = await game.login(str(c.body.email), str(c.body.password), { ip: clientIp(c) });
   return { account: publicAccount(account), token: c.body.returnToken ? token : undefined, setCookie: token };
 }, false);
 
@@ -67,7 +74,6 @@ route("POST", "auth/logout", async (c) => {
   return { ok: true, clearCookie: true };
 }, false);
 
-const clientIp = (c: Ctx) => c.req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || c.req.headers.get("x-real-ip") || null;
 
 route("POST", "auth/forgot", async (c) => game.requestPasswordReset(str(c.body.email), { ip: clientIp(c), origin: c.req.nextUrl.origin }), false);
 route("GET", "auth/reset", async (c) => game.checkResetToken(c.query.get("token") ?? ""), false);
@@ -97,12 +103,29 @@ route("POST", "account/settings", async (c) => {
   return { ok: true };
 });
 
+route("POST", "auth/verify", async (c) => game.verifyEmail(str(c.body.token)), false);
+route("POST", "account/verify/resend", async (c) => game.sendVerification(acc(c), c.req.nextUrl.origin));
+// Fehlerüberwachung: Meldungen aus dem Browser und Übersicht für Administratoren
+route("POST", "errors", async (c) => {
+  await game.guardErrorReports(clientIp(c));
+  await game.reportError({
+    source: "client", message: str(c.body.message) || "Unbekannter Fehler", stack: str(c.body.stack) || null,
+    path: str(c.body.path) || null, accountId: c.account?.id ?? null, userAgent: c.req.headers.get("user-agent"),
+  });
+  return { ok: true };
+}, false);
+route("GET", "admin/errors", async (c) => game.errorOverview(c.account!.email));
+route("GET", "admin/me", async (c) => ({ admin: game.isAdmin(c.account?.email) }), false);
+route("POST", "account/terms", async (c) => game.acceptTerms(acc(c), c.body));
 route("POST", "account/profile", async (c) => game.updateProfile(acc(c), str(c.body.displayName)));
 route("POST", "account/password", async (c) => game.changePassword(acc(c), c.token ?? null, str(c.body.oldPassword), str(c.body.newPassword)));
 route("POST", "account/delete", async (c) => game.deleteAccount(acc(c), str(c.body.password)));
 
 function publicAccount(a: Account) {
-  return { id: a.id, email: a.email, displayName: a.display_name, settings: a.settings, login_streak: a.login_streak };
+  return {
+    id: a.id, email: a.email, displayName: a.display_name, settings: a.settings, login_streak: a.login_streak,
+    termsAccepted: (a.terms_version ?? 0) >= game.TERMS_VERSION, emailVerified: !!a.email_verified_at, verificationRequired: game.mailConfigured(),
+  };
 }
 
 // ---------------------------------------------------------------- Welt & Karrieren
@@ -149,6 +172,11 @@ route("POST", "online/:lid/play", async (c) => game.bg.playOnlineRound(acc(c), c
 route("POST", "online/:lid/ready", async (c) => game.bg.setOnlineReady(acc(c), c.params.lid, c.body.ready !== false));
 route("POST", "online/:lid/team", async (c) => game.switchOnlineTeam(acc(c), c.params.lid, str(c.body.careerId)));
 route("POST", "online/:lid/posts", async (c) => game.postOnlineMessage(acc(c), c.params.lid, str(c.body.body)));
+route("POST", "online/:lid/posts/:pid/report", async (c) => game.reportOnlinePost(acc(c), c.params.lid, num(c.params.pid), str(c.body.reason)));
+route("POST", "online/:lid/posts/:pid/delete", async (c) => game.deleteOnlinePost(acc(c), c.params.lid, num(c.params.pid)));
+route("POST", "online/:lid/posts/:pid/block", async (c) => game.blockOnlineAuthor(acc(c), c.params.lid, num(c.params.pid)));
+route("GET", "account/blocks", async (c) => ({ blocked: await game.blockedList(acc(c)) }));
+route("POST", "account/blocks/:bid/remove", async (c) => game.unblockOnline(acc(c), c.params.bid));
 route("GET", "online/:lid/matches/:fid", async (c) => game.onlineMatchReport(acc(c), c.params.lid, num(c.params.fid)));
 
 const career = (pattern: string) => `careers/:id/${pattern}`.replace(/\/$/, "");
@@ -333,9 +361,10 @@ export async function dispatch(req: NextRequest, path: string[]): Promise<NextRe
   const found = routes.find((r) => r.method === method && (params = match(r.parts, path)) !== null);
   if (!found || !params) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   if (method !== "GET" && !sameOrigin(req)) return NextResponse.json({ error: "Ungültige Herkunft" }, { status: 403 });
+  let account: Account | null = null;
   try {
     const token = tokenFrom(req);
-    const account = token ? await game.accountForToken(token) : null;
+    account = token ? await game.accountForToken(token) : null;
     if (found.auth && !account) return NextResponse.json({ error: "Bitte melde dich an." }, { status: 401 });
     let body: Record<string, unknown> = {};
     if (method !== "GET" && method !== "DELETE") {
@@ -361,7 +390,7 @@ export async function dispatch(req: NextRequest, path: string[]): Promise<NextRe
     return res;
   } catch (e) {
     if (e instanceof game.GameError) return NextResponse.json({ error: e.message }, { status: e.status });
-    console.error(e);
+    game.captureException(e, { source: "server", path: `${method} /api/${path.join("/")}`, accountId: account?.id, userAgent: req.headers.get("user-agent") });
     return NextResponse.json({ error: "Interner Fehler. Bitte versuche es erneut." }, { status: 500 });
   }
 }

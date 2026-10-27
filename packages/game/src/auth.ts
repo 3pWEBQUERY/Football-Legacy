@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import { promisify } from "node:util";
 import { one, pool, query } from "./db";
 import { GameError } from "./errors";
+import { TERMS_VERSION } from "./account/terms";
+import { LOGIN_PER_EMAIL, LOGIN_PER_IP, REGISTER_PER_IP, clear, guard, record } from "./account/limits";
 
 const scrypt = promisify(crypto.scrypt) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 const SESSION_DAYS = 30;
@@ -14,6 +16,8 @@ export interface Account {
   login_streak: number;
   best_login_streak: number;
   last_login_day: string | null;
+  terms_version?: number;
+  email_verified_at?: string | null;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -34,8 +38,10 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-export async function register(email: string, password: string, displayName: string): Promise<{ account: Account; token: string }> {
+export async function register(email: string, password: string, displayName: string, consent?: { acceptTerms: true; ageConfirmed: true }, opts: { ip?: string | null } = {}): Promise<{ account: Account; token: string }> {
   const e = normalizeEmail(email);
+  await guard(REGISTER_PER_IP, opts.ip, "Von deinem Netzwerk wurden gerade schon mehrere Accounts angelegt. Bitte versuche es in einer Stunde erneut.");
+  await record(REGISTER_PER_IP, opts.ip);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new GameError("Bitte gib eine gültige E-Mail-Adresse ein.");
   if (password.length < 8) throw new GameError("Das Passwort muss mindestens 8 Zeichen lang sein.");
   const name = displayName.trim().slice(0, 40) || e.split("@")[0];
@@ -44,19 +50,26 @@ export async function register(email: string, password: string, displayName: str
   const hash = await hashPassword(password);
   const account = await one<Account>(
     pool(),
-    "insert into accounts(email, password_hash, display_name) values ($1, $2, $3) returning id, email, display_name, settings, login_streak, best_login_streak, last_login_day",
-    [e, hash, name],
+    `insert into accounts(email, password_hash, display_name, terms_version, terms_accepted_at, age_confirmed) values ($1, $2, $3, $4, $5, $6)
+     returning id, email, display_name, settings, login_streak, best_login_streak, last_login_day, terms_version, email_verified_at`,
+    [e, hash, name, consent ? TERMS_VERSION : 0, consent ? new Date() : null, !!consent],
   );
   const token = await createSession(account!.id);
   await touchLoginStreak(account!.id);
   return { account: account!, token };
 }
 
-export async function login(email: string, password: string): Promise<{ account: Account; token: string }> {
-  const row = await one<Account & { password_hash: string }>(pool(), "select * from accounts where email = $1", [normalizeEmail(email)]);
+export async function login(email: string, password: string, opts: { ip?: string | null } = {}): Promise<{ account: Account; token: string }> {
+  const e = normalizeEmail(email);
+  await guard(LOGIN_PER_EMAIL, e, "Zu viele fehlgeschlagene Anmeldungen für diese Adresse. Bitte warte 15 Minuten oder setze dein Passwort zurück.");
+  await guard(LOGIN_PER_IP, opts.ip, "Zu viele fehlgeschlagene Anmeldungen von deinem Netzwerk. Bitte warte 15 Minuten.");
+  const row = await one<Account & { password_hash: string }>(pool(), "select * from accounts where email = $1", [e]);
   if (!row || !(await verifyPassword(password, row.password_hash))) {
+    await record(LOGIN_PER_EMAIL, e);
+    await record(LOGIN_PER_IP, opts.ip);
     throw new GameError("E-Mail oder Passwort ist falsch.", 401);
   }
+  await clear(LOGIN_PER_EMAIL, e);
   const token = await createSession(row.id);
   await touchLoginStreak(row.id);
   const { password_hash: _ignored, ...account } = row;
@@ -80,7 +93,7 @@ export async function accountForToken(token: string | undefined | null): Promise
   if (!token) return null;
   return one<Account>(
     pool(),
-    `select a.id, a.email, a.display_name, a.settings, a.login_streak, a.best_login_streak, a.last_login_day
+    `select a.id, a.email, a.display_name, a.settings, a.login_streak, a.best_login_streak, a.last_login_day, a.terms_version, a.email_verified_at
        from sessions s join accounts a on a.id = s.account_id
       where s.token = $1 and s.expires_at > now()`,
     [hashToken(token)],

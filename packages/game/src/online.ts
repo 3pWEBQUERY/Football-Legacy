@@ -12,6 +12,7 @@ import { GameError } from "./errors";
 import { getCareer, getClub, getClubs, getPlayers } from "./repo";
 import { aiTactic } from "./setup";
 import { pushChat, pushJoin, pushRound, pushSeason } from "./online-push";
+import { requireVerified } from "./account/verify";
 
 export type Rhythm = "manual" | "daily";
 const MIN_MEMBERS = 2;
@@ -280,6 +281,7 @@ export async function createOnlineLeague(accountId: string, input: { name: strin
   const max = Math.round(input.maxMembers);
   if (!(max >= MIN_MEMBERS && max <= MAX_MEMBERS)) throw new GameError(`Die Liga braucht ${MIN_MEMBERS} bis ${MAX_MEMBERS} Plätze`);
   const rhythm: Rhythm = input.rhythm === "daily" ? "daily" : "manual";
+  if (input.public) await requireVerified(accountId);
   return tx(async (db) => {
     const owned = await one<{ n: number }>(db, "select count(*)::int as n from online_leagues where owner_id = $1 and status <> 'finished'", [accountId]);
     if ((owned?.n ?? 0) >= 5) throw new GameError("Du kannst höchstens 5 aktive Ligen gründen");
@@ -423,6 +425,7 @@ export async function postOnlineMessage(accountId: string, leagueId: string, bod
   const text = body.trim().replace(/\s+/g, " ");
   if (!text) throw new GameError("Nachricht ist leer");
   if (text.length > 400) throw new GameError("Höchstens 400 Zeichen");
+  await requireVerified(accountId);
   return inLeague(leagueId, async (db, l) => {
     const me = await myMember(db, l, accountId);
     if (!me) throw new GameError("Nur Teilnehmer können schreiben", 403);
@@ -493,7 +496,10 @@ export async function onlineLeagueView(accountId: string, leagueId: string) {
     const me = ms.find((m) => m.account_id === accountId && !m.bot) ?? null;
     if (!me && !(l.public && l.status === "open")) throw new GameError("Du bist nicht in dieser Liga", 403);
     const fixtures = await query<FixtureRow>(db, "select id, season, round, home_id, away_id, home_goals, away_goals, played, report is not null as report from online_fixtures where league_id = $1 and season = $2 order by round, id", [l.id, l.season]);
-    const posts = me ? await query<{ id: number; author: string; system: boolean; body: string; created_at: Date; account_id: string | null }>(db, "select id, author, system, body, created_at, account_id from online_posts where league_id = $1 order by id desc limit 60", [l.id]) : [];
+    // Ausgeblendete Nachrichten und Nachrichten blockierter Mitglieder erscheinen nicht
+    const posts = me ? await query<{ id: number; author: string; system: boolean; body: string; created_at: Date; account_id: string | null }>(db,
+      `select id, author, system, body, created_at, account_id from online_posts where league_id = $1 and not hidden
+         and (account_id is null or account_id not in (select blocked_id from online_blocks where account_id = $2)) order by id desc limit 60`, [l.id, accountId]) : [];
     const team = (id: number) => {
       const m = ms.find((x) => x.id === id);
       return m ? { memberId: m.id, name: m.team.name, short: m.team.short, colors: m.team.colors, manager: m.bot ? "CPU" : m.manager, mine: m.id === me?.id } : null;
@@ -516,7 +522,7 @@ export async function onlineLeagueView(accountId: string, leagueId: string) {
       nextRound,
       myNext: myNext ? { home: team(myNext.home_id), away: team(myNext.away_id), bye: false } : nextRound && me ? { bye: true } : null,
       waitingFor: l.status === "running" ? ms.filter((m) => !m.bot && !m.ready).map((m) => m.manager) : [],
-      posts: posts.reverse().map((p) => ({ id: p.id, author: p.author, system: p.system, body: p.body, at: p.created_at, mine: p.account_id === accountId })),
+      posts: posts.reverse().map((p) => ({ id: p.id, author: p.author, system: p.system, body: p.body, at: p.created_at, mine: p.account_id === accountId, canDelete: p.account_id === accountId || l.owner_id === accountId })),
     };
   });
 }

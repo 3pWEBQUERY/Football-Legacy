@@ -36,6 +36,11 @@ export function setMailTransport(t?: Transport) {
   transport = t ?? resend;
 }
 
+/** Ist der Versand eingerichtet (oder in Tests abgefangen)? */
+export function mailConfigured(): boolean {
+  return transport !== resend || !!process.env.RESEND_API_KEY;
+}
+
 export function sendMail(m: MailMessage): Promise<MailResult> {
   return transport(m);
 }
