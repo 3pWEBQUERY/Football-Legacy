@@ -48,10 +48,10 @@ export default function CareerPage() {
           <div className="card-head"><h3>Erfolge</h3><span className="faint">{unlocked}/{data.achievements.length}</span></div>
           <div className="grid grid-2" style={{ gap: 8 }}>
             {data.achievements.map((a: any) => (
-              <div key={a.id} className="card-soft row" style={{ opacity: a.unlockedAt ? 1 : 0.5 }}>
+              <div key={a.id} className="card-soft row" style={{ borderStyle: a.unlockedAt ? undefined : "dashed" }}>
                 <span style={{ width: 30, height: 30, borderRadius: 2, display: "grid", placeItems: "center", background: a.unlockedAt ? "var(--gold-soft)" : "var(--panel-h)", color: a.unlockedAt ? "var(--gold)" : "var(--text-3)", flex: "none" }}><Icon name="trophy" size={16} /></span>
                 <div style={{ flex: 1 }}>
-                  <b>{a.name}</b>
+                  <b className={a.unlockedAt ? undefined : "dim"}>{a.name}</b>
                   <div className="faint small">{a.description}</div>
                 </div>
                 {a.unlockedAt ? <span className="badge badge-accent">Erreicht</span> : <span className="faint small nowrap">+{a.xp} XP</span>}
@@ -63,9 +63,9 @@ export default function CareerPage() {
           <div className="card stack-sm">
             <div className="card-head"><h3>Freischaltungen</h3></div>
             {data.unlocks.map((u: any) => (
-              <div key={u.id} className="row" style={{ opacity: u.unlocked ? 1 : 0.55 }}>
+              <div key={u.id} className="row">
                 <span style={{ color: u.unlocked ? "var(--pos)" : "var(--text-3)", display: "inline-flex" }}><Icon name={u.unlocked ? "unlock" : "lock"} size={16} /></span>
-                <div style={{ flex: 1 }}><b>{u.name}</b> <span className="faint small">· Level {u.level}</span><div className="faint small">{u.description}</div></div>
+                <div style={{ flex: 1 }}><b className={u.unlocked ? undefined : "dim"}>{u.name}</b> <span className="faint small">· Level {u.level}</span><div className="faint small">{u.description}</div></div>
               </div>
             ))}
           </div>

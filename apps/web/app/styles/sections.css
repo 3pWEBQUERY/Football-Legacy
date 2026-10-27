@@ -9,7 +9,7 @@
 .cal-cell.empty .cal-date { color: var(--text-3); opacity: 0.5; }
 .cal-cell.past { opacity: 0.6; }
 .cal-cell.today { box-shadow: inset 0 0 0 2px var(--accent), inset 3px 0 0 var(--cal-mark, transparent); opacity: 1; }
-.cal-cell.today .cal-date { background: var(--accent); color: #fff; padding: 0 5px; }
+.cal-cell.today .cal-date { background: var(--accent-btn); color: #fff; padding: 0 5px; }
 .cal-date { font-family: var(--font-cond); font-weight: 700; font-size: 15px; }
 .cal-type { font-size: 11.5px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-cond); font-weight: 600; }
 .cal-window { font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--pos); border: 1px solid var(--pos); padding: 0 3px; line-height: 1.4; font-family: var(--font); }

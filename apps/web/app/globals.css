@@ -22,14 +22,18 @@
   --line-2: #323c4d;
   --text: #e4e8ef;
   --text-2: #a4adbd;
-  --text-3: #6f7a8c;
-  --accent: #3d8bfd;
+  --text-3: #8a94a6;
+  --accent: #6aa8ff;
   --accent-2: #2f74de;
   --accent-ink: #ffffff;
+  /* Flächen mit weisser Schrift (Knöpfe): dunkler als die Textfarbe --accent */
+  --accent-btn: #2a6cd4;
+  --accent-btn-h: #2560bd;
+  --pos-btn: #1a7d44;
   --accent-soft: rgba(61, 139, 253, 0.14);
   --pos: #36c46b;
   --pos-soft: rgba(54, 196, 107, 0.14);
-  --neg: #e5534b;
+  --neg: #ef6b63;
   --neg-soft: rgba(229, 83, 75, 0.14);
   --danger: var(--neg);
   --warn: #e8a33d;
@@ -62,23 +66,26 @@
   --line-2: #c5ccd8;
   --text: #121821;
   --text-2: #4a5568;
-  --text-3: #7c8697;
-  --accent: #1f6fe5;
+  --text-3: #5b6576;
+  --accent: #1757b8;
   --accent-2: #185bc0;
+  --accent-btn: #185bc0;
+  --accent-btn-h: #134c9f;
+  --pos-btn: #13733a;
   --accent-soft: rgba(31, 111, 229, 0.1);
-  --pos: #1d9a50;
+  --pos: #13733a;
   --pos-soft: rgba(29, 154, 80, 0.1);
-  --neg: #cf3a32;
+  --neg: #b3302a;
   --neg-soft: rgba(207, 58, 50, 0.09);
-  --warn: #b97510;
+  --warn: #8a5a0c;
   --warn-soft: rgba(185, 117, 16, 0.1);
-  --gold: #a87f08;
+  --gold: #7a5d05;
   --gold-soft: rgba(168, 127, 8, 0.1);
   --purple: #6d4fd8;
   --a1: #cf3a32;
   --a2: #4a5568;
-  --a3: #2e9a56;
-  --a4: #11803c;
+  --a3: #237a44;
+  --a4: #0e6b32;
   color-scheme: light;
 }
 
@@ -142,13 +149,13 @@ small, .small { font-size: 12px; }
 .meta-cell.date .v { font-size: 18px; font-weight: 700; }
 .continue {
   display: flex; align-items: center; gap: 10px; padding: 0 22px; border: none; cursor: pointer;
-  background: var(--accent); color: var(--accent-ink); font-family: var(--font-cond); font-weight: 700; font-size: 17px;
+  background: var(--accent-btn); color: var(--accent-ink); font-family: var(--font-cond); font-weight: 700; font-size: 17px;
   text-transform: uppercase; letter-spacing: 0.06em; min-width: 196px; justify-content: center;
 }
-.continue:hover { background: var(--accent-2); }
+.continue:hover { background: var(--accent-btn-h); }
 .continue:disabled { opacity: 0.55; cursor: progress; }
-.continue.matchday { background: var(--pos); color: #fff; }
-.continue .sub { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; opacity: 0.85; }
+.continue.matchday { background: var(--pos-btn); color: #fff; }
+.continue .sub { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; }
 
 /* Hauptmenü: horizontale Leiste mit Untermenüs */
 .mainnav {
@@ -260,3 +267,6 @@ small, .small { font-size: 12px; }
 .kv:last-child { border-bottom: none; }
 .kv .k { color: var(--text-3); }
 .kv .v { font-weight: 600; text-align: right; }
+
+/* Links im Fliesstext auch ohne Farbe erkennbar (WCAG 1.4.1) */
+p a:not(.btn), li a:not(.btn), .consent a, .legal a:not(.btn), .faint a:not(.btn), .dim a:not(.btn) { text-decoration: underline; text-underline-offset: 2px; }

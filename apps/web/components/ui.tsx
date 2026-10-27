@@ -118,10 +118,10 @@ export function FormChips({ form }: { form: string[] }) {
   );
 }
 
-export function Progress({ value, max = 100, tone }: { value: number; max?: number; tone?: "warn" | "danger" }) {
+export function Progress({ value, max = 100, tone, label }: { value: number; max?: number; tone?: "warn" | "danger"; label?: string }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
-    <div className={`progress ${tone ?? ""}`} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
+    <div className={`progress ${tone ?? ""}`} role="progressbar" aria-label={label ?? "Fortschritt"} aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
       <span style={{ width: `${pct}%` }} />
     </div>
   );

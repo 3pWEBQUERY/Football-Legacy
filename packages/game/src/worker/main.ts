@@ -7,7 +7,17 @@ import { migrate } from "../migrate";
 import { startWorker } from "./worker";
 
 async function main() {
-  await migrate((m) => console.log(`[db] ${m}`));
+  // Datenbank beim Start evtl. noch nicht erreichbar: mehrfach versuchen
+  for (const wait of [2, 4, 8, 15, 30, 0]) {
+    try {
+      await migrate((m) => console.log(`[db] ${m}`));
+      break;
+    } catch (e) {
+      if (!wait) throw e;
+      console.warn(`[worker] Datenbank nicht bereit (${(e as Error).message}) – neuer Versuch in ${wait} s`);
+      await new Promise((r) => setTimeout(r, wait * 1000));
+    }
+  }
   const w = startWorker({ concurrency: Number(process.env.WORKER_CONCURRENCY ?? 2), log: (m) => console.log(m) });
   await w.ready;
   let stopping = false;

@@ -17,7 +17,10 @@
     "migrate": "pnpm --filter @fl/game migrate",
     "sim:season": "pnpm --filter @fl/sim season",
     "sim:calibrate": "pnpm --filter @fl/sim calibrate",
-    "e2e": "node apps/web/e2e/smoke.mjs"
+    "e2e": "node apps/web/e2e/smoke.mjs",
+    "e2e:flows": "node apps/web/e2e/flows.mjs",
+    "e2e:a11y": "node apps/web/e2e/a11y.mjs",
+    "loadtest": "node scripts/loadtest.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -25,6 +28,7 @@
     ]
   },
   "devDependencies": {
+    "axe-core": "^4.14.0",
     "playwright": "1.63.0"
   }
 }

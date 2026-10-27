@@ -137,7 +137,6 @@ export function PitchBoard({ slots, selected, onSelect, onMove, onContext, toolb
           }}
           role="button"
           tabIndex={0}
-          aria-label={`${POS_LABEL[s.position] ?? s.position}, ${s.roleName}: ${s.name ?? "frei"}`}
           onKeyDown={(e) => {
             if (e.key === "Enter") onSelect(i);
             if ((e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) && onContext) {
@@ -147,6 +146,7 @@ export function PitchBoard({ slots, selected, onSelect, onMove, onContext, toolb
             }
           }}
         >
+          <span className="sr-only">{`${POS_LABEL[s.position] ?? s.position}, ${s.roleName}: `}</span>
           <Shirt kit={s.kit} number={s.number} keeper={s.group === "gk"} empty={!s.name} />
           <div className="fm-card">
             <div className={`fm-role g-${s.group}`} title={s.roleName}>{s.role}</div>
@@ -172,7 +172,7 @@ export function PitchBoard({ slots, selected, onSelect, onMove, onContext, toolb
 
 export function Stars({ value }: { value: number }) {
   return (
-    <div className="fm-stars" aria-label={`${value} von 5 Sternen`}>
+    <div className="fm-stars" role="img" aria-label={`${value} von 5 Sternen`}>
       {[0, 1, 2, 3, 4].map((i) => {
         const fill = Math.max(0, Math.min(1, value - i));
         return (

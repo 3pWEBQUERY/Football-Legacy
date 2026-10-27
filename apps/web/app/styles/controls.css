@@ -10,8 +10,8 @@
 }
 .btn:hover { background: var(--panel-h); border-color: var(--text-3); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.btn-primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+.btn-primary { background: var(--accent-btn); border-color: var(--accent-btn); color: var(--accent-ink); }
+.btn-primary:hover { background: var(--accent-btn-h); border-color: var(--accent-btn-h); }
 .btn-danger { background: transparent; border-color: var(--neg); color: var(--neg); }
 .btn-danger:hover { background: var(--neg-soft); border-color: var(--neg); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--text-2); }
@@ -44,10 +44,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px;
   display: inline-grid; place-items: center; min-width: 34px; height: 20px; padding: 0 4px; border-radius: 2px;
   font-family: var(--font-cond); font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em; color: #fff;
 }
-.pos-GK { background: #b8860b; }
-.pos-DEF { background: #2a6fd6; }
-.pos-MID { background: #24914f; }
-.pos-ATT { background: #c43d3d; }
+.pos-GK { background: #8a6508; }
+.pos-DEF { background: #2563c4; }
+.pos-MID { background: #1b7a41; }
+.pos-ATT { background: #b83434; }
 
 .rating {
   display: inline-grid; place-items: center; min-width: 32px; height: 22px; padding: 0 5px; border-radius: 2px;
@@ -109,7 +109,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: var(--r-sm); overflow: hidden; }
 .seg button { border: none; border-right: 1px solid var(--line-2); background: var(--panel-2); color: var(--text-2); height: 28px; padding: 0 11px; font-family: var(--font-cond); font-weight: 600; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer; }
 .seg button:last-child { border-right: none; }
-.seg button.active { background: var(--accent); color: var(--accent-ink); }
+.seg button.active { background: var(--accent-btn); color: var(--accent-ink); }
 
 /* Regler */
 .slider { display: grid; grid-template-columns: 120px 1fr 34px; gap: 10px; align-items: center; }
@@ -184,7 +184,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .scoreboard .team.home.mine { box-shadow: inset 10px 0 0 var(--mine, var(--accent)); }
 .scoreboard .team.away.mine { box-shadow: inset -10px 0 0 var(--mine, var(--accent)); }
 .scoreboard .team.opp strong { color: var(--text-2); font-weight: 600; }
-.mine-tag { display: inline-block; margin: 0 6px; padding: 2px 7px; background: var(--accent); color: #fff; font-family: var(--font-cond); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.4; vertical-align: middle; white-space: nowrap; }
+.mine-tag { display: inline-block; margin: 0 6px; padding: 2px 7px; background: var(--accent-btn); color: #fff; font-family: var(--font-cond); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.4; vertical-align: middle; white-space: nowrap; }
 .scoreboard .team .mine-tag { flex: none; }
 .pitch-legend { display: flex; gap: 18px; flex-wrap: wrap; padding: 6px 10px; background: var(--panel); border: 1px solid var(--line); border-bottom: 0; font-size: 12px; font-family: var(--font-cond); text-transform: uppercase; letter-spacing: 0.05em; }
 .pitch-legend span { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }

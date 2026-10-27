@@ -272,10 +272,10 @@ export default function TacticPage() {
 
       <section className="card tactic-header">
         <div className="th-row">
-          <div className="tactic-slots" role="tablist" aria-label="Taktiken">
+          <div className="tactic-slots" role="group" aria-label="Taktiken">
             {data.tactics.slots.map((x: any) => (
               <div key={x.index} className={`tactic-slot ${x.index === data.tactics.active ? "active" : ""}`}>
-                <button role="tab" aria-selected={x.index === data.tactics.active} className="tactic-slot-main" onClick={() => slotAction("select", x.index)}>
+                <button aria-pressed={x.index === data.tactics.active} className="tactic-slot-main" onClick={() => slotAction("select", x.index)}>
                   <span className="tactic-slot-no">{x.index + 1}</span>
                   <span className="tactic-slot-text"><b>{x.name}</b><small>{x.index === data.tactics.active ? t.formation : x.formation} · {x.index === data.tactics.active ? (presetKey === "custom" ? "Individuell" : data.presets[presetKey].name) : x.preset}</small></span>
                 </button>

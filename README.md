@@ -124,7 +124,7 @@ Beim ersten Start legt der Server das Schema selbst an und startet den Hintergru
 | `SENTRY_DSN` | Optional. Unerwartete Fehler gehen zusätzlich an [Sentry](https://sentry.io) (ohne SDK, über die Envelope-API). Ohne DSN bleibt es beim eigenen Fehlerprotokoll in der Datenbank (30 Tage). |
 | `WORKER_MODE` | `fork` (Standard): Webserver startet den Hintergrunddienst selbst. `off`: Dienst läuft separat. |
 | `JOB_MODE` | `auto` (Standard): Warteschlange, sobald ein Dienst läuft. `inline`: immer direkt in der Anfrage rechnen. |
-| `WORKER_CONCURRENCY` | Parallele Aufträge pro Dienst (Standard 2). |
+| `WORKER_CONCURRENCY` | Parallele Aufträge pro Dienst (Standard 2). Faustregel: Anzahl vCPUs des Dienstes, höchstens 4. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Optional. Ohne Angabe erzeugt der Server die Push-Schlüssel beim ersten Bedarf selbst und speichert sie in der Datenbank (`app_secrets`). |
 | `LEGAL_NAME`, `LEGAL_ADDRESS`, `LEGAL_EMAIL` | Angaben für Impressum und Datenschutzerklärung. Mehrzeilige Anschrift mit `|` trennen, z. B. `Musterstrasse 1|8000 Zürich|Schweiz`. |
 
@@ -132,9 +132,17 @@ Beim ersten Start legt der Server das Schema selbst an und startet den Hintergru
 
 Die Datenbank liegt auf dem Volume `postgres-volume`. Unter Postgres → Volume → *Backups* lassen sich tägliche (6 Tage aufbewahrt) und wöchentliche Sicherungen (1 Monat) einschalten und Stände wiederherstellen. Die Zeitpläne müssen im Railway-Dashboard aktiviert werden.
 
-### Browser-Test
+### Browser-Tests
 
-`pnpm e2e [Screenshot-Ordner]` (Server muss laufen, `E2E_URL` Standard `http://localhost:3000`) registriert einen Account, startet eine Karriere, öffnet alle Hauptseiten, simuliert ein Spiel, prüft „Passwort vergessen“, die Rechtstexte und die Smartphone-Ansicht. In der CI läuft er nach dem Build gegen die Testdatenbank.
+Alle drei brauchen einen laufenden Server (`E2E_URL`, Standard `http://localhost:3000`) und laufen in der CI nach dem Build gegen die Testdatenbank:
+
+- `pnpm e2e [Screenshot-Ordner]` (Smoke): registriert einen Account, startet eine Karriere, öffnet alle Hauptseiten, simuliert ein Spiel, prüft „Passwort vergessen“, die Rechtstexte und die Smartphone-Ansicht.
+- `pnpm e2e:flows [Screenshot-Ordner]` (Abläufe): ablösefreier Transfer über die Oberfläche, Livespiel mit Halbzeitansprache bis zum Abpfiff, Einstellungen (Name, helles Design), Online-Liga mit CPU-Team und einem Spieltag, Admin-Bereich. Braucht `DATABASE_URL` (um die Test-E-Mail zu bestätigen) und einen Server mit `ADMIN_EMAILS=admin-e2e@example.com`.
+- `pnpm e2e:a11y [--report]` (Barrierefreiheit): prüft 18 Seiten im dunklen und 7 im hellen Design mit axe-core gegen WCAG 2.1 A/AA. Schwere oder kritische Verstösse lassen die CI scheitern; `--report` listet auch die leichteren.
+
+### Lasttest
+
+`LOAD_URL=http://localhost:3000 pnpm loadtest [Spieler=20] [Aktionen=30]` simuliert gleichzeitige Spieler (Registrierung, Karriere, Tage weiterspielen, Sofortergebnisse) und gibt p50/p95/max je Anfrageart aus. Gemessen lokal auf 4 Kernen mit `WORKER_CONCURRENCY=2`: 25 gleichzeitige Spieler ohne Fehler, Karriere anlegen p50 25 s, Spieltag p50 5,6 s, „Weiter“ ohne Spiel unter 100 ms. Mit `WORKER_CONCURRENCY=4` sinkt Karriere anlegen auf p50 14 s. Der Engpass ist die CPU der Hintergrundrechnung (Weltgenerierung, Spieltage); mehr Kerne oder ein zweiter Dienst mit `pnpm --filter @fl/game worker` skalieren das direkt. Gegen Railway nur mit wenigen Spielern testen (der Proxy setzt die IP, das Registrierungslimit greift).
 
 ### Langzeit-Balancing
 

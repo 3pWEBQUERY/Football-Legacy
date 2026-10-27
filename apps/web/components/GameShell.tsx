@@ -235,7 +235,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
               <Link href={`${base}/career`} className="mn-cell" title={`${c.xp - c.xpLevelStart} / ${c.xpNextLevel - c.xpLevelStart} XP`}>
                 <span>
                   <span className="k">Level {c.level} · {c.title}</span>
-                  <span className="mn-xp" style={{ display: "block", marginTop: 4 }}><Progress value={c.xp - c.xpLevelStart} max={c.xpNextLevel - c.xpLevelStart} tone={undefined} /></span>
+                  <span className="mn-xp" style={{ display: "block", marginTop: 4 }}><Progress value={c.xp - c.xpLevelStart} max={c.xpNextLevel - c.xpLevelStart} label="Erfahrung bis zum nächsten Level" /></span>
                 </span>
               </Link>
             )}
