@@ -95,10 +95,12 @@ route("GET", "auth/me", async (c) => {
   return { account: { ...publicAccount(c.account), login_streak: streak.streak } };
 }, false);
 
+route("GET", "account/ai", async (c) => game.aiStatus(acc(c)));
 route("POST", "account/settings", async (c) => {
   const allowed: Record<string, unknown> = {};
   if (c.body.theme === "dark" || c.body.theme === "light" || c.body.theme === "system") allowed.theme = c.body.theme;
   if (typeof c.body.reducedMotion === "boolean") allowed.reducedMotion = c.body.reducedMotion;
+  if (typeof c.body.ai === "boolean") allowed.ai = c.body.ai;
   await game.updateSettings(acc(c), allowed);
   return { ok: true };
 });
@@ -321,7 +323,10 @@ route("GET", career("match/preview"), async (c) => {
   return { preview: await game.matchPreview(game.pool(), cr), career: game.careerSummary(cr) };
 });
 route("GET", career("match/press"), async (c) => game.pressConference(c.params.id, acc(c)));
-route("POST", career("match/press"), async (c) => game.answerPress(c.params.id, acc(c), (c.body.answers ?? {}) as Record<string, number>));
+route("POST", career("match/press"), async (c) => game.answerPress(c.params.id, acc(c), (c.body.answers ?? {}) as Record<string, number | string>));
+route("GET", career("assistant"), async (c) => game.assistantView(c.params.id, acc(c)));
+route("POST", career("assistant"), async (c) => game.askAssistant(c.params.id, acc(c), str(c.body.message)));
+route("POST", career("assistant/clear"), async (c) => game.clearAssistant(c.params.id, acc(c)));
 route("GET", career("match/teamtalk"), async (c) => game.teamTalkState(c.params.id, acc(c)));
 route("POST", career("match/teamtalk"), async (c) => game.giveTeamTalk(c.params.id, acc(c), String(c.body.tone) as never));
 route("POST", career("match/start"), async (c) => game.bg.startMatch(c.params.id, acc(c)));

@@ -9,6 +9,7 @@ import { windowFor } from "../window";
 import { answerClubOffer } from "./answer";
 import { ACTIVE, log, requireClub, saveNeg, type NegRow } from "./core";
 import { saleDaily } from "./sales";
+import { rivalDaily } from "./rival";
 
 // ------------------------------------------------------------ Zeitablauf
 
@@ -28,6 +29,7 @@ export async function negotiationsDaily(db: Db, career: CareerRow) {
       continue;
     }
     if (n.kind === "sell") { await saleDaily(db, career, n); continue; }
+    await rivalDaily(db, career, n);
     if (n.stage !== "club" || n.status !== "pending") continue;
     if ((n.respond_season ?? 0) > career.season || ((n.respond_season ?? 0) === career.season && (n.respond_day ?? 0) > career.day)) continue;
     await answerClubOffer(db, career, n);

@@ -9,7 +9,8 @@ import { one, query } from "./db";
 import { withCareer } from "./career";
 import { GameError } from "./errors";
 import { type CareerRow, type FixtureRow, getClub, getPlayers, saveCareer } from "./repo";
-import { aiTactic, teamSetup } from "./setup";
+import { aiContext, aiTactic, teamSetup } from "./setup";
+import { philosophyLabel } from "./philosophy";
 import { userFamiliarity } from "./tactics";
 import { processWeek, type WeekSummary } from "./week";
 import { advanceDay, nextSlotDay, type DayResult } from "./day";
@@ -95,8 +96,8 @@ async function buildMatch(db: pg.PoolClient, career: CareerRow, f: FixtureRow): 
   return createMatch(derbySetup({
     seed: seedFor(career.seed, "match", f.id),
     conditions: fixtureConditions(career, f, home.country_code),
-    home: teamSetup(home, hs, userIsHome ? userTactic : aiTactic(home, hs), userIsHome ? autoSubs : true, userIsHome ? fam : undefined),
-    away: teamSetup(away, as, userIsHome ? aiTactic(away, as) : userTactic, userIsHome ? true : autoSubs, userIsHome ? undefined : fam),
+    home: teamSetup(home, hs, userIsHome ? userTactic : aiTactic(home, hs, aiContext(home, away, f.cup_id != null, career.calendar?.slots[f.week - 1]?.day)), userIsHome ? autoSubs : true, userIsHome ? fam : undefined, !userIsHome),
+    away: teamSetup(away, as, userIsHome ? aiTactic(away, as, aiContext(away, home, f.cup_id != null, career.calendar?.slots[f.week - 1]?.day)) : userTactic, userIsHome ? true : autoSubs, userIsHome ? undefined : fam, userIsHome),
   }, await rivalryBetween(db, career, home.id, away.id), f.cup_id != null));
 }
 
@@ -263,6 +264,7 @@ export async function matchPreview(db: pg.Pool, career: CareerRow) {
     analysis = {
       formation: opp.tactic?.formation ?? "4-4-2",
       style: opp.tactic?.style ?? null,
+      idea: philosophyLabel(opp.tactic?.style),
       keyPlayers: top.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, age: p.age, nationality: p.nationality, position: p.position, rating: p.rating })),
       form: recent.map((r) => {
         const gf = r.home_id === oppId ? r.home_goals! : r.away_goals!;

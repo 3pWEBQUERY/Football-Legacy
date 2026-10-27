@@ -282,7 +282,7 @@ export default function MatchDay() {
               <ConditionsBar c={preview.conditions} />
               {preview.analysis && (
                 <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)" }} className="small">
-                  <div><span className="faint up">Gegneranalyse</span> · Formation <b>{preview.analysis.formation}</b> · Schlüsselspieler</div>
+                  <div><span className="faint up">Gegneranalyse</span> · Formation <b>{preview.analysis.formation}</b>{preview.analysis.idea ? <> · Spielidee <b>{preview.analysis.idea}</b></> : null} · Schlüsselspieler</div>
                   <div className="key-players">
                     {preview.analysis.keyPlayers.map((p: any) => (
                       <div key={p.id} className="key-player">

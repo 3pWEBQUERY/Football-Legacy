@@ -8,7 +8,8 @@ export function PressConference({ careerId }: { careerId: string }) {
   const toast = useToast();
   const showNotes = useNotes();
   const [data, setData] = useState<any | null>(null);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [answers, setAnswers] = useState<Record<string, number | string>>({});
+  const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<any | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -22,14 +23,18 @@ export function PressConference({ careerId }: { careerId: string }) {
   }
 
   async function submit() {
+    setBusy(true);
     try {
       const r = await api<any>(`careers/${careerId}/match/press`, { body: { answers } });
       setResult(r);
       showNotes(r.notes?.filter((n: any) => n.kind !== "xp"));
     } catch (e) {
       toast((e as Error).message, "error");
+    } finally {
+      setBusy(false);
     }
   }
+  const answered = data.questions.every((q: any) => typeof answers[q.id] === "number" || (typeof answers[q.id] === "string" && (answers[q.id] as string).trim().length >= 3));
 
   return (
     <section className="card card-flush">
@@ -50,16 +55,36 @@ export function PressConference({ careerId }: { careerId: string }) {
                   <span className="badge">{a.tone}</span>
                 </label>
               ))}
+              {data.ai && (
+                <div className="card-soft stack-sm" style={{ borderColor: typeof answers[q.id] === "string" ? "var(--accent)" : undefined }}>
+                  <label className="row" style={{ cursor: "pointer", gap: 10 }}>
+                    <input type="radio" name={q.id} checked={typeof answers[q.id] === "string"} onChange={() => setAnswers({ ...answers, [q.id]: "" })} />
+                    <span style={{ flex: 1 }}>Eigene Antwort formulieren</span>
+                    <span className="badge badge-blue">KI</span>
+                  </label>
+                  {typeof answers[q.id] === "string" && (
+                    <textarea className="input" rows={2} maxLength={data.maxFree} placeholder="Was sagst du den Journalisten?" value={answers[q.id] as string}
+                      onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })} aria-label={`Eigene Antwort: ${q.text}`} />
+                  )}
+                </div>
+              )}
             </div>
           ))}
           <div className="row" style={{ justifyContent: "flex-end" }}>
             <button className="btn btn-ghost" onClick={() => setOpen(false)}>Später</button>
-            <button className="btn btn-primary" disabled={Object.keys(answers).length < data.questions.length} onClick={submit}>Antworten geben</button>
+            <button className="btn btn-primary" disabled={!answered || busy} onClick={submit}>{busy ? "Journalisten notieren …" : "Antworten geben"}</button>
           </div>
         </div>
       )}
       {result && (
         <div className="stack-sm" style={{ padding: 14 }}>
+          {result.free?.map((x: any) => (
+            <div key={x.question} className="card-soft stack-sm">
+              <span className="faint small">{x.question}</span>
+              <span>„{x.text}“ <span className="badge">{x.tone}</span></span>
+              <span className="dim small">{x.reaction}</span>
+            </div>
+          ))}
           <span className="faint small up">Wirkung</span>
           <div className="row-wrap">
             {result.effects.length ? result.effects.map((e: string) => <span key={e} className={`badge ${e.includes("-") ? "badge-danger" : "badge-accent"}`}>{e}</span>) : <span className="dim small">Keine spürbare Wirkung.</span>}

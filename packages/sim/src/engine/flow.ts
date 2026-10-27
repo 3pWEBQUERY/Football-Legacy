@@ -174,6 +174,29 @@ function aiSubstitutions(state: MatchState, side: Side) {
   }
 }
 
+/**
+ * KI-Trainer: bei Rückstand ab der 60. Minute mehr Risiko, ab der 80. alles
+ * nach vorne; knappe Führungen ab der 75. Minute absichern.
+ */
+const MENTALITY_TICKS = new Set([360, 420, 450, 480, 510]);
+export function aiMentalityTarget(base: number, diff: number, minute: number): number {
+  let m = base;
+  if (diff < 0 && minute >= 60) m = base + 1 + (minute >= 80 ? 1 : 0);
+  else if (diff === 1 && minute >= 75) m = base - 1 - (minute >= 85 ? 1 : 0);
+  return Math.max(-3, Math.min(3, m));
+}
+
+function aiMentality(state: MatchState, side: Side) {
+  const team = state.teams[side];
+  if (!team.aiCoach || !MENTALITY_TICKS.has(state.tick)) return;
+  const diff = team.goals - state.teams[side === 0 ? 1 : 0].goals;
+  const target = aiMentalityTarget(team.aiCoach.base, diff, minuteOf(state.tick));
+  if (target === (team.mentality ?? 0)) return;
+  const more = target > (team.mentality ?? 0);
+  applyChange(state, side, { mentality: target });
+  pushEvent(state, "tactic", side, more ? `${team.name} riskiert jetzt mehr und rückt auf.` : `${team.name} zieht sich zurück und verteidigt das Ergebnis.`, {});
+}
+
 // ---------------------------------------------------------------- Ablauf
 
 /** Aktuelle Positionen als einzelner Frame (z. B. beim Fortsetzen nach Neuladen). */
@@ -217,6 +240,8 @@ export function simulate(state: MatchState, untilTick: number, opts: { frames?: 
     updateCondition(state, rng);
     aiSubstitutions(state, 0);
     aiSubstitutions(state, 1);
+    aiMentality(state, 0);
+    aiMentality(state, 1);
     state.tick++;
     if (opts.frames) recordFrame(state, frames);
     if (state.tick === HALF_TICK) {

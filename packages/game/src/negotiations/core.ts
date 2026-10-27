@@ -15,6 +15,8 @@ export interface NegRow {
   stage: "club" | "contract" | "done" | "failed" | "withdrawn" | "expired"; status: string;
   offer: (ClubOffer & { attempts?: number }) | null; counter: ClubOffer | null; demand: ContractTerms | null; terms: ContractTerms | null;
   patience: number; respond_season: number | null; respond_day: number | null; season: number; day: number; message: string | null; log: LogEntry[];
+  /** Konkurrenzangebot eines anderen Vereins: Entscheidung bis zum Tag `until` */
+  rival?: { clubId: number; name: string; until: number; season: number; fee: number; wage: number } | null;
 }
 
 export const ROLE_ORDER: SquadStatus[] = ["star", "important", "regular", "rotation", "backup", "prospect"];
@@ -35,10 +37,10 @@ export async function getNeg(db: Db, career: CareerRow, id: number): Promise<Neg
 export async function saveNeg(db: Db, n: NegRow) {
   await query(db,
     `update negotiations set stage = $2, status = $3, offer = $4, counter = $5, demand = $6, terms = $7, patience = $8,
-       respond_season = $9, respond_day = $10, message = $11, log = $12, updated_at = now() where id = $1`,
+       respond_season = $9, respond_day = $10, message = $11, log = $12, rival = $13, updated_at = now() where id = $1`,
     [n.id, n.stage, n.status, n.offer ? JSON.stringify(n.offer) : null, n.counter ? JSON.stringify(n.counter) : null,
       n.demand ? JSON.stringify(n.demand) : null, n.terms ? JSON.stringify(n.terms) : null, n.patience,
-      n.respond_season, n.respond_day, n.message, JSON.stringify(n.log.slice(-30))]);
+      n.respond_season, n.respond_day, n.message, JSON.stringify(n.log.slice(-30)), n.rival ? JSON.stringify(n.rival) : null]);
 }
 
 /** Neue Verhandlung speichern; liefert die ID. */

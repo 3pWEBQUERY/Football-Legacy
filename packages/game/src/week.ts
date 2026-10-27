@@ -11,12 +11,13 @@ import type pg from "pg";
 import { windowFor } from "./window";
 import { query } from "./db";
 import { aiMarketRound } from "./market";
+import { aiSquadWeek } from "./ai-squads";
 import {
   type CareerRow, type FixtureRow, addFinance, addInbox, deletePlayers, insertPlayers, saveCareer, saveClubs,
   saveFixtureResults, savePlayers,
 } from "./repo";
 import { type RewardNote, announceNotes, ensureMissions, rewardMatch } from "./rewards";
-import { aiTactic, teamSetup } from "./setup";
+import { aiContext, aiTactic, teamSetup } from "./setup";
 import { trackPlayingTime, weeklyDynamics } from "./dynamics";
 import { councilWeek } from "./council";
 import { leagueRoundup, matchArticle, transferArticles } from "./media";
@@ -184,10 +185,11 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     } else if (detailed) {
       const hs = squadOf(w, home.id);
       const as = squadOf(w, away.id);
-      const ht = isUser && home.id === userClubId && home.tactic ? validateTactic(home.tactic, hs) : aiTactic(home, hs);
-      const at = isUser && away.id === userClubId && away.tactic ? validateTactic(away.tactic, as) : aiTactic(away, as);
+      const hAi = !(isUser && home.id === userClubId && home.tactic), aAi = !(isUser && away.id === userClubId && away.tactic);
+      const ht = hAi ? aiTactic(home, hs, aiContext(home, away, f.cup_id != null, career.calendar?.slots[week - 1]?.day)) : validateTactic(home.tactic!, hs);
+      const at = aAi ? aiTactic(away, as, aiContext(away, home, f.cup_id != null, career.calendar?.slots[week - 1]?.day)) : validateTactic(away.tactic!, as);
       const fam = isUser ? await userFamiliarity(db, career, w.clubs.get(userClubId!)!) : undefined;
-      const r = playMatch(derbySetup({ seed: seedFor(career.seed, "match", f.id), conditions: fixtureConditions(career, f, home.country_code), home: teamSetup(home, hs, ht, true, home.id === userClubId ? fam : undefined), away: teamSetup(away, as, at, true, away.id === userClubId ? fam : undefined) }, rivalryOf(rivals, home.id, away.id), f.cup_id != null));
+      const r = playMatch(derbySetup({ seed: seedFor(career.seed, "match", f.id), conditions: fixtureConditions(career, f, home.country_code), home: teamSetup(home, hs, ht, true, home.id === userClubId ? fam : undefined, hAi), away: teamSetup(away, as, at, true, away.id === userClubId ? fam : undefined, aAi) }, rivalryOf(rivals, home.id, away.id), f.cup_id != null));
       hg = r.homeGoals;
       ag = r.awayGoals;
       applyMatchToPlayers(w, rng, r, home.id, away.id, physio, injuredNow).forEach((id) => minutes.set(id, 90));
@@ -350,6 +352,8 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
     await transferArticles(db, career, marketNews.filter((n) => n.important).map((n) => ({ text: n.text })));
     if (userClubId) await aiSaleOffers(db, career, rng);
   }
+  // Kaderpflege der KI: Transferliste, Wechselwünsche, Leihen von Talenten
+  if (!midweek) news.push(...aiSquadWeek(w, rng, window.open).map((n) => n.text));
   // Vorverträge: KI-Vereine werben auslaufende Spieler ab (ab 1. Januar)
   if (userClubId && !midweek) news.push(...await aiPrecontracts(db, career, w));
   // Abgelaufene Angebote verfallen

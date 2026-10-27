@@ -32,6 +32,7 @@ export default function ClubPage() {
           <div className="stat"><span className="label">Stärke</span><span className="value"><Rating value={c.rating} /></span></div>
           <div className="stat"><span className="label">Ruf</span><span className="value">{c.reputation}</span></div>
           {data.tactic && <div className="stat"><span className="label">Formation</span><span className="value">{data.tactic.formation}</span></div>}
+          {data.coach && <div className="stat"><span className="label">Trainer</span><span className="value" style={{ fontSize: 16 }}>{data.coach.name}</span><span className="faint small">Spielidee: {data.coach.idea}</span></div>}
         </div>
       </div>
       <div className="card card-flush">

@@ -89,6 +89,8 @@ export interface EngineTeam {
   players: EnginePlayer[];
   subsUsed: number;
   autoSubs: boolean;
+  /** KI-Trainer: Grundmentalität vor dem Spiel (Anpassungen gehen davon aus) */
+  aiCoach?: { base: number } | null;
   goals: number;
   stats: EngineTeamStats;
   /** Einstellung der Mannschaft aus der Halbzeitansprache (−0,04 … +0,04, wirkt auf alle Aktionen) */
@@ -145,6 +147,8 @@ export interface TeamSetup {
   tactic: Tactic;
   players: Player[]; // Kader (mindestens Startelf + Bank)
   autoSubs?: boolean;
+  /** KI-Trainer passt die Mentalität dem Spielstand an (nicht für deine eigene Mannschaft) */
+  aiCoach?: boolean;
   /** Taktische Vertrautheit 0–100 (KI-Teams: 85) */
   familiarity?: number;
 }

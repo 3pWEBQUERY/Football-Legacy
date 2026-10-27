@@ -2,6 +2,7 @@
 import { VerifyStatus } from "@/components/VerifyEmail";
 import { Switch } from "@/components/Switch";
 import { AppSettings } from "@/components/Pwa";
+import { AiSettings } from "@/components/AiSettings";
 import { SoundSettings } from "@/components/SoundToggle";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -119,6 +120,9 @@ export default function SettingsPage() {
               <div><b>Automatische Wechsel</b><div className="faint small">Der Co-Trainer wechselt bei Verletzungen und Erschöpfung selbst</div></div>
               <Switch label="Automatische Wechsel" checked={s.autoSubs} onChange={(v) => saveCareer({ autoSubs: v })} />
             </div>
+          </Panel>
+          <Panel title="KI-Funktionen" icon="info">
+            <AiSettings />
           </Panel>
           <Panel title="Ton" icon="sound">
             <SoundSettings />

@@ -91,6 +91,7 @@ function buildTeam(setup: TeamSetup, opponentId: number, big: boolean): EngineTe
       : undefined,
     subsUsed: 0,
     autoSubs: setup.autoSubs ?? true,
+    aiCoach: setup.aiCoach ? { base: t.mentality ?? 0 } : null,
     goals: 0,
     stats: newTeamStats(),
   };

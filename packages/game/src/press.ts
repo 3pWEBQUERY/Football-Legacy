@@ -4,9 +4,11 @@
  */
 import type { Player } from "@fl/sim";
 import { Rng, seedFor } from "@fl/sim";
-import type pg from "pg";
-import { query } from "./db";
-import { withCareer } from "./career";
+import { type Db, pool, query } from "./db";
+import { readCareer, withCareer } from "./career";
+import { addArticle } from "./media";
+import { FREE_ANSWER_MAX, rateFreeAnswer } from "./ai/press";
+import { aiEnabled } from "./ai/claude";
 import { GameError } from "./errors";
 import { type CareerRow, type FixtureRow, getClub, getPlayers, saveCareer, savePlayers } from "./repo";
 import { type RewardNote, grantXp } from "./rewards";
@@ -137,7 +139,7 @@ function questions(ctx: Context): Question[] {
   return out.slice(0, 3);
 }
 
-async function context(db: pg.PoolClient, career: CareerRow): Promise<{ ctx: Context; squad: Player[] } | null> {
+async function context(db: Db, career: CareerRow): Promise<{ ctx: Context; squad: Player[] } | null> {
   if (!career.club_id) return null;
   const rows = await query<FixtureRow>(
     db, "select * from fixtures where career_id = $1 and season = $2 and week = $3 and not played and $4 in (home_id, away_id)",
@@ -181,11 +183,35 @@ export async function pressConference(careerId: string, accountId: string) {
       text: q.text,
       answers: rng.shuffle(q.answers.map((a, i) => ({ text: a.text, tone: a.tone, i }))),
     }));
-    return { available: true, done, questions: qs };
+    return { available: true, done, questions: qs, ai: await aiEnabled(accountId), maxFree: FREE_ANSWER_MAX };
   });
 }
 
-export async function answerPress(careerId: string, accountId: string, answers: Record<string, number>) {
+/**
+ * Antworten auswerten. Eine Antwort ist der Index einer festen Antwort oder
+ * ein freier Text (KI-Funktion): Claude ordnet ihn vorab einer Antwort zu.
+ */
+export async function answerPress(careerId: string, accountId: string, input: Record<string, number | string>) {
+  const answers: Record<string, number> = {};
+  const free: { question: string; text: string; tone: string; reaction: string; headline: string }[] = [];
+  let rude = 0;
+  const texts = Object.entries(input).filter(([, v]) => typeof v === "string" && v.trim());
+  if (texts.length) {
+    const career = await readCareer(careerId, accountId);
+    const c = await context(pool(), career);
+    if (!c) throw new GameError("Diese Woche gibt es keine Pressekonferenz.");
+    const qs = questions(c.ctx);
+    const situation = `Nächstes Spiel gegen ${c.ctx.oppName}${c.ctx.cup ? " (Pokal)" : ""}; letzte Ergebnisse: ${c.ctx.form.join(" ") || "noch keine"}.`;
+    for (const [id, text] of texts) {
+      const q = qs.find((x) => x.id === id);
+      if (!q) continue;
+      const r = await rateFreeAnswer(accountId, q, String(text), situation);
+      answers[id] = r.choice;
+      if (!r.respectful) rude++;
+      free.push({ question: q.text, text: String(text).slice(0, FREE_ANSWER_MAX), tone: r.tone, reaction: r.reaction, headline: r.headline });
+    }
+  }
+  for (const [id, v] of Object.entries(input)) if (typeof v === "number") answers[id] = v;
   return withCareer(careerId, accountId, async (db, career) => {
     const c = await context(db, career);
     if (!c) throw new GameError("Diese Woche gibt es keine Pressekonferenz.");
@@ -203,6 +229,8 @@ export async function answerPress(careerId: string, accountId: string, answers: 
       total.board += a.effect.board ?? 0;
       reactions.push(a.tone);
     }
+    // Unsportliche Aussagen kosten Vertrauen beim Vorstand
+    total.board -= rude * 4;
     const clamp = (v: number) => Math.max(5, Math.min(100, Math.round(v)));
     for (const p of c.squad) {
       let d = total.team;
@@ -221,6 +249,8 @@ export async function answerPress(careerId: string, accountId: string, answers: 
     if (total.star && c.ctx.star) parts.push(`${c.ctx.star.lastName} ${total.star > 0 ? "+" : ""}${total.star}`);
     if (total.young) parts.push(`Talente ${total.young > 0 ? "+" : ""}${total.young}`);
     if (total.board) parts.push(`Vorstand ${total.board > 0 ? "+" : ""}${total.board}`);
-    return { effects: parts, notes, reactions };
+    const headline = free.find((x) => x.headline)?.headline;
+    if (headline) await addArticle(db, career, { kind: "interview", title: headline, body: free.map((x) => `„${x.text}“ – ${x.reaction}`).join(" "), clubId: career.club_id, own: true, importance: 2, ai: true });
+    return { effects: parts, notes, reactions, free };
   });
 }

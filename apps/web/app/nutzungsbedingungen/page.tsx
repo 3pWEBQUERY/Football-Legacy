@@ -28,6 +28,7 @@ export default function TermsPage() {
         <li>Wir entwickeln das Spiel laufend weiter. Funktionen können sich ändern, hinzukommen oder wegfallen. Einen Anspruch auf eine bestimmte Funktion oder ständige Verfügbarkeit gibt es nicht.</li>
         <li>Wir bemühen uns, Spielstände bei Updates zu erhalten. In Ausnahmefällen (z. B. grundlegende Umstellungen oder schwere Fehler) kann ein Spielstand zurückgesetzt werden müssen.</li>
         <li>Spielwährung, Punkte, Karten und andere Belohnungen im Spiel haben keinen Geldwert und können nicht ausgezahlt oder übertragen werden.</li>
+        <li>Freiwillige KI-Funktionen (eigene Antworten in der Pressekonferenz, Spielberichte, Co-Trainer-Chat) erzeugen Texte automatisch mit Claude von Anthropic. Diese Texte können Fehler enthalten und sind keine Aussagen von uns. Die Verhaltensregeln gelten auch für das, was du dort eingibst; die Nutzung ist pro Tag begrenzt.</li>
       </ul>
 
       <h2>5. Verhaltensregeln</h2>

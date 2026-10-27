@@ -16,5 +16,5 @@ export { HALFTIME_TONES, SHOUTS, SHOUT_COOLDOWN, halftimeTalk, shout } from "./e
 export type { HalftimeTone, ShoutKind } from "./engine/touchline";
 export { createMatch } from "./engine/setup";
 export { leadership } from "./engine/util";
-export { applyChange, currentFrame, playMatch, result, simulate, substitute } from "./engine/flow";
+export { aiMentalityTarget, applyChange, currentFrame, playMatch, result, simulate, substitute } from "./engine/flow";
 export type { MatchResult, PlayerMatchLine, TacticChange } from "./engine/flow";

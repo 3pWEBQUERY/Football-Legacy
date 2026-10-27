@@ -129,4 +129,30 @@ create table if not exists council (
 );
 `,
   },
+  {
+    name: "025_rivals_ai.sql",
+    sql: `
+-- Konkurrenzangebote anderer Vereine in laufenden Verhandlungen
+alter table negotiations add column if not exists rival jsonb;
+-- Von Claude geschriebene Artikel kennzeichnen
+alter table media add column if not exists ai boolean not null default false;
+-- Co-Trainer-Chat (letzte Nachrichten je Karriere)
+create table if not exists ai_chats (
+  career_id uuid primary key references careers(id) on delete cascade,
+  messages jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+-- Nutzung der KI-Texte (Kosten, Fehler; 30 Tage)
+create table if not exists ai_log (
+  id bigserial primary key,
+  account_id uuid references accounts(id) on delete cascade,
+  feature text not null,
+  input_tokens int,
+  output_tokens int,
+  ok boolean not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists ai_log_created on ai_log(created_at);
+`,
+  },
 ];

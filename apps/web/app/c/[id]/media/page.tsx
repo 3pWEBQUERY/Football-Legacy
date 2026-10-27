@@ -35,7 +35,7 @@ export default function MediaPage() {
           <div className="stack">
             {lead && (
               <article className={`card news-lead ${lead.own ? "own" : ""}`}>
-                <div className="news-kicker">{lead.kindLabel} · {fmtDate(lead.date, { year: false })}{lead.own && <span className="badge badge-accent">Dein Verein</span>}</div>
+                <div className="news-kicker">{lead.kindLabel} · {fmtDate(lead.date, { year: false })}{lead.own && <span className="badge badge-accent">Dein Verein</span>}{lead.ai && <AiBadge />}</div>
                 <div className="news-lead-body">
                   {lead.player ? <PlayerFace player={lead.player} kit={lead.player.kit} size={96} /> : lead.club ? <Crest colors={lead.club.colors} name={lead.club.name} size={72} /> : null}
                   <div style={{ minWidth: 0 }}>
@@ -51,7 +51,7 @@ export default function MediaPage() {
                 <article key={a.id} className={`news-item ${a.own ? "own" : ""}`}>
                   {a.player ? <PlayerFace player={a.player} kit={a.player.kit} size={44} /> : a.club ? <Crest colors={a.club.colors} name={a.club.name} size={36} /> : <span style={{ width: 44 }} />}
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div className="news-kicker">{a.kindLabel} · {fmtDate(a.date, { year: false })}</div>
+                    <div className="news-kicker">{a.kindLabel} · {fmtDate(a.date, { year: false })}{a.ai && <AiBadge />}</div>
                     <div className="news-item-title">{a.title}</div>
                     {a.body !== a.title && <div className="dim small">{a.body}</div>}
                     <Links id={id} a={a} />
@@ -86,4 +86,8 @@ function Links({ id, a }: { id: string; a: any }) {
       {a.club && <Link href={`/c/${id}/club/${a.club.id}`}>{a.club.name}</Link>}
     </div>
   );
+}
+
+function AiBadge() {
+  return <span className="badge badge-blue" title="Von Claude geschrieben (KI)">KI-Text</span>;
 }

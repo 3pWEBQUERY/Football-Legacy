@@ -17,9 +17,11 @@ export async function exportAccountData(accountId: string) {
   const reports = await query(db, "select r.post_id, r.reason, r.created_at from online_reports r where r.reporter_id = $1", [accountId]);
   const pushDevices = await query(db,
     "select endpoint, user_agent, topics, created_at, last_used from push_subscriptions where account_id = $1 order by created_at", [accountId]);
+  const aiChats = await query(db, "select c.career_id, c.messages, c.updated_at from ai_chats c join careers k on k.id = c.career_id where k.account_id = $1", [accountId]);
+  const aiUsage = await query(db, "select feature, input_tokens, output_tokens, ok, created_at from ai_log where account_id = $1 order by created_at", [accountId]);
   return {
     exportedAt: new Date().toISOString(),
     note: "Spielstände (Vereine, Spieler, Spiele) sind Spieldaten und können im Spiel eingesehen werden. Das Passwort wird nur als Hash gespeichert und ist nicht enthalten.",
-    account, careers, seasonResults: results, activeSessions: sessions?.n ?? 0, pushDevices, blocked, reports,
+    account, careers, seasonResults: results, activeSessions: sessions?.n ?? 0, pushDevices, blocked, reports, aiChats, aiUsage,
   };
 }

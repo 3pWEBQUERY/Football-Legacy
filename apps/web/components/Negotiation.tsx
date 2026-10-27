@@ -155,6 +155,13 @@ export function NegotiationModal({ careerId, target, negotiationId, onClose, onC
           </div>
         )}
 
+        {n?.rival && !ended && (
+          <div className="neg-status bad">
+            <Icon name="transfer" size={16} />
+            <span><b>Konkurrenz:</b> {n.rival.name} bietet {money(n.rival.wage)} pro Woche. Entscheidung {n.rival.daysLeft === 0 ? "heute" : `in ${n.rival.daysLeft} ${n.rival.daysLeft === 1 ? "Tag" : "Tagen"}`}.</span>
+          </div>
+        )}
+
         <div className="neg-body">
           <div className="neg-main">
             {/* Gegenangebot des Vereins */}

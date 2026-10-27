@@ -3,6 +3,7 @@
  * Interviews. Artikel über den eigenen Verein sind markiert.
  */
 import { Rng, computeStandings, dateOf, formatMoney, seedFor, squadRanks, type Player } from "@fl/sim";
+import { rewriteMatchArticle } from "./ai/match";
 import type pg from "pg";
 import { pool, query, type Db } from "./db";
 import { readCareer } from "./career";
@@ -18,13 +19,16 @@ export interface Article {
   playerId?: number | null;
   own?: boolean;
   importance?: number;
+  /** Von Claude geschrieben (Kennzeichnung im Medienbereich) */
+  ai?: boolean;
 }
 
-export async function addArticle(db: Db, career: CareerRow, a: Article) {
-  await query(db,
-    `insert into media(career_id, season, day, kind, title, body, club_id, player_id, own, importance)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-    [career.id, career.season, career.day, a.kind, a.title, a.body, a.clubId ?? null, a.playerId ?? null, !!a.own, a.importance ?? 1]);
+export async function addArticle(db: Db, career: CareerRow, a: Article): Promise<number | null> {
+  const r = await query<{ id: number }>(db,
+    `insert into media(career_id, season, day, kind, title, body, club_id, player_id, own, importance, ai)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id`,
+    [career.id, career.season, career.day, a.kind, a.title, a.body, a.clubId ?? null, a.playerId ?? null, !!a.own, a.importance ?? 1, !!a.ai]);
+  return r[0]?.id ?? null;
 }
 
 const pick = <T>(rng: Rng, items: T[]) => items[rng.int(0, items.length - 1)];
@@ -69,7 +73,12 @@ export async function matchArticle(
   if (position) parts.push(`${own.name} steht in der Tabelle nun auf Platz ${position}.`);
   const mood = won ? "Die Fans feierten ihre Mannschaft nach dem Schlusspfiff." : diff === 0 ? "Auf den Rängen hielt sich die Begeisterung in Grenzen." : "Nach dem Spiel gab es Pfiffe von den Rängen.";
   parts.push(mood);
-  await addArticle(db, career, { kind: "match", title, body: parts.join(" "), clubId: own.id, own: true, importance: Math.abs(diff) >= 3 ? 3 : 2 });
+  const articleId = await addArticle(db, career, { kind: "match", title, body: parts.join(" "), clubId: own.id, own: true, importance: Math.abs(diff) >= 3 ? 3 : 2 });
+  // KI-Spielbericht: ersetzt den Vorlagentext im Hintergrund (nur bei eingeschalteter KI)
+  if (articleId) {
+    void rewriteMatchArticle(career.account_id, articleId, f.id, { competition, home: home.name, away: away.name, own: own.name, score: s, position })
+      .catch((e) => console.error("[ai] Spielbericht", (e as Error).message));
+  }
 
   // Kurzinterview mit dem besten eigenen Spieler
   if (myBest && myBest.rating >= 7.8) {
@@ -170,8 +179,8 @@ export async function mediaView(careerId: string, accountId: string, filter: str
   const where = ["career_id = $1"];
   if (filter === "own") where.push("own");
   else if (filter && filter in KIND_LABEL) where.push(`kind = '${filter}'`);
-  const rows = await query<{ id: number; season: number; day: number; kind: ArticleKind; title: string; body: string; club_id: number | null; player_id: number | null; own: boolean; importance: number }>(pool(),
-    `select id, season, day, kind, title, body, club_id, player_id, own, importance from media where ${where.join(" and ")} order by id desc limit 80`, [career.id]);
+  const rows = await query<{ id: number; season: number; day: number; kind: ArticleKind; title: string; body: string; club_id: number | null; player_id: number | null; own: boolean; importance: number; ai: boolean }>(pool(),
+    `select id, season, day, kind, title, body, club_id, player_id, own, importance, ai from media where ${where.join(" and ")} order by id desc limit 80`, [career.id]);
   const playerIds = [...new Set(rows.map((r) => r.player_id).filter((x): x is number => x !== null))];
   const players = playerIds.length
     ? await query<{ id: number; data: Player; club_id: number | null }>(pool(), "select id, data, club_id from players where career_id = $1 and id = any($2::int[])", [career.id, playerIds])
@@ -189,7 +198,7 @@ export async function mediaView(careerId: string, accountId: string, filter: str
       const club = r.club_id !== null ? clubs.get(r.club_id) : undefined;
       const pclub = p?.club_id != null ? clubs.get(p.club_id) : undefined;
       return {
-        id: r.id, kind: r.kind, kindLabel: KIND_LABEL[r.kind], title: r.title, body: r.body, own: r.own, importance: r.importance,
+        id: r.id, kind: r.kind, kindLabel: KIND_LABEL[r.kind], title: r.title, body: r.body, own: r.own, importance: r.importance, ai: r.ai,
         date: dateOf(r.season, r.day).toISOString().slice(0, 10),
         club: club ? { id: club.id, name: club.name, colors: club.colors } : null,
         player: p ? { id: p.id, name: `${p.data.firstName} ${p.data.lastName}`, age: p.data.age, nationality: p.data.nationality, position: p.data.position, kit: pclub?.colors ?? null } : null,

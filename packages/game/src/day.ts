@@ -232,7 +232,7 @@ async function playFriendly(db: pg.PoolClient, career: CareerRow, squad: Player[
   const ownTactic = own.tactic ? validateTactic(own.tactic, squad) : aiTactic(own, squad);
   const home = rng.chance(0.5);
   const ownSetup = teamSetup(own, squad, ownTactic, true);
-  const oppSetup = teamSetup(opp, oppSquad, aiTactic(opp, oppSquad), true);
+  const oppSetup = teamSetup(opp, oppSquad, aiTactic(opp, oppSquad, { opponentRating: own.rating }), true, undefined, true);
   const r = playMatch({ seed: seedFor(career.seed, "friendly", career.season, career.day), home: home ? ownSetup : oppSetup, away: home ? oppSetup : ownSetup });
   const side = home ? 0 : 1;
   const byId = new Map(squad.map((p) => [p.id, p]));

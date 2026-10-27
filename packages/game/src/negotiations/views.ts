@@ -37,6 +37,7 @@ async function negPayload(db: Db, career: CareerRow, n: NegRow, full = false) {
     patience: n.patience, message: n.message, day: n.day, season: n.season,
     waitingDays: waiting ? Math.max(0, (n.respond_day ?? career.day) - career.day) : 0,
     clause: n.kind === "sell" && n.log.some((l) => l.text.startsWith("Ausstiegsklausel")),
+    rival: n.rival && n.rival.season === career.season ? { name: n.rival.name, wage: n.rival.wage, daysLeft: Math.max(0, n.rival.until - career.day) } : null,
   };
   if (!full) return base;
   return {

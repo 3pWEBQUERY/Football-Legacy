@@ -1,5 +1,6 @@
 /** Stellenmarkt: täglicher und wöchentlicher Ablauf, Saisonende, Entlassung des Spielers. */
-import { Rng, seedFor } from "@fl/sim";
+import { Rng, STYLE_PRESETS, seedFor } from "@fl/sim";
+import { applyPhilosophy, philosophyFor } from "../philosophy";
 import type pg from "pg";
 import { query } from "../db";
 import { addArticle } from "../media";
@@ -23,13 +24,18 @@ export async function jobsDaily(db: pg.PoolClient, career: CareerRow): Promise<s
       // Liegt dir ein Angebot dieses Vereins vor, wartet er noch auf deine Antwort
       if (career.job_offers.some((o) => o.clubId === club.id)) continue;
       const name = fill(career, m, club);
+      // Der neue Trainer bringt seine Spielidee mit
+      const peers = (await liteClubs(db, career.id, "league_id = $2", [club.league_id])).sort((a, b) => b.rating - a.rating);
+      const ph = philosophyFor(career.seed, club.id, m.gen, peers.findIndex((c) => c.id === club.id) / Math.max(1, peers.length - 1));
+      if (await applyPhilosophy(db, career, club.id, ph)) Object.assign(m.coaches[club.id], ph);
+      const idea = `${STYLE_PRESETS[ph.preset]?.name ?? "Ausgewogen"} im ${ph.formation}`;
       for (const a of m.applications.filter((x) => x.clubId === club.id && x.status === "pending")) {
         a.status = "rejected";
         a.text = `Der Verein hat ${name} verpflichtet.`;
         await addInbox(db, career.id, career.season, career.week, "career", `Absage von ${club.name}`, `${club.name} hat sich für ${name} als neuen Trainer entschieden.`, { type: "jobs" });
       }
       if (club.reputation >= 55 || m.interest.includes(club.id)) {
-        await addArticle(db, career, { kind: "league", title: `${name} übernimmt ${club.name}`, body: `${club.name} hat einen neuen Trainer: ${name} unterschreibt und soll den Verein wieder in die Spur bringen.`, clubId: club.id, own: false, importance: 1 });
+        await addArticle(db, career, { kind: "league", title: `${name} übernimmt ${club.name}`, body: `${club.name} hat einen neuen Trainer: ${name} unterschreibt und soll den Verein wieder in die Spur bringen. Seine Spielidee: ${idea}.`, clubId: club.id, own: false, importance: 1 });
       }
     }
   }

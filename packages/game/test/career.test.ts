@@ -19,6 +19,8 @@ import "./suites/spieltiefe";
 import "./suites/hintergrund";
 import "./suites/sicherheit";
 import "./suites/paket-f";
+import "./suites/paket-g";
+import "./suites/paket-h";
 
 beforeAll(async () => {
   await pool().query("drop schema public cascade; create schema public;");

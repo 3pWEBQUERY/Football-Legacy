@@ -8,6 +8,8 @@ import { playerNegotiation, precontractBlocker } from "../negotiations";
 import { getClub, getLeague, getPlayer, getPlayers } from "../repo";
 import { MAX_TACTICS, familiarityOf, getTactics, presetName } from "../tactics";
 import { windowFor } from "../window";
+import { coachOf, getMarket } from "../jobs/core";
+import { philosophyLabel } from "../philosophy";
 import { ORDER, careerSummary, clubNames, clubSummary, knowledgeFor, loanedOut, playerView, positionOrder, scoutReport } from "./common";
 
 // ---------------------------------------------------------------- Team
@@ -153,5 +155,9 @@ export async function clubView(careerId: string, accountId: string, clubId: numb
       .sort((a, b) => positionOrder(a.position) - positionOrder(b.position) || b.rating - a.rating)
       .map((p) => playerView(p, k.of(p))),
     tactic: club.tactic ? { formation: club.tactic.formation } : null,
+    coach: club.id === career.club_id ? null : {
+      name: coachOf(await getMarket(pool(), career.id), club),
+      idea: philosophyLabel(club.tactic?.style), formation: club.tactic?.formation ?? null,
+    },
   };
 }

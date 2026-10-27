@@ -11,7 +11,7 @@ export interface Application {
   clubId: number; day: number; decideDay: number; status: "pending" | "rejected" | "offer" | "withdrawn"; text?: string; unsolicited: boolean;
 }
 export interface JobMarket {
-  coaches: Record<string, { name: string; since: number }>;
+  coaches: Record<string, { name: string; since: number; preset?: string; formation?: string }>;
   vacancies: Vacancy[];
   applications: Application[];
   interest: number[];

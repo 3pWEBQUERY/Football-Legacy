@@ -28,7 +28,7 @@ interface MemberRow {
   id: number; league_id: string; account_id: string | null; career_id: string | null; club_id: number | null; bot: boolean;
   manager: string; team: OnlineTeam; snapshot: Snapshot | null; ready: boolean;
 }
-interface Snapshot { clubId: number; players: Player[]; tactic: Tactic }
+interface Snapshot { clubId: number; players: Player[]; tactic: Tactic; ai?: boolean }
 interface FixtureRow { id: number; season: number; round: number; home_id: number; away_id: number; home_goals: number | null; away_goals: number | null; played: boolean; report: Report | null }
 interface Report { events: Pick<MatchEvent, "minute" | "type" | "text" | "side">[]; stats: unknown; players: { playerId: number; name: string; side: number; minutes: number; rating: number; goals: number; started: boolean }[]; motm: number | null }
 
@@ -73,7 +73,7 @@ async function memberTeam(db: Db, m: MemberRow): Promise<{ snapshot: Snapshot; t
       const tactic = own ? validateTactic(club.tactic!, players) : aiTactic(club, players);
       const xi = players.filter((p) => tactic.lineup.includes(p.id));
       return {
-        snapshot: { clubId: club.id, players, tactic },
+        snapshot: { clubId: club.id, players, tactic, ai: !own },
         team: { name: club.name, short: club.short_name, colors: club.colors, city: club.city, rating: Math.round(teamRating(xi.length >= 11 ? xi : players)) },
       };
     }
@@ -86,6 +86,7 @@ function shiftIds(s: Snapshot, offset: number): Snapshot {
   const f = (id: number | null) => (id === null ? null : id + offset);
   return {
     clubId: s.clubId,
+    ai: s.ai,
     players: s.players.map((p) => ({ ...p, id: p.id + offset })),
     tactic: {
       ...s.tactic,
@@ -97,7 +98,7 @@ function shiftIds(s: Snapshot, offset: number): Snapshot {
 }
 
 function setupOf(s: Snapshot, team: OnlineTeam, memberId: number): TeamSetup {
-  return { clubId: memberId, name: team.name, shortName: team.short, colors: team.colors, tactic: s.tactic, players: s.players, autoSubs: true };
+  return { clubId: memberId, name: team.name, shortName: team.short, colors: team.colors, tactic: s.tactic, players: s.players, autoSubs: true, aiCoach: !!s.ai };
 }
 
 // ------------------------------------------------------------ Spielplan
