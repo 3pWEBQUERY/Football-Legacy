@@ -146,7 +146,7 @@ export function Loading({ lines = 4 }: { lines?: number }) {
 }
 
 export function ErrorBox({ message }: { message: string }) {
-  return <div className="card" style={{ borderColor: "var(--danger)" }}><strong>Fehler:</strong> {message}</div>;
+  return <div className="card error-box" role="alert" style={{ borderColor: "var(--danger)" }}><strong>Fehler:</strong> {message}</div>;
 }
 
 export function Empty({ children }: { children: ReactNode }) {

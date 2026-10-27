@@ -37,3 +37,6 @@ export { exerciseLoanOption, loanIn, loanOut } from "./loans";
 export { POST_TONES, halftimeAddress, matchShout, postMatchState, postMatchTalk } from "./matchtalk";
 export { DIFFICULTY, type Difficulty } from "./difficulty";
 export { STEPS as ONBOARDING_STEPS, onboardingAction, onboardingView, type OnboardingAction } from "./onboarding";
+export { checkResetToken, requestPasswordReset, resetPassword } from "./account/password-reset";
+export { exportAccountData } from "./account/privacy";
+export { sendMail, setMailTransport, type MailMessage } from "./account/mail";

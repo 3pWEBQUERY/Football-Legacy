@@ -67,6 +67,16 @@ route("POST", "auth/logout", async (c) => {
   return { ok: true, clearCookie: true };
 }, false);
 
+const clientIp = (c: Ctx) => c.req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || c.req.headers.get("x-real-ip") || null;
+
+route("POST", "auth/forgot", async (c) => game.requestPasswordReset(str(c.body.email), { ip: clientIp(c), origin: c.req.nextUrl.origin }), false);
+route("GET", "auth/reset", async (c) => game.checkResetToken(c.query.get("token") ?? ""), false);
+route("POST", "auth/reset", async (c) => {
+  const r = await game.resetPassword(str(c.body.token), str(c.body.password));
+  return { ok: true, account: { id: r.account.id, email: r.account.email, displayName: r.account.display_name }, setCookie: r.token };
+}, false);
+route("GET", "auth/export", async (c) => game.exportAccountData(acc(c)));
+
 route("GET", "auth/me", async (c) => {
   if (!c.account) return { account: null };
   const streak = await game.touchLoginStreak(c.account.id);

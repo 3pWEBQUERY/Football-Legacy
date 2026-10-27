@@ -29,6 +29,8 @@ export interface ManagerProfile {
   postTalkDone?: number;
   /** Nachrichtenkategorien, bei denen "Weiter" anhält */
   stopOn?: Record<string, boolean>;
+  /** Konto im Minus seit (Saison, Tag); letzter Zwangsverkauf */
+  debt?: { season: number; day: number; lastSale?: { season: number; day: number } };
   /** Schwierigkeitsgrad der Karriere */
   difficulty?: "easy" | "normal" | "hard";
   /** Einstieg: Tour, Checkliste und Seitentipps */

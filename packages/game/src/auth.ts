@@ -30,7 +30,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return crypto.timingSafeEqual(expected, actual);
 }
 
-function normalizeEmail(email: string): string {
+export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
@@ -63,7 +63,7 @@ export async function login(email: string, password: string): Promise<{ account:
   return { account, token };
 }
 
-async function createSession(accountId: string): Promise<string> {
+export async function createSession(accountId: string): Promise<string> {
   const token = crypto.randomBytes(32).toString("base64url");
   await query(pool(), "insert into sessions(token, account_id, expires_at) values ($1, $2, now() + ($3 || ' days')::interval)", [
     hashToken(token), accountId, String(SESSION_DAYS),
@@ -72,7 +72,7 @@ async function createSession(accountId: string): Promise<string> {
 }
 
 /** Tokens werden nur gehasht gespeichert. */
-function hashToken(token: string): string {
+export function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 

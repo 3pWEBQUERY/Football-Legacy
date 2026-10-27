@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LegalLinks } from "@/components/Legal";
 
 const FEATURES = [
   { title: "155 Länder", text: "Fiktive Ligapyramiden nach echtem Vorbild – von der englischen vierten Liga bis zur Meisterliga der Schweiz. Über 3000 Vereine, regionale Spielernamen." },
@@ -53,6 +54,7 @@ export default async function Landing() {
       </section>
       <footer className="faint small" style={{ textAlign: "center", padding: "0 24px 32px" }}>
         Alle Vereine, Ligen und Spieler sind frei erfunden. Ähnlichkeiten mit realen Personen oder Vereinen sind zufällig.
+        <LegalLinks />
       </footer>
     </div>
   );

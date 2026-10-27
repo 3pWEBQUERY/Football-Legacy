@@ -6,6 +6,7 @@ import { useTheme } from "@/lib/client/theme";
 import { useGame } from "@/components/GameShell";
 import { ErrorBox, Loading, Modal, Panel, Seg, useToast } from "@/components/ui";
 import { useOnboarding } from "@/components/Onboarding";
+import { LegalLinks } from "@/components/Legal";
 
 function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
@@ -96,6 +97,13 @@ export default function SettingsPage() {
               <div className="field"><label htmlFor="pw2">Neues Passwort wiederholen</label><input id="pw2" className="input" type="password" autoComplete="new-password" value={pw.repeat} onChange={(e) => setPw({ ...pw, repeat: e.target.value })} /></div>
               <div><button className="btn btn-primary" disabled={busy || !pw.old || pw.next.length < 8}>Passwort ändern</button></div>
             </form>
+          </Panel>
+          <Panel title="Deine Daten" icon="shield">
+            <p className="dim small" style={{ marginTop: 0 }}>Lade alle zu deinem Account gespeicherten persönlichen Daten als Datei herunter. Wie wir Daten verarbeiten, steht in der Datenschutzerklärung.</p>
+            <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+              <a className="btn" href="/api/auth/export" download="football-legacy-daten.json">Daten herunterladen</a>
+              <LegalLinks />
+            </div>
           </Panel>
           <Panel title="Account löschen" icon="close">
             <p className="dim small" style={{ marginTop: 0 }}>Löscht deinen Account mit allen Karrieren und Spielständen endgültig. Das lässt sich nicht rückgängig machen.</p>

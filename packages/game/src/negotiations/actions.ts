@@ -11,6 +11,7 @@ import { windowFor } from "../window";
 import { answerClubOffer } from "./answer";
 import { completeRenewal } from "./renewal";
 import { ACTIVE, ROLE_ORDER, cleanOffer, describeOffer, describeTerms, getNeg, initialDemand, insertNeg, judgeTerms, log, newNeg, requireClub, responseDay, saveNeg, toContractStage, type ClubOffer, type ContractTerms, type NegRow } from "./core";
+import { transferBan } from "../club-safety";
 
 // ------------------------------------------------------------ Aktionen
 
@@ -27,6 +28,8 @@ export async function startNegotiation(careerId: string, accountId: string, inpu
     const buyer = (await getClub(db, career.id, clubId))!;
     const squad = await getPlayers(db, career.id, [clubId]);
     if (squad.length >= 32) throw new GameError("Dein Kader ist voll (max. 32 Spieler).");
+    const ban = transferBan(buyer);
+    if (ban) throw new GameError(ban);
     const o = cleanOffer(input.offer, p.clubId === null);
     if (o.fee * (o.upfrontPct / 100) > buyer.transfer_budget) throw new GameError(`Die Sofortzahlung übersteigt dein Transferbudget (${formatMoney(buyer.transfer_budget)}).`);
     const seller = p.clubId !== null ? await getClub(db, career.id, p.clubId) : null;
@@ -117,6 +120,8 @@ export async function offerContract(careerId: string, accountId: string, id: num
       throw new GameError(`Das Gehalt sprengt dein Gehaltsbudget (${formatMoney(bill)} + ${formatMoney(t.wage)} > ${formatMoney(buyer.wage_budget)} pro Woche). Schichte in der Transfer-Zentrale Budget um.`);
     }
     const upfront = (n.offer?.fee ?? 0) * ((n.offer?.upfrontPct ?? 100) / 100);
+    const ban = n.kind === "buy" ? transferBan(buyer) : null;
+    if (ban) throw new GameError(ban);
     if (upfront + t.signingBonus + t.agentFee > buyer.transfer_budget) throw new GameError(`Ablöse, Handgeld und Beraterhonorar übersteigen dein Transferbudget (${formatMoney(buyer.transfer_budget)}).`);
     if (n.kind === "buy" && n.from_club && !windowFor(career).open) throw new GameError("Das Transferfenster ist geschlossen.");
     log(n, career, "du", `Vertragsangebot: ${describeTerms(t)}`);

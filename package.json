@@ -16,11 +16,15 @@
     "start": "pnpm --filter @fl/web start",
     "migrate": "pnpm --filter @fl/game migrate",
     "sim:season": "pnpm --filter @fl/sim season",
-    "sim:calibrate": "pnpm --filter @fl/sim calibrate"
+    "sim:calibrate": "pnpm --filter @fl/sim calibrate",
+    "e2e": "node apps/web/e2e/smoke.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
     ]
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
   }
 }

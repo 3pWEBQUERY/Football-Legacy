@@ -31,3 +31,21 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm --filter @fl/web build
+      - name: Browser installieren
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser-Test (Smoke)
+        env:
+          DATABASE_URL: postgres://fl:fl@localhost:5432/football_legacy_test
+          PORT: "3000"
+        run: |
+          pnpm --filter @fl/web start > web.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health > /dev/null && break; sleep 2; done
+          pnpm e2e e2e-shots
+      - name: Browser-Test-Protokoll hochladen
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e
+          path: |
+            e2e-shots
+            web.log

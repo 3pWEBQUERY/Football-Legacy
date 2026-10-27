@@ -6,6 +6,7 @@ import { seasonLabel } from "@/lib/client/format";
 import { Crest, Empty, ErrorBox, Icon, Loading, useToast } from "@/components/ui";
 import { AccountTop } from "@/components/AccountTop";
 import { useConfirm } from "@/components/Dialog";
+import { LegalLinks } from "@/components/Legal";
 
 export default function CareersPage() {
   const { data, error, loading, reload } = useApi<{ careers: any[] }>("careers");
@@ -93,6 +94,7 @@ export default function CareersPage() {
           </section>
         )}
       </div>
+      <LegalLinks className="legal-links-page" />
     </div>
   );
 }

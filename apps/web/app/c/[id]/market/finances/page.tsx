@@ -5,6 +5,7 @@ import { MobileSubnav, useGame } from "@/components/GameShell";
 import { BarList, LineChart } from "@/components/Charts";
 import { ErrorBox, Loading, Stat } from "@/components/ui";
 import { PageTip } from "@/components/Onboarding";
+import { DebtBanner } from "@/components/DebtBanner";
 
 export default function Finances() {
   const { id } = useGame();
@@ -19,6 +20,7 @@ export default function Finances() {
   return (
     <>
       <MobileSubnav section="market" />
+      <DebtBanner />
       <PageTip id="finances" title="Finanzen">Gehälter sind der grösste Kostenblock. Einnahmen kommen aus Tickets, Sponsoren, TV-Geldern und Prämien – nach einem Aufstieg steigen TV- und Sponsorengelder spürbar.</PageTip>
       <div className="page-head">
         <div><h1>Finanzen</h1><p>Saisonbilanz bisher: <b style={{ color: totalIn + totalOut < 0 ? "var(--danger)" : "var(--accent)" }}>{money(totalIn + totalOut)}</b></p></div>

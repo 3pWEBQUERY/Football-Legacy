@@ -96,10 +96,27 @@ Kennzahlen der Engine (gleich starke Teams): ~2,7 Tore, ~23 Schüsse, ~2,7 Gelbe
 
 Live-Instanz: https://web-production-4d4918.up.railway.app (Railway-Projekt „Football Legacy“, Region europe-west4).
 
-Beim ersten Start legt der Server das Schema selbst an. Redis, ein separater Simulations-Worker und ein Mail-Dienst (z. B. Resend für Magic-Links) sind für spätere Ausbaustufen vorgesehen und für Version 1.0 nicht nötig.
+Beim ersten Start legt der Server das Schema selbst an. Ein separater Simulations-Worker mit Warteschlange ist für eine spätere Ausbaustufe vorgesehen.
+
+### Weitere Variablen
+
+| Variable | Zweck |
+|---|---|
+| `RESEND_API_KEY` | API-Schlüssel von [Resend](https://resend.com) für E-Mails (Passwort zurücksetzen). Ohne Schlüssel wird nichts verschickt, nur protokolliert. |
+| `MAIL_FROM` | Absender, z. B. `Football Legacy <noreply@deine-domain.ch>`. Die Domain muss bei Resend verifiziert sein; ohne eigene Domain kann `onboarding@resend.dev` nur an die E-Mail des Resend-Kontos senden. |
+| `APP_URL` | Öffentliche Adresse für Links in E-Mails. Optional – auf Railway wird `RAILWAY_PUBLIC_DOMAIN` verwendet. |
+| `LEGAL_NAME`, `LEGAL_ADDRESS`, `LEGAL_EMAIL` | Angaben für Impressum und Datenschutzerklärung. Mehrzeilige Anschrift mit `|` trennen, z. B. `Musterstrasse 1|8000 Zürich|Schweiz`. |
+
+### Backups
+
+Die Datenbank liegt auf dem Volume `postgres-volume`. Unter Postgres → Volume → *Backups* sind tägliche (6 Tage aufbewahrt) und wöchentliche Sicherungen (1 Monat) eingestellt; dort lässt sich auch ein Stand wiederherstellen.
+
+### Browser-Test
+
+`pnpm e2e [Screenshot-Ordner]` (Server muss laufen, `E2E_URL` Standard `http://localhost:3000`) registriert einen Account, startet eine Karriere, öffnet alle Hauptseiten, simuliert ein Spiel, prüft „Passwort vergessen“, die Rechtstexte und die Smartphone-Ansicht. In der CI läuft er nach dem Build gegen die Testdatenbank.
 
 ## Nächste Schritte
 
 - Offene Entscheidungen aus dem Konzept: Monetarisierung, Magic-Link statt Passwort, Logo/Design-System, Online-Umfang (nur Ranglisten oder gemeinsame Ligen).
 - Stufe 1.x: detailliertere Jugendakademie, Medien und Spielerinteraktionen, internationale Wettbewerbe.
-- Technik: Simulations-Worker mit Warteschlange (Redis), E-Mail-Versand für Passwort-Reset, Datenschutzerklärung vor dem Launch.
+- Technik: Simulations-Worker mit Warteschlange (Redis), Fehlerüberwachung.

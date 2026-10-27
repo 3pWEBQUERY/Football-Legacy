@@ -519,5 +519,20 @@ create table if not exists player_careers (
 create index if not exists player_careers_club on player_careers(career_id, club_id);
 `,
   },
+  {
+    name: "020_password_resets.sql",
+    sql: `
+create table if not exists password_resets (
+  id serial primary key,
+  account_id uuid not null references accounts(id) on delete cascade,
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  ip text,
+  created_at timestamptz not null default now()
+);
+create index if not exists password_resets_account on password_resets(account_id, created_at);
+create index if not exists password_resets_ip on password_resets(ip, created_at);
+`,
+  },
 ];
-

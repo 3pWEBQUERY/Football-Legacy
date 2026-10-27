@@ -24,6 +24,7 @@ import { completeAssignments } from "./scouting";
 import { internationalDuty, isAway } from "./international";
 import { checkProjects } from "./facilities";
 import { runYouthIntake, youthIntakeDay } from "./academy";
+import { debtWeek, ensureMinimumSquad } from "./club-safety";
 
 export interface DayTraining {
   session: string;
@@ -102,6 +103,8 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
 
   await negotiationsDaily(db, career);
   await transferDeadline(db, career);
+  events.push(...(await ensureMinimumSquad(db, career)));
+  if (day % 7 === 0) events.push(...(await debtWeek(db, career)));
   const squad = await getPlayers(db, career.id, [career.club_id]);
   const rng = new Rng(seedFor(career.seed, "day", career.season, day));
 

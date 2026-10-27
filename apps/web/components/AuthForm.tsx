@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/client/api";
+import { LegalLinks } from "./Legal";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
@@ -52,6 +53,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           <label htmlFor="pw">Passwort</label>
           <input id="pw" className="input" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
           {mode === "register" && <small className="faint">Mindestens 8 Zeichen.</small>}
+          {mode === "login" && <Link href="/forgot" className="small" style={{ color: "var(--accent)", alignSelf: "flex-end" }}>Passwort vergessen?</Link>}
         </div>
         {error && <div className="card-soft small neg-txt" style={{ borderColor: "var(--neg)" }} role="alert">{error}</div>}
         <button className="btn btn-primary btn-lg" disabled={busy}>{busy ? "Einen Moment …" : mode === "login" ? "Anmelden" : "Account erstellen"}</button>
@@ -59,7 +61,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       <p className="dim small" style={{ textAlign: "center" }}>
         {mode === "login" ? <>Noch kein Account? <Link href="/register" style={{ color: "var(--accent)" }}>Registrieren</Link></> : <>Schon registriert? <Link href="/login" style={{ color: "var(--accent)" }}>Anmelden</Link></>}
       </p>
-      {mode === "register" && <p className="faint small">Mit der Registrierung speicherst du deine Spielstände in der Cloud. Wir verwenden deine E-Mail nur für den Login.</p>}
+      {mode === "register" && <p className="faint small">Mit der Registrierung speicherst du deine Spielstände in der Cloud. Wir verwenden deine E-Mail nur für den Login und zum Zurücksetzen des Passworts. Mehr dazu in der <Link href="/datenschutz" style={{ color: "var(--accent)" }}>Datenschutzerklärung</Link>.</p>}
+      <LegalLinks />
     </div>
     </div>
   );

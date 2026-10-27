@@ -14,6 +14,7 @@ import "./suites/verkauf";
 import "./suites/spieltag";
 import "./suites/geschichte";
 import "./suites/einstieg";
+import "./suites/startreife";
 
 beforeAll(async () => {
   await pool().query("drop schema public cascade; create schema public;");

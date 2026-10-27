@@ -10,6 +10,7 @@ import { GameError } from "./errors";
 import { addFinance, addInbox, getClub, getClubs, getPlayer, getPlayers, saveCareer, saveClubs, savePlayers, type CareerRow, type ClubRow } from "./repo";
 import { completeMission, type RewardNote } from "./rewards";
 import { windowFor } from "./window";
+import { transferBan } from "./club-safety";
 
 function requireClub(career: CareerRow): number {
   if (!career.club_id || career.status !== "active") throw new GameError("Du hast aktuell keinen Verein.");
@@ -48,6 +49,8 @@ export async function loanIn(careerId: string, accountId: string, playerId: numb
     if (own.length >= 32) throw new GameError("Dein Kader ist voll (max. 32 Spieler).");
     const rank = squadRanks(squad).get(p.id) ?? 30;
     const ask = askingPrice(p, { season: career.season, squadRank: rank, squadSize: squad.length, sellerReputation: parent.reputation, isUserClub: false });
+    const ban = transferBan(me);
+    if (ban) throw new GameError(ban);
     const opt = option && option.fee > 0 ? { fee: Math.round(option.fee), obligation: !!option.obligation } : null;
     if (opt) {
       const minFee = roundMoney(ask * (opt.obligation ? 0.85 : 1));
@@ -93,6 +96,8 @@ export async function exerciseLoanOption(careerId: string, accountId: string, pl
     const me = (await getClub(db, career.id, clubId))!;
     const parent = await getClub(db, career.id, p.loan.parentClubId);
     const fee = p.loan.optionFee;
+    const ban = transferBan(me);
+    if (ban) throw new GameError(ban);
     if (fee > me.transfer_budget) throw new GameError(`Die Kaufoption (${formatMoney(fee)}) übersteigt dein Transferbudget (${formatMoney(me.transfer_budget)}).`);
     me.balance -= fee;
     me.transfer_budget -= fee;
