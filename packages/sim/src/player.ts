@@ -105,8 +105,14 @@ export function ageValueFactor(age: number, rating: number, potential: number): 
   return Math.pow(0.82, age - 29);
 }
 
+/** Grenze, ab der die Wertkurve abflacht: Weltklasse kostet viel, aber nicht unbegrenzt. */
+const VALUE_KNEE = 78;
+
 export function marketValue(p: Pick<Player, "rating" | "age" | "potential">): number {
-  const base = 10_000 * Math.exp((p.rating - 40) / 5.2);
+  // Bis zur Grenze rund +21 % je Stärkepunkt, darüber +15 %: Stärke 85 ≈ 40 Mio., 90 ≈ 80 Mio., 94 ≈ 150 Mio.
+  const base = p.rating <= VALUE_KNEE
+    ? 10_000 * Math.exp((p.rating - 40) / 5.2)
+    : 10_000 * Math.exp((VALUE_KNEE - 40) / 5.2) * Math.exp((p.rating - VALUE_KNEE) / 7);
   const v = base * ageValueFactor(p.age, p.rating, p.potential);
   return roundMoney(v);
 }

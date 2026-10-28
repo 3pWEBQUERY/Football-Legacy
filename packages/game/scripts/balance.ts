@@ -38,6 +38,7 @@ const pct = (v: number) => `${Math.round(v * 100)} %`;
 async function world() {
   const [p] = await q(`select avg(p.rating)::float as rating, avg((p.data->>'age')::int)::float as age, avg((p.data->>'value')::bigint)::float as value,
       count(*) filter (where p.rating >= 80)::int as stars, count(*)::int as n,
+      max((p.data->>'value')::bigint)::float as top_value, count(*) filter (where (p.data->>'value')::bigint >= 100000000)::int as over100,
       count(*) filter (where (p.data->>'age')::int <= 21 and p.rating >= 65)::int as talents
     from players p join clubs c on c.career_id = p.career_id and c.id = p.club_id where p.career_id = $1 and c.players_generated`, [cid]);
   const clubs = await q<{ balance: number; rating: number; own: boolean }>(`select balance::float as balance, rating, id = (select club_id from careers where id = $1) as own
@@ -128,13 +129,13 @@ for (let s = 0; s < Number(seasons); s++) {
   console.log(`Eigener Verein: ${mio(ownBefore)} → ${mio(ownAfter)} (${ownAfter >= ownBefore ? "+" : ""}${mio(ownAfter - ownBefore)}) | Einnahmen ${mio(income)} Ausgaben ${mio(-costs)} | Vertrauen ${own.board.confidence}${active ? ` | verlängert ${renewed}` : ""}`);
   console.log(`  ${fin.map((f) => `${f.kind} ${mio(f.sum)}`).join(" · ")}`);
   console.log(`KI-Vereine: Median ${mio(median(beforeAi))} → ${mio(median(aiBal))} | im Minus ${ai.filter((c) => c.balance < 0).length}/${ai.length} | reichster ${mio(aiBal[aiBal.length - 1] ?? 0)}`);
-  console.log(`Spieler: Ø Stärke ${before.p.rating.toFixed(1)} → ${after.p.rating.toFixed(1)} | Stars ≥80 ${before.p.stars} → ${after.p.stars} | Talente ${before.p.talents} → ${after.p.talents} | Ø Alter ${after.p.age.toFixed(1)} | Ø Marktwert ${mio(after.p.value)} | Spieler ${before.p.n} → ${after.p.n}`);
+  console.log(`Spieler: Ø Stärke ${before.p.rating.toFixed(1)} → ${after.p.rating.toFixed(1)} | Stars ≥80 ${before.p.stars} → ${after.p.stars} | Talente ${before.p.talents} → ${after.p.talents} | Ø Alter ${after.p.age.toFixed(1)} | Ø Marktwert ${mio(after.p.value)}, höchster ${mio(after.p.top_value)}, über 100 Mio. ${after.p.over100} | Spieler ${before.p.n} → ${after.p.n}`);
   console.log(`Kader: Median ${after.sq.median} Spieler, grösster ${after.sq.max}, Vereine ${after.sq.clubs} | Vereinslose ${before.sq.free} → ${after.sq.free} | Ø beste Elf ${before.sq.best11.toFixed(1)} → ${after.sq.best11.toFixed(1)} (Startvereine ${before.fixed.best11.toFixed(1)} → ${after.fixed.best11.toFixed(1)})`);
   console.log(`Karten je Spiel: Gelb ${cards.yellow.toFixed(2)}, Rot ${cards.red.toFixed(2)} | Verletzungen im Spiel ${cards.injured.toFixed(2)} je Spiel (${cards.matches} Ligaspiele)`);
   console.log(`Verfügbarkeit: Verletzte Ø ${avg(avail.own).toFixed(1)} eigener Verein (max ${Math.max(0, ...avail.own)}), Ø ${avg(avail.league).toFixed(1)} je Ligaverein | Gesperrte Ø ${avg(avail.ownSusp).toFixed(2)} / ${avg(avail.leagueSusp).toFixed(2)}`);
   console.log(`Transfers mit Ablöse: ${tr[0].n} (eigene ${tr[0].own}), Ø ${mio(tr[0].avg)}, Rekord ${mio(tr[0].max)} | Tore/Spiel ${(cs[0]?.gpg ?? 0).toFixed(2)}`);
   rows.push({ seconds: Math.round((Date.now() - t0) / 1000), aiMinus: +(ai.filter((c) => c.balance < 0).length / Math.max(1, ai.length)).toFixed(2), aiMedianAbs: Math.round(median(aiBal)), age: +after.p.age.toFixed(1), talents: after.p.talents, clubs: after.sq.clubs, season, position: end.position, own: Math.round(ownAfter - ownBefore), aiMedian: Math.round(median(aiBal) - median(beforeAi)), rating: +after.p.rating.toFixed(1), stars: after.p.stars, starShare: +(after.p.stars / Math.max(1, after.p.n)).toFixed(4), best11: +after.fixed.best11.toFixed(1), squad: after.sq.median, free: after.sq.free, gpg: +(cs[0]?.gpg ?? 0).toFixed(2), confidence: own.board.confidence,
-    matches: cards.matches, weeks: (await game.readCareer(cid, acc)).season_weeks, yellow: +cards.yellow.toFixed(2), red: +cards.red.toFixed(3), injOwn: +avg(avail.own).toFixed(2), injLeague: +avg(avail.league).toFixed(2), maxInjOwn: Math.max(0, ...avail.own) });
+    topValue: Math.round(after.p.top_value), over100Share: +(after.p.over100 / Math.max(1, after.p.n)).toFixed(4), matches: cards.matches, weeks: (await game.readCareer(cid, acc)).season_weeks, yellow: +cards.yellow.toFixed(2), red: +cards.red.toFixed(3), injOwn: +avg(avail.own).toFixed(2), injLeague: +avg(avail.league).toFixed(2), maxInjOwn: Math.max(0, ...avail.own) });
   before = after;
 }
 console.log("\nZusammenfassung", JSON.stringify(rows));
@@ -160,6 +161,8 @@ if (check && rows.length) {
     [`Rote Karten je Spiel in jeder Saison höchstens 0,16 (${played.map((r) => r.red).join(", ")})`, played.every((r) => n(r.red) <= 0.16)],
     [`Verletzte je Verein im Schnitt höchstens 2,5, eigener Verein höchstens 3 (${played.map((r) => `${r.injLeague}/${r.injOwn}`).join(", ")})`, played.every((r) => n(r.injLeague) <= 2.5 && n(r.injOwn) <= 3)],
     [`Saisonlänge stabil: höchstens 4 Kalenderwochen mehr als zu Beginn (${rows.map((r) => r.weeks).join(", ")})`, rows.every((r) => n(r.weeks) <= n(first.weeks) + 4)],
+    [`Marktwerte: Rekord höchstens 220 Mio. (${rows.map((r) => mio(n(r.topValue))).join(", ")})`, rows.every((r) => n(r.topValue) <= 220_000_000)],
+    [`Marktwerte: höchstens 1 % der Spieler über 100 Mio. (${rows.map((r) => `${(n(r.over100Share) * 100).toFixed(1)} %`).join(", ")})`, rows.every((r) => n(r.over100Share) <= 0.01)],
     [`Rechenzeit der letzten Saison höchstens doppelt so lang wie die erste (${last.seconds} s statt ${first.seconds} s)`, n(last.seconds) <= n(first.seconds) * 2],
   ];
   console.log("\nPrüfung Langzeit-Stabilität");

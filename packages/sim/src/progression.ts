@@ -106,6 +106,8 @@ export function weeklyDevelopment(rng: Rng, p: Player, plan: TrainingPlan, ctx: 
     next += 1;
   }
   p.devProgress = Math.round(next * 1000) / 1000;
+  // Marktwert immer aktuell halten (auch ohne Stärkeänderung, z. B. nach Anpassungen der Wertformel)
+  p.value = marketValue(p);
   return { injured };
 }
 
