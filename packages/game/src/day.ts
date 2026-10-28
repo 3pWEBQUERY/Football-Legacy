@@ -4,6 +4,7 @@
  */
 import { monthlyAwards } from "./awards";
 import { dailyRumours } from "./media";
+import { worldRumours } from "./world-news";
 import { getNational, nationalDay } from "./national";
 import {
   DAY_TYPE_LABEL, Rng, applyTrainingRating, injure, dailyRecovery, sessionName, trainingRating, dateOf, dayType, formatMoney, playMatch, seedFor, squadRanks, validateTactic,
@@ -185,6 +186,7 @@ export async function advanceDay(db: pg.PoolClient, career: CareerRow): Promise<
   }
   const rumour = await dailyRumours(db, career, squad, win.open);
   if (rumour) events.push(rumour);
+  await worldRumours(db, career, win.open);
   // Nachrichten-Engine: Geburtstage, Belastung, Vorstand, Berater
   const nextMatch = [...fixtures.entries()].filter(([d, f]) => d >= day && !f.played).sort((a, b) => a[0] - b[0])[0];
   await newsDaily(db, career, squad, { type, nextMatchDay: nextMatch ? nextMatch[0] : null });

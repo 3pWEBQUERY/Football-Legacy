@@ -47,6 +47,15 @@ for (const [path, name] of [["", "Büro"], ["/team", "Kader"], ["/team/tactic", 
   await page.goto(`${B}/c/${id}${path}`);
   await scan(page, name);
 }
+// Weltnachrichten nach ein paar Tagen im Transferfenster (dunkel und hell)
+for (let i = 0; i < 12; i++) await api(`careers/${id}/advance`, {});
+async function worldNews(name) {
+  await page.goto(`${B}/c/${id}`);
+  await page.locator("button.wn-trigger").click();
+  await page.locator(".wn").waitFor();
+  await scan(page, name);
+}
+await worldNews("Weltnachrichten");
 await page.goto(`${B}/careers`);
 await scan(page, "Karrieren");
 // Helles Design: dieselben Hauptseiten noch einmal
@@ -55,6 +64,7 @@ for (const [path, name] of [["", "Büro"], ["/team", "Kader"], ["/team/tactic", 
   await page.goto(`${B}/c/${id}${path}`);
   await scan(page, `${name} (hell)`);
 }
+await worldNews("Weltnachrichten (hell)");
 await browser.close();
 
 let serious = 0;

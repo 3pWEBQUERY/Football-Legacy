@@ -71,6 +71,15 @@ try {
   for (const [p, n] of pages) await check(`/c/${id}${p}`, n);
   const squad = await api(`careers/${id}/squad`);
   await check(`/c/${id}/player/${squad.players[0].id}`, "Player");
+  // Neuigkeiten aus aller Welt (erzeugte Meldungen über Wechsel, Interesse, Leihen)
+  await page.goto(`${B}/c/${id}`);
+  await page.waitForFunction(() => !document.documentElement.classList.contains("i18n-pending"));
+  await page.locator("button.wn-trigger").click();
+  await page.locator(".wn").waitFor();
+  await page.waitForTimeout(900);
+  report.push({ name: "World news", de: await germanTexts() });
+  if (OUT) await page.screenshot({ path: `${OUT}/en-world-news.png` });
+  await page.keyboard.press("Escape");
   // Livespiel bis zur Halbzeit (Kommentar, Statistik)
   let matched = false;
   for (let i = 0; i < 80 && !matched; i++) matched = (await api(`careers/${id}/advance`, {})).kind === "match";

@@ -160,6 +160,14 @@ Meldungen für `/neuigkeiten` und die Startseite schreiben Administratoren im Ad
 - **Textformat:** Absätze durch Leerzeilen, `## Zwischenüberschrift`, `- Aufzählung`, `> Zitat`, `**fett**`, `[Linktext](https://…)`. HTML wird nicht ausgewertet; Links nur auf `http(s)` oder eigene Pfade.
 - **Bilder:** Der Browser verkleinert auf 1600 px und lädt WebP hoch (höchstens 2,5 MB). Gespeichert werden sie in der Datenbank (`site_images`), der Typ wird am Inhalt geprüft (WebP, JPEG, PNG – kein SVG). Bilder ersetzter oder gelöschter Meldungen werden sofort entfernt, nie gespeicherte Uploads nach einem Tag.
 
+Die erste Meldung „Football Legacy ist live!“ (Deutsch und Englisch, Titelbild `apps/web/public/news/launch.webp`) legt Migration 029 an; sie lässt sich wie jede andere Meldung im Admin-Bereich bearbeiten oder löschen.
+
+### Neuigkeiten aus aller Welt (im Spiel)
+
+Nach jedem „Weiter“ öffnet sich wie im Football Manager eine Übersicht der neuen Meldungen aus der Fussballwelt: Wechsel und Leihen der KI-Vereine (mit Ablöse), Interesse grösserer Vereine an Spielern, Wechselwünsche, Spielberichte und Liga-Meldungen – mit Spielergesicht, Wappen von abgebendem und aufnehmendem Verein, Position, Alter, Nation und Marktwert. Vor einem eigenen Spiel und über dem Saisonrückblick erscheint sie nicht; der Zeitungs-Knopf neben „Weiter“ öffnet sie jederzeit und zeigt die Zahl der ungelesenen Meldungen. Das automatische Öffnen lässt sich im Fenster abschalten (pro Gerät).
+
+Grundlage sind die Medienartikel (`media`, strukturierte Angaben in `media.data`); `careers.media_seen_id` merkt sich, was gelesen wurde (`GET /api/careers/:id/world-news`, `POST …/world-news/seen`).
+
 ### Screenshots der Startseite
 
 `DATABASE_URL=… node scripts/landing-shots.mjs` (Server muss laufen) spielt eine Karriere an und nimmt Livespiel, Büro, Taktik, Spielerprofil, Transfers, Vorstand, Tabelle, Online-Liga und Smartphone auf – je auf Deutsch und Englisch, als WebP in `apps/web/public/landing/`. Danach den Server neu starten, Next.js liest `public/` beim Start ein.

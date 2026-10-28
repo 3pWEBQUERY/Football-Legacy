@@ -8,6 +8,7 @@ import { Crest, Icon, Modal, Progress, useNotes, useToast } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
 import { LangSwitch } from "./LangSwitch";
 import { WeekSummaryView } from "./WeekSummary";
+import { WorldNewsView, worldNewsAuto, type WorldNewsData } from "./WorldNews";
 import { OnboardingProvider } from "./Onboarding";
 import { TermsGate } from "./TermsGate";
 
@@ -61,6 +62,7 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
   const [liveDate, setLiveDate] = useState<string | null>(null);
   const stopRef = useRef(false);
   const [pendingMessage, setPendingMessage] = useState<number | null>(null);
+  const [world, setWorld] = useState<WorldNewsData | null>(null);
   const base = `/c/${id}`;
   const section = activeSection(path, base);
   const fullscreen = path.endsWith("/match");
@@ -68,6 +70,20 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
   useEffect(() => {
     api(`careers/${id}/checkin`, { body: {} }).then((r: any) => showNotes(r.notes)).catch(() => {});
   }, [id, showNotes]);
+
+  /** Neuigkeiten aus aller Welt seit dem letzten Lesen öffnen (leer: nichts anzeigen). */
+  const openWorld = useCallback(async () => {
+    try {
+      const r = await api<WorldNewsData>(`careers/${id}/world-news`);
+      if (r.items.length) setWorld(r);
+    } catch (e) {
+      toast((e as Error).message, "error");
+    }
+  }, [id, toast]);
+  const closeWorld = useCallback(() => {
+    if (world) api(`careers/${id}/world-news/seen`, { body: { upTo: world.latestId } }).then(() => shell.reload()).catch(() => {});
+    setWorld(null);
+  }, [world, id, shell]);
 
   /**
    * „Weiter“ wie im Fussball Manager: die Tage laufen automatisch ab, bis
@@ -81,16 +97,20 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
     }
     stopRef.current = false;
     setBusy(true);
+    // Nach dem Weiterklicken die Weltnachrichten zeigen – nicht vor einem Spiel und nicht über dem Saisonrückblick
+    let showWorld = worldNewsAuto();
     try {
       for (let i = 0; i < MAX_DAYS; i++) {
         const res = await api<any>(`careers/${id}/advance`, { body: {} });
         if (res.kind === "match") {
+          showWorld = false;
           router.push(`${base}/match`);
           break;
         }
         if (res.kind === "week") {
           // Spielrunde ohne eigenes Spiel: nur am Saisonende anhalten
           if (res.summary.seasonEnd) {
+            showWorld = false;
             setSummary(res.summary);
             showNotes(res.summary.notes);
             break;
@@ -108,13 +128,15 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
         if (stopRef.current) break;
       }
     } catch (e) {
+      showWorld = false;
       toast((e as Error).message, "error");
     } finally {
       setBusy(false);
       setLiveDate(null);
       refreshAll();
     }
-  }, [busy, id, base, path, router, toast, showNotes, shell.data]);
+    if (showWorld) await openWorld();
+  }, [busy, id, base, path, router, toast, showNotes, shell.data, openWorld]);
 
   // Tastenkürzel wie im Original-Manager: Strg + Leertaste = Weiter
   useEffect(() => {
@@ -196,6 +218,11 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
               )}
             </div>
           </div>
+          <button className="wn-trigger" onClick={openWorld} disabled={!d || busy} title="Neuigkeiten aus aller Welt">
+            <Icon name="news" size={20} />
+            <span className="sr-only">Neuigkeiten aus aller Welt</span>
+            {d?.worldNews > 0 && <span className="wn-badge">{d.worldNews > 99 ? "99+" : d.worldNews}<span className="sr-only"> neu</span></span>}
+          </button>
           <button className={`continue ${busy ? "running" : matchday && hasMatch ? "matchday" : ""}`} onClick={advance} disabled={!d} title={busy ? "Verarbeitung anhalten" : "Weiter (Strg + Leertaste)"}>
             <span style={{ textAlign: "left" }}>
               {nextLabel}
@@ -269,6 +296,9 @@ export function GameShell({ id, children }: { id: string; children: ReactNode })
           ))}
         </nav>
       </div>
+      <Modal open={!!world} onClose={closeWorld} wide>
+        {world && <WorldNewsView data={world} base={base} onClose={closeWorld} />}
+      </Modal>
       <Modal open={!!summary} onClose={() => setSummary(null)} wide>
         {summary && <WeekSummaryView summary={summary} base={base} onClose={() => setSummary(null)} />}
       </Modal>

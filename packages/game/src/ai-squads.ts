@@ -6,7 +6,14 @@
 import { Rng, squadRanks } from "@fl/sim";
 import { movePlayer, squadOf, type WorldState } from "./world-state";
 
-export interface SquadNews { text: string; userLeague: boolean }
+export interface SquadNews {
+  text: string;
+  userLeague: boolean;
+  type: "unrest" | "loan";
+  playerId: number;
+  clubId: number;
+  toClubId?: number;
+}
 
 export function aiSquadWeek(w: WorldState, rng: Rng, windowOpen: boolean): SquadNews[] {
   const news: SquadNews[] = [];
@@ -27,7 +34,7 @@ export function aiSquadWeek(w: WorldState, rng: Rng, windowOpen: boolean): Squad
         p.transferRequest = true;
         p.listed = true;
         w.dirtyPlayers.add(p.id);
-        if (club.league_id === userLeague) news.push({ text: `${p.firstName} ${p.lastName} (${club.name}) will den Verein verlassen.`, userLeague: true });
+        if (club.league_id === userLeague) news.push({ text: `${p.firstName} ${p.lastName} (${club.name}) will den Verein verlassen.`, userLeague: true, type: "unrest", playerId: p.id, clubId: club.id });
       } else if (p.transferRequest && rank <= 12) {
         p.transferRequest = false;
         w.dirtyPlayers.add(p.id);
@@ -54,7 +61,7 @@ function loanOut(w: WorldState, rng: Rng, clubId: number, squad: ReturnType<type
     p.loan = { parentClubId: clubId, untilSeason: w.career.season, wageShare: 0.6 };
     p.listed = false;
     if (host.league_id === userLeague || club.league_id === userLeague) {
-      news.push({ text: `${club.name} verleiht Talent ${p.firstName} ${p.lastName} an ${host.name}.`, userLeague: true });
+      news.push({ text: `${club.name} verleiht Talent ${p.firstName} ${p.lastName} an ${host.name}.`, userLeague: true, type: "loan", playerId: p.id, clubId, toClubId: host.id });
     }
     return; // höchstens eine Leihe pro Verein und Woche
   }

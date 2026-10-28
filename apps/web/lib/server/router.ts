@@ -228,6 +228,8 @@ const career = (pattern: string) => `careers/:id/${pattern}`.replace(/\/$/, "");
 
 route("POST", career("checkin"), async (c) => game.checkin(c.params.id, acc(c)));
 route("GET", career("dashboard"), async (c) => game.dashboard(c.params.id, acc(c)));
+route("GET", career("world-news"), async (c) => game.worldNewsView(c.params.id, acc(c)));
+route("POST", career("world-news/seen"), async (c) => game.markWorldNewsSeen(c.params.id, acc(c), num(c.body.upTo)));
 route("POST", career("advance"), async (c) => game.bg.advance(c.params.id, acc(c)));
 route("GET", career("squad"), async (c) => game.squadView(c.params.id, acc(c)));
 route("GET", career("tactic"), async (c) => game.tacticView(c.params.id, acc(c)));

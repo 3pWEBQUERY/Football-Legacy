@@ -21,13 +21,24 @@ export interface Article {
   importance?: number;
   /** Von Claude geschrieben (Kennzeichnung im Medienbereich) */
   ai?: boolean;
+  /** Strukturierte Angaben für die Weltnachrichten (Wechsel, Interesse, Leihe …) */
+  data?: WorldNewsData;
+}
+
+export interface WorldNewsData {
+  type: "transfer" | "loan" | "interest" | "unrest";
+  /** abgebender bzw. aktueller Verein */
+  from?: number | null;
+  /** aufnehmender bzw. interessierter Verein */
+  to?: number | null;
+  fee?: number | null;
 }
 
 export async function addArticle(db: Db, career: CareerRow, a: Article): Promise<number | null> {
   const r = await query<{ id: number }>(db,
-    `insert into media(career_id, season, day, kind, title, body, club_id, player_id, own, importance, ai)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id`,
-    [career.id, career.season, career.day, a.kind, a.title, a.body, a.clubId ?? null, a.playerId ?? null, !!a.own, a.importance ?? 1, !!a.ai]);
+    `insert into media(career_id, season, day, kind, title, body, club_id, player_id, own, importance, ai, data)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
+    [career.id, career.season, career.day, a.kind, a.title, a.body, a.clubId ?? null, a.playerId ?? null, !!a.own, a.importance ?? 1, !!a.ai, a.data ? JSON.stringify(a.data) : null]);
   return r[0]?.id ?? null;
 }
 
@@ -124,10 +135,13 @@ export async function leagueRoundup(db: pg.PoolClient, career: CareerRow, league
   await addArticle(db, career, { kind: "league", title, body, clubId: leader.id, own: leader.id === career.club_id, importance: 1 });
 }
 
-/** Transfermeldungen der KI-Vereine. */
-export async function transferArticles(db: Db, career: CareerRow, items: { text: string; clubId?: number; playerId?: number }[]) {
-  for (const n of items.slice(0, 4)) {
-    await addArticle(db, career, { kind: "transfer", title: n.text, body: n.text, clubId: n.clubId ?? null, playerId: n.playerId ?? null });
+/** Transfermeldungen der KI-Vereine (mit Spieler und beiden Vereinen für die Weltnachrichten). */
+export async function transferArticles(db: Db, career: CareerRow, items: { text: string; body?: string; clubId?: number; playerId?: number; important?: boolean; data?: WorldNewsData }[]) {
+  for (const n of items.slice(0, 8)) {
+    await addArticle(db, career, {
+      kind: "transfer", title: n.text.replace(/\.$/, ""), body: n.body ?? n.text, clubId: n.clubId ?? null, playerId: n.playerId ?? null,
+      own: n.data?.from === career.club_id || n.data?.to === career.club_id, importance: n.important ? 3 : 2, data: n.data,
+    });
   }
 }
 
@@ -152,7 +166,7 @@ export async function dailyRumours(db: pg.PoolClient, career: CareerRow, squad: 
     await addArticle(db, career, {
       kind: "rumour", title,
       body: `${target.firstName} ${target.lastName} (${target.age}, ${target.position}) von ${own.name} soll bei ${suitor.name} auf dem Zettel stehen. Sein Marktwert wird auf ${formatMoney(target.value)} geschätzt. ${source}`,
-      clubId: own.id, playerId: target.id, own: true,
+      clubId: own.id, playerId: target.id, own: true, importance: 2, data: { type: "interest", from: own.id, to: suitor.id },
     });
     return title;
   }
@@ -167,7 +181,7 @@ export async function dailyRumours(db: pg.PoolClient, career: CareerRow, squad: 
   await addArticle(db, career, {
     kind: "rumour", title,
     body: `Wie aus dem Umfeld von ${r.name} zu hören ist, soll ${own.name} ${r.data.firstName} ${r.data.lastName} (${r.data.age}, ${r.data.position}) beobachten. Sein Marktwert liegt bei rund ${formatMoney(r.data.value)}. ${source}`,
-    clubId: own.id, playerId: r.data.id, own: true,
+    clubId: own.id, playerId: r.data.id, own: true, data: { type: "interest", from: r.club_id, to: own.id },
   });
   return title;
 }

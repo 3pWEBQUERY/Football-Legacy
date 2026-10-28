@@ -62,3 +62,4 @@ export { conditionsView, fixtureConditions } from "./conditions";
 export { adminMfaSetup, adminMfaStatus, adminMfaVerify, requireAdminMfa } from "./admin-mfa";
 export { NEWS_CATEGORIES, adminNewsDelete, adminNewsGet, adminNewsList, adminNewsSave, adminNewsUpload, cleanupNewsImages, newsImage, publicArticle, publicNews, slugify } from "./site-news";
 export type { NewsArticle, NewsCard, NewsCategory } from "./site-news";
+export { markWorldNewsSeen, worldNewsView } from "./world-news";

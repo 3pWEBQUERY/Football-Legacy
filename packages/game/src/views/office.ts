@@ -6,6 +6,7 @@ import { one, pool, query } from "../db";
 import { inboxRows } from "../inbox";
 import { matchPreview } from "../match";
 import { latestHeadlines } from "../media";
+import { worldNewsCount } from "../world-news";
 import { getClub, getLeague, saveCareer, type FixtureRow } from "../repo";
 import { announceNotes, ensureMissions, unlockAchievement, type RewardNote } from "../rewards";
 import { windowFor } from "../window";
@@ -75,6 +76,7 @@ export async function dashboard(careerId: string, accountId: string) {
     next,
     inbox,
     unread: unread?.n ?? 0,
+    worldNews: await worldNewsCount(pool(), career.id),
     table,
     recent,
     offers,

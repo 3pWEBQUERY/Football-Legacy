@@ -104,6 +104,19 @@ try {
   await page.locator(".chart-svg").first().waitFor();
   await shot("02-bericht");
 
+  step("Neuigkeiten aus aller Welt");
+  const world = await api(`careers/${id}/world-news`);
+  if (!world.total || !world.items.some((i) => i.player)) fail("Keine Weltnachrichten mit Spieler nach den ersten Wochen");
+  await page.goto(`${B}/c/${id}`);
+  await page.locator("button.wn-trigger .wn-badge").waitFor();
+  await page.locator("button.wn-trigger").click();
+  await page.locator(".wn .wn-story.lead").waitFor();
+  if (!(await page.locator(".wn .wn-visual .face").count())) fail("Weltnachrichten ohne Spielerbilder");
+  await shot("02b-weltnachrichten");
+  await page.locator(".wn-foot").getByRole("button", { name: "Weiter" }).click();
+  await page.locator(".wn").waitFor({ state: "detached" });
+  if ((await api(`careers/${id}/world-news`)).total !== 0) fail("Weltnachrichten nach dem Schliessen nicht als gelesen markiert");
+
   step("Charakter, Ton und App-Einstellungen");
   const squad = await api(`careers/${id}/squad`);
   await page.goto(`${B}/c/${id}/player/${squad.players[0].id}`);

@@ -21,6 +21,7 @@ import { aiContext, aiTactic, teamSetup } from "./setup";
 import { trackPlayingTime, weeklyDynamics } from "./dynamics";
 import { councilWeek } from "./council";
 import { leagueRoundup, matchArticle, transferArticles } from "./media";
+import { squadArticles } from "./world-news";
 import { nationalNewSeason, nationalTournament } from "./national";
 import { staffSeasonEnd } from "./staff";
 import { fanAdjusted, loadMgmtForWeek, weeklyFans } from "./clubmgmt";
@@ -349,11 +350,17 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
   if (window.open) {
     const marketNews = await aiMarketRound(db, w, rng);
     news.push(...marketNews.map((n) => n.text));
-    await transferArticles(db, career, marketNews.filter((n) => n.important).map((n) => ({ text: n.text })));
+    await transferArticles(db, career, marketNews.map((n) => ({
+      text: n.text, body: n.body, clubId: n.toClubId, playerId: n.playerId, important: n.important, data: { type: "transfer", from: n.fromClubId, to: n.toClubId, fee: n.fee },
+    })));
     if (userClubId) await aiSaleOffers(db, career, rng);
   }
   // Kaderpflege der KI: Transferliste, Wechselwünsche, Leihen von Talenten
-  if (!midweek) news.push(...aiSquadWeek(w, rng, window.open).map((n) => n.text));
+  if (!midweek) {
+    const squadNews = aiSquadWeek(w, rng, window.open);
+    news.push(...squadNews.map((n) => n.text));
+    await squadArticles(db, career, squadNews);
+  }
   // Vorverträge: KI-Vereine werben auslaufende Spieler ab (ab 1. Januar)
   if (userClubId && !midweek) news.push(...await aiPrecontracts(db, career, w));
   // Abgelaufene Angebote verfallen

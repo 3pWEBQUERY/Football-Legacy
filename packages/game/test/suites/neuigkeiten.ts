@@ -39,11 +39,23 @@ describe("Neuigkeiten", () => {
       expect(later.message).toBe("Meldung geplant");
       expect((await game.publicNews()).items.map((n) => n.slug)).not.toContain(later.news.slug);
       expect((await game.publicNews({ category: "update" })).items.map((n) => n.slug)).toContain(pub.news.slug);
-      expect((await game.publicNews({ category: "event" })).items).toHaveLength(0);
+      expect((await game.publicNews({ category: "event" })).items.map((n) => n.slug)).toEqual(["football-legacy-ist-live"]);
 
       await game.adminNewsDelete(ADMIN, later.news.id);
       await game.adminNewsDelete(ADMIN, pub.news.id);
       await expect(game.adminNewsGet(ADMIN, pub.news.id)).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
+  it("Startmeldung aus der Migration: hervorgehoben, zweisprachig, mit mitgeliefertem Titelbild", async () => {
+    const de = await game.publicArticle("football-legacy-ist-live");
+    expect(de?.article).toMatchObject({ title: "Football Legacy ist live!", featured: true, image: "/news/launch.webp", category: "event" });
+    expect(de?.article.body).toContain("## Was dich erwartet");
+    expect((await game.publicArticle("football-legacy-ist-live", "en"))?.article.title).toBe("Football Legacy is live!");
+    // Das mitgelieferte Bild bleibt beim Speichern erhalten, bis es entfernt wird
+    await asAdmin(async () => {
+      const row = (await game.adminNewsList(ADMIN)).news.find((n) => n.slug === "football-legacy-ist-live")!;
+      expect((await game.adminNewsSave(ADMIN, row.id, { ...row, published: true })).news.image).toBe("/news/launch.webp");
     });
   });
 

@@ -27,6 +27,8 @@ interface NewsRow {
   teaser_en: string | null;
   body_en: string | null;
   image_id: string | null;
+  /** Mitgeliefertes Titelbild aus public/ (z. B. die Startmeldung), solange kein eigenes hochgeladen ist */
+  cover: string | null;
   featured: boolean;
   published: boolean;
   published_at: string;
@@ -52,7 +54,7 @@ export interface NewsArticle extends NewsCard {
   readMinutes: number;
 }
 
-const imageUrl = (id: string | null) => (id ? `/api/news/images/${id}` : null);
+const imageUrl = (id: string | null, cover: string | null = null) => (id ? `/api/news/images/${id}` : cover);
 const due = "published and published_at <= now()";
 
 function card(r: NewsRow, lang: string): NewsCard {
@@ -62,7 +64,7 @@ function card(r: NewsRow, lang: string): NewsCard {
     category: r.category,
     title: en ? r.title_en! : r.title,
     teaser: en ? (r.teaser_en ?? "") : r.teaser,
-    image: imageUrl(r.image_id),
+    image: imageUrl(r.image_id, r.cover),
     featured: r.featured,
     publishedAt: new Date(r.published_at).toISOString(),
     author: r.author,
@@ -116,6 +118,8 @@ export interface NewsInput {
   published?: unknown;
   publishedAt?: unknown;
   author?: unknown;
+  /** Aktuell angezeigtes Bild (vom Editor zurückgeschickt) */
+  image?: unknown;
 }
 
 const text = (v: unknown, max: number, label: string) => {
@@ -142,7 +146,7 @@ function adminView(r: NewsRow) {
   return {
     id: Number(r.id), slug: r.slug, category: r.category, title: r.title, teaser: r.teaser, body: r.body,
     titleEn: r.title_en ?? "", teaserEn: r.teaser_en ?? "", bodyEn: r.body_en ?? "",
-    imageId: r.image_id ? Number(r.image_id) : null, image: imageUrl(r.image_id), featured: r.featured,
+    imageId: r.image_id ? Number(r.image_id) : null, image: imageUrl(r.image_id, r.cover), featured: r.featured,
     published: r.published, publishedAt: new Date(r.published_at).toISOString(), author: r.author, updatedAt: r.updated_at,
   };
 }
@@ -183,6 +187,8 @@ export async function adminNewsSave(email: string, id: number | null, input: New
   const wanted = typeof input.slug === "string" && input.slug.trim() ? slugify(input.slug) : existing?.slug ?? slugify(title);
   const slug = wanted === existing?.slug ? wanted : await uniqueSlug(wanted, existing?.id ?? null);
   const values = [slug, category, title, teaser, body, titleEn || null, teaserEn || null, bodyEn || null, imageId, input.featured === true, published, at.toISOString()];
+  // Mitgeliefertes Titelbild bleibt, bis ein eigenes hochgeladen oder das Bild entfernt wird
+  const cover = existing?.cover && imageId === null && input.image === existing.cover ? existing.cover : null;
 
   let row: NewsRow | null;
   if (!existing) {
@@ -190,7 +196,7 @@ export async function adminNewsSave(email: string, id: number | null, input: New
       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning *`, [...values, author]);
   } else {
     row = await one<NewsRow>(pool(), `update site_news set slug=$1, category=$2, title=$3, teaser=$4, body=$5, title_en=$6, teaser_en=$7, body_en=$8,
-      image_id=$9, featured=$10, published=$11, published_at=$12, author=$13, updated_at=now() where id = $14 returning *`, [...values, author, existing.id]);
+      image_id=$9, featured=$10, published=$11, published_at=$12, author=$13, cover=$15, updated_at=now() where id = $14 returning *`, [...values, author, existing.id, cover]);
     if (existing.image_id && existing.image_id !== row?.image_id) await dropImageIfUnused(existing.image_id);
   }
   await logAction(admin, existing ? "news_update" : "news_create", null, { id: Number(row!.id), title, published });

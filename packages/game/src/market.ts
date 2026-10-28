@@ -9,7 +9,12 @@ import { type WorldState, movePlayer, squadOf } from "./world-state";
 
 export interface MarketNews {
   text: string;
+  body: string;
   important: boolean;
+  playerId: number;
+  fromClubId: number | null;
+  toClubId: number;
+  fee: number;
 }
 
 function sellerContext(w: WorldState, p: Player) {
@@ -118,7 +123,10 @@ export async function aiMarketRound(db: Db, w: WorldState, rng: Rng): Promise<Ma
     if (inUserLeague || fee >= 15_000_000) {
       news.push({
         text: `${club.name} verpflichtet ${name} (${target.position}, ${target.rating}) von ${fromName}${fee ? ` für ${formatMoney(fee)}` : " ablösefrei"}.`,
+        body: `${name} (${target.age}) wechselt ${sellerClub ? `von ${sellerClub.name} ` : ""}zu ${club.name} und unterschreibt bis Sommer ${target.contract.untilSeason + 1}. ` +
+          (fee ? `Die Ablöse beträgt ${formatMoney(fee)}, sein neues Gehalt ${formatMoney(wage)} pro Woche.` : `Er kommt ablösefrei und verdient künftig ${formatMoney(wage)} pro Woche.`),
         important: fee >= 15_000_000,
+        playerId: target.id, fromClubId: sellerClub?.id ?? null, toClubId: club.id, fee,
       });
     }
   }

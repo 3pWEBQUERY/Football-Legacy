@@ -226,4 +226,72 @@ create table if not exists site_news (
 create index if not exists site_news_public on site_news(published_at desc) where published;
 `,
   },
+  {
+    name: "029_weltnachrichten.sql",
+    sql: `
+-- Weltnachrichten: strukturierte Angaben zu Medienartikeln (Wechsel, Interesse, Leihe) und gelesen-Markierung je Karriere
+alter table media add column if not exists data jsonb;
+alter table careers add column if not exists media_seen_id bigint not null default 0;
+update careers c set media_seen_id = coalesce((select max(id) from media m where m.career_id = c.id), 0);
+-- Neuigkeiten: mitgeliefertes Titelbild aus public/ (wird durch ein hochgeladenes ersetzt)
+alter table site_news add column if not exists cover text;
+-- Erste Meldung zum Start
+insert into site_news(slug, category, title, teaser, body, title_en, teaser_en, body_en, cover, featured, published, published_at, author)
+values ('football-legacy-ist-live', 'event',
+  $t$Football Legacy ist live!$t$,
+  $t$Der Anpfiff ist erfolgt: Football Legacy ist ab sofort für alle spielbar – kostenlos, im Browser und auf dem Smartphone.$t$,
+  $t$Der Anpfiff ist erfolgt: Ab heute ist Football Legacy für alle spielbar. Kostenlos, direkt im Browser und ohne Download – am Computer genauso wie auf dem Smartphone.
+
+## Was dich erwartet
+
+- **155 Fussballnationen** mit eigenen Ligapyramiden und über 3.000 frei erfundenen Vereinen
+- **Eine Matchengine mit 540 Spielzügen pro Partie**, live in der 2D-Ansicht – mit Zurufen von der Seitenlinie und Halbzeitansprache
+- **Taktik bis ins Detail:** Formationen, Rollen, Pressing, Abwehrlinie und Standards
+- **Transfermarkt mit echten Verhandlungen:** Gegenangebote, Ausstiegsklauseln, Leihen und KI-Vereine, die um dieselben Spieler bieten
+- **Vereinsführung:** Training, Jugendakademie, Finanzen, Vorstand, Fans und Trainerstab
+- **Online-Ligen**, in denen du gegen Freunde antrittst
+
+## So startest du
+
+- Kostenloses Konto anlegen
+- Land, Liga und Verein wählen
+- Erste Trainingswoche planen – und los geht's
+
+> Jede Saison schreibt ihre eigene Geschichte. Wir sind gespannt, welche du schreibst.
+
+## Wie geht es weiter?
+
+Football Legacy wird laufend weiterentwickelt. Neue Funktionen, Updates und Wartungsfenster kündigen wir hier in den Neuigkeiten an. Du hast einen Fehler gefunden oder eine Idee? Die Kontaktadresse findest du im [Impressum](/impressum).
+
+Viel Erfolg an der Seitenlinie!$t$,
+  $t$Football Legacy is live!$t$,
+  $t$Kick-off: Football Legacy is now open to everyone – free, in your browser and on your phone.$t$,
+  $t$Kick-off: from today, Football Legacy is open to everyone. Free, right in your browser and without a download – on your computer as well as on your phone.
+
+## What to expect
+
+- **155 football nations** with their own league pyramids and more than 3,000 fictional clubs
+- **A match engine with 540 moves per match**, live in the 2D view – with touchline shouts and half-time team talks
+- **Tactics in detail:** formations, roles, pressing, defensive line and set pieces
+- **A transfer market with real negotiations:** counter-offers, release clauses, loans and AI clubs bidding for the same players
+- **Club management:** training, youth academy, finances, board, fans and coaching staff
+- **Online leagues** where you take on your friends
+
+## How to start
+
+- Create a free account
+- Pick a country, league and club
+- Plan your first training week – and off you go
+
+> Every season writes its own story. We can't wait to see yours.
+
+## What's next?
+
+Football Legacy is under active development. We announce new features, updates and maintenance windows here in the news. Found a bug or have an idea? You'll find our contact address in the [legal notice](/impressum).
+
+Good luck on the touchline!$t$,
+  '/news/launch.webp', true, true, now(), 'Football Legacy Team')
+on conflict (slug) do nothing;
+`,
+  },
 ];
