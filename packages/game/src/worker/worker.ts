@@ -7,6 +7,7 @@
  */
 import os from "node:os";
 import { retentionSweep } from "../account/retention";
+import { cleanupNewsImages } from "../site-news";
 import crypto from "node:crypto";
 import type pg from "pg";
 import { one, pool, query } from "../db";
@@ -99,6 +100,7 @@ export function startWorker(opts: WorkerOptions = {}) {
     await query(pool(), "delete from sim_jobs where finished_at < now() - interval '1 day'");
     await query(pool(), "delete from sim_workers where seen_at < now() - interval '1 day'");
     await retentionSweep();
+    await cleanupNewsImages();
   }
 
   const ready = (async () => {

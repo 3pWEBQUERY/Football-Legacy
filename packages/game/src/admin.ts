@@ -13,12 +13,12 @@ import { layout, mailConfigured, sendMail } from "./account/mail";
 const PRICE_IN = 2;
 const PRICE_OUT = 10;
 
-function requireAdmin(email: string | null | undefined): string {
+export function requireAdmin(email: string | null | undefined): string {
   if (!isAdmin(email)) throw new GameError("Nur für Administratoren", 403);
   return email!;
 }
 
-async function logAction(admin: string, action: string, target: string | null, detail: Record<string, unknown> = {}) {
+export async function logAction(admin: string, action: string, target: string | null, detail: Record<string, unknown> = {}) {
   await query(pool(), "insert into admin_actions(admin_email, action, target_account, detail) values ($1,$2,$3,$4)", [admin, action, target, JSON.stringify(detail)]);
 }
 

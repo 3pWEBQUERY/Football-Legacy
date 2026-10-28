@@ -34,7 +34,7 @@ const api = (p, b) => page.evaluate(async ([p, b]) => {
   const j = await r.json(); if (!r.ok) throw new Error(JSON.stringify(j)); return j;
 }, [p, b]);
 
-for (const [path, name] of [["/", "Startseite"], ["/login", "Anmelden"], ["/register", "Registrieren"], ["/impressum", "Impressum"], ["/datenschutz", "Datenschutz"]]) {
+for (const [path, name] of [["/", "Startseite"], ["/login", "Anmelden"], ["/register", "Registrieren"], ["/impressum", "Impressum"], ["/datenschutz", "Datenschutz"], ["/neuigkeiten", "Neuigkeiten"]]) {
   await page.goto(B + path);
   await scan(page, name);
 }

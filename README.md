@@ -153,6 +153,13 @@ Mehrere Worker-Dienste können parallel laufen; die Aufträge werden über die D
 
 Die Datenbank liegt auf dem Volume `postgres-volume`. Unter Postgres → Volume → *Backups* lassen sich tägliche (6 Tage aufbewahrt) und wöchentliche Sicherungen (1 Monat) einschalten und Stände wiederherstellen. Die Zeitpläne müssen im Railway-Dashboard aktiviert werden.
 
+### Neuigkeiten
+
+Meldungen für `/neuigkeiten` und die Startseite schreiben Administratoren im Admin-Bereich unter *Neuigkeiten*: Titel, Kurztext, Text, Titelbild, Kategorie (Update, Neue Funktion, Community, Event, Wartung), Verfasser und Adresse, optional auf Englisch. *Veröffentlichen ab* plant eine Meldung; vorher ist sie nur für Admins sichtbar. *Hervorheben* zeigt sie als grosse Kachel oben und als breite Kachel im Raster.
+
+- **Textformat:** Absätze durch Leerzeilen, `## Zwischenüberschrift`, `- Aufzählung`, `> Zitat`, `**fett**`, `[Linktext](https://…)`. HTML wird nicht ausgewertet; Links nur auf `http(s)` oder eigene Pfade.
+- **Bilder:** Der Browser verkleinert auf 1600 px und lädt WebP hoch (höchstens 2,5 MB). Gespeichert werden sie in der Datenbank (`site_images`), der Typ wird am Inhalt geprüft (WebP, JPEG, PNG – kein SVG). Bilder ersetzter oder gelöschter Meldungen werden sofort entfernt, nie gespeicherte Uploads nach einem Tag.
+
 ### Screenshots der Startseite
 
 `DATABASE_URL=… node scripts/landing-shots.mjs` (Server muss laufen) spielt eine Karriere an und nimmt Livespiel, Büro, Taktik, Spielerprofil, Transfers, Vorstand, Tabelle, Online-Liga und Smartphone auf – je auf Deutsch und Englisch, als WebP in `apps/web/public/landing/`. Danach den Server neu starten, Next.js liest `public/` beim Start ein.

@@ -57,7 +57,7 @@ async function check(path, name) {
 }
 
 try {
-  for (const [p, n] of [["/", "Start"], ["/login", "Sign in"], ["/register", "Sign up"], ["/impressum", "Legal notice"], ["/datenschutz", "Privacy"], ["/nutzungsbedingungen", "Terms"]]) await check(p, n);
+  for (const [p, n] of [["/", "Start"], ["/login", "Sign in"], ["/register", "Sign up"], ["/impressum", "Legal notice"], ["/datenschutz", "Privacy"], ["/nutzungsbedingungen", "Terms"], ["/neuigkeiten", "News"]]) await check(p, n);
   if ((await page.evaluate(() => document.documentElement.lang)) !== "en") throw new Error("html lang ist nicht en");
   await api("auth/register", { email: `i18n${Date.now()}@example.com`, password: "geheim123", displayName: "Lang", acceptTerms: true, ageConfirmed: true });
   const prev = await api("world/preview?seed=7&country=ENG");

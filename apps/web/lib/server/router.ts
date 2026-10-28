@@ -142,6 +142,24 @@ route("POST", "admin/accounts/:aid/rename", async (c) => game.resetDisplayName(a
 route("POST", "admin/accounts/:aid/delete", async (c) => game.adminDeleteAccount(adm(c), c.params.aid));
 route("GET", "admin/ai", async (c) => game.aiUsage(adm(c)));
 route("GET", "admin/actions", async (c) => game.adminActions(adm(c)));
+route("GET", "admin/news", async (c) => game.adminNewsList(adm(c)));
+route("POST", "admin/news", async (c) => game.adminNewsSave(adm(c), null, c.body));
+route("POST", "admin/news/images", async (c) => game.adminNewsUpload(adm(c), str(c.body.data)));
+route("GET", "admin/news/:nid", async (c) => game.adminNewsGet(adm(c), num(c.params.nid)));
+route("POST", "admin/news/:nid", async (c) => game.adminNewsSave(adm(c), num(c.params.nid), c.body));
+route("POST", "admin/news/:nid/delete", async (c) => game.adminNewsDelete(adm(c), num(c.params.nid)));
+// Neuigkeiten öffentlich: Liste und Bilder (Bilder unveröffentlichter Meldungen nur für Admins)
+route("GET", "news", async (c) => game.publicNews({
+  lang: langFromCookie(c.req.headers.get("cookie")), category: c.query.get("category"), limit: Number(c.query.get("limit") ?? 12) || 12, offset: Number(c.query.get("offset") ?? 0) || 0,
+}), false);
+route("GET", "news/images/:iid", async (c) => {
+  const img = await game.newsImage(c.params.iid, c.account?.email);
+  if (!img) return new NextResponse("Nicht gefunden", { status: 404 });
+  return new NextResponse(new Uint8Array(img.data), { headers: {
+    "content-type": img.mime, "content-length": String(img.data.length), "x-content-type-options": "nosniff",
+    "content-disposition": "inline", "cache-control": c.account ? "private, no-store" : "public, max-age=86400, immutable",
+  } });
+}, false);
 route("POST", "account/terms", async (c) => game.acceptTerms(acc(c), c.body));
 route("POST", "account/profile", async (c) => game.updateProfile(acc(c), str(c.body.displayName)));
 route("POST", "account/password", async (c) => game.changePassword(acc(c), c.token ?? null, str(c.body.oldPassword), str(c.body.newPassword)));
@@ -412,6 +430,7 @@ export async function dispatch(req: NextRequest, path: string[]): Promise<NextRe
       }
     }
     const result = (await found.handler({ req, params, body, query: req.nextUrl.searchParams, account, token })) as Record<string, unknown>;
+    if ((result as unknown) instanceof NextResponse) return result as unknown as NextResponse;
     if (Array.isArray(result) || result === null || typeof result !== "object") return NextResponse.json(result ?? null);
     const { setCookie, clearCookie, setLang, ...payload } = (result ?? {}) as Record<string, unknown>;
     const res = NextResponse.json(payload);

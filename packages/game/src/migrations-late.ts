@@ -194,4 +194,36 @@ alter table sessions add column if not exists mfa_at timestamptz;
 create index if not exists sessions_expires on sessions(expires_at);
 `,
   },
+  {
+    name: "028_neuigkeiten.sql",
+    sql: `
+-- Neuigkeiten auf der Startseite (verfasst im Admin-Bereich)
+create table if not exists site_images (
+  id bigserial primary key,
+  mime text not null,
+  data bytea not null,
+  bytes int not null,
+  created_at timestamptz not null default now()
+);
+create table if not exists site_news (
+  id bigserial primary key,
+  slug text not null unique,
+  category text not null default 'update',
+  title text not null,
+  teaser text not null default '',
+  body text not null default '',
+  title_en text,
+  teaser_en text,
+  body_en text,
+  image_id bigint references site_images(id) on delete set null,
+  featured boolean not null default false,
+  published boolean not null default false,
+  published_at timestamptz not null default now(),
+  author text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists site_news_public on site_news(published_at desc) where published;
+`,
+  },
 ];

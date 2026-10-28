@@ -8,10 +8,11 @@ import { AdminReports } from "@/components/admin/Reports";
 import { AdminAccounts } from "@/components/admin/Accounts";
 import { AdminAi, AdminActions } from "@/components/admin/Usage";
 import { MfaGate } from "@/components/admin/MfaGate";
+import { AdminNews } from "@/components/admin/News";
 
-type Tab = "overview" | "reports" | "accounts" | "ai" | "log";
+type Tab = "overview" | "news" | "reports" | "accounts" | "ai" | "log";
 
-/** Admin-Bereich: Kennzahlen, Meldungen, Konten, KI-Kosten und Protokoll (nur ADMIN_EMAILS). */
+/** Admin-Bereich: Kennzahlen, Neuigkeiten, Meldungen, Konten, KI-Kosten und Protokoll (nur ADMIN_EMAILS). */
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("overview");
   return (
@@ -24,11 +25,12 @@ export default function AdminPage() {
         </div>
         <MfaGate>
         <Seg<Tab> value={tab} onChange={setTab} options={[
-          { value: "overview", label: "Übersicht" }, { value: "reports", label: "Meldungen" }, { value: "accounts", label: "Konten" },
+          { value: "overview", label: "Übersicht" }, { value: "news", label: "Neuigkeiten" }, { value: "reports", label: "Meldungen" }, { value: "accounts", label: "Konten" },
           { value: "ai", label: "KI-Kosten" }, { value: "log", label: "Protokoll" },
         ]} />
         <div style={{ marginTop: 14 }}>
           {tab === "overview" && <AdminOverview onOpen={setTab} />}
+          {tab === "news" && <AdminNews />}
           {tab === "reports" && <AdminReports />}
           {tab === "accounts" && <AdminAccounts />}
           {tab === "ai" && <AdminAi />}

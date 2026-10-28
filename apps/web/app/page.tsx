@@ -2,35 +2,20 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { langFromCookie } from "@fl/i18n";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { LangSwitch } from "@/components/LangSwitch";
-import { LegalLinks } from "@/components/Legal";
+import { publicNews } from "@fl/game";
 import { Shot } from "@/components/landing/Shot";
+import { SiteFooter, SiteNav } from "@/components/landing/SiteNav";
+import { NewsCard } from "@/components/news/NewsCard";
 import { ANYWHERE, FACTS, FAQ, FEATURES } from "@/components/landing/content";
-
-const NAV = FEATURES.filter((f) => ["spieltag", "taktik", "transfers", "verein", "online"].includes(f.id));
 
 export default async function Landing() {
   const jar = await cookies();
   if (jar.get("fl_session")) redirect("/careers");
   const lang = langFromCookie(jar.toString());
+  const news = (await publicNews({ lang, limit: 3 }).catch(() => ({ items: [] }))).items;
   return (
     <div className="lp">
-      <header className="lp-nav">
-        <Link href="/" className="row lp-brand" style={{ gap: 10 }}>
-          <div className="brand-mark" translate="no">FL</div>
-          <div className="brand-name">Football Legacy<small>Manager</small></div>
-        </Link>
-        <nav className="lp-links" aria-label="Bereiche">
-          {NAV.map((f) => <a key={f.id} href={`#${f.id}`}>{f.eyebrow}</a>)}
-        </nav>
-        <div className="row lp-actions">
-          <LangSwitch />
-          <ThemeToggle compact />
-          <Link className="btn btn-ghost" href="/login">Anmelden</Link>
-          <Link className="btn btn-primary" href="/register">Kostenlos spielen</Link>
-        </div>
-      </header>
+      <SiteNav />
 
       <main>
         <section className="lp-hero">
@@ -56,6 +41,16 @@ export default async function Landing() {
             <div key={f.label} className="lp-fact"><strong>{f.value}</strong><span>{f.label}</span></div>
           ))}
         </section>
+
+        {news.length > 0 && (
+          <section className="lp-news" aria-labelledby="nw-title">
+            <div className="lp-news-head">
+              <h2 id="nw-title">Neuigkeiten</h2>
+              <Link href="/neuigkeiten" className="btn btn-sm">Alle Neuigkeiten</Link>
+            </div>
+            <div className="nw-grid">{news.map((n) => <NewsCard key={n.slug} n={n} lang={lang} />)}</div>
+          </section>
+        )}
 
         {FEATURES.map((f, i) => (
           <section key={f.id} id={f.id} className={`lp-feature ${i % 2 ? "flip" : ""}`} aria-labelledby={`${f.id}-title`}>
@@ -100,14 +95,7 @@ export default async function Landing() {
         </section>
       </main>
 
-      <footer className="lp-footer">
-        <div className="row" style={{ gap: 10 }}>
-          <div className="brand-mark" translate="no">FL</div>
-          <span className="dim small">Football Legacy</span>
-        </div>
-        <p className="faint small">Alle Vereine, Ligen und Spieler sind frei erfunden. Ähnlichkeiten mit realen Personen oder Vereinen sind zufällig.</p>
-        <LegalLinks />
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
