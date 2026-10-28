@@ -42,6 +42,8 @@ export interface WeeklyContext {
   physioQuality: number; // 1–20
   /** Kondition wird täglich erholt (eigener Verein), nicht wöchentlich */
   skipFitness?: boolean;
+  /** Trainingsverletzungen entstehen täglich im Trainingsbetrieb (eigener Verein), nicht zusätzlich wöchentlich */
+  skipTrainingInjury?: boolean;
 }
 
 /** Wöchentliche Erholung bei diesem Trainingsplan. */
@@ -71,7 +73,7 @@ export function weeklyDevelopment(rng: Rng, p: Player, plan: TrainingPlan, ctx: 
   // Trainingsverletzungen bei hoher Intensität
   let injured = false;
   const injuryRisk = plan.intensity === "high" ? 0.008 : plan.intensity === "low" ? 0.0015 : 0.004;
-  if (p.injuryWeeks === 0 && rng.chance(injuryRisk * (1.2 - ctx.physioQuality / 40) * injuryFactor(p))) {
+  if (!ctx.skipTrainingInjury && p.injuryWeeks === 0 && rng.chance(injuryRisk * (1.2 - ctx.physioQuality / 40) * injuryFactor(p))) {
     p.injuryWeeks = rng.int(1, 3);
     injured = true;
   }

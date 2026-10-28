@@ -83,8 +83,10 @@ async function saveReport(db: pg.PoolClient, careerId: string, fixtureId: number
   );
 }
 
-function suspensionFor(rng: Rng, red: boolean, yellowTotal: number): number {
-  if (red) return rng.int(1, 3);
+/** Sperre in Spielen: Gelb-Rot ein Spiel, glatt Rot meist zwei, fünfte Gelbe ein Spiel. */
+function suspensionFor(rng: Rng, red: boolean, secondYellow: boolean, yellowTotal: number): number {
+  if (secondYellow) return 1;
+  if (red) return [1, 2, 3][rng.weighted([30, 50, 20])];
   if (yellowTotal > 0 && yellowTotal % 5 === 0) return 1;
   return 0;
 }
@@ -110,7 +112,7 @@ function applyMatchToPlayers(
     p.stats.yellow += line.yellow;
     if (line.red) p.stats.red++;
     if (ga === 0 && line.started && ["GK", "DC", "DL", "DR"].includes(p.position)) p.stats.cleanSheets++;
-    const susp = suspensionFor(rng, line.red, line.yellow > 0 ? p.stats.yellow : 0);
+    const susp = suspensionFor(rng, line.red, line.red && line.yellow >= 2, line.yellow > 0 ? p.stats.yellow : 0);
     if (susp) p.suspendedWeeks = Math.max(p.suspendedWeeks, susp + 1);
     if (line.injured) {
       injure(rng, p, matchInjuryLength(rng, physio(side === 0 ? homeId : awayId)) + 1, w.career.season, w.career.day);
@@ -264,7 +266,7 @@ export async function processWeek(db: pg.PoolClient, career: CareerRow, opts: { 
       // Individueller Schwerpunkt ersetzt den Mannschaftsschwerpunkt
       const own = isUser && p.individual?.focus ? { ...plan, focus: p.individual.focus } : plan;
       if (isUser && retrainStep(p)) retrained.push(p);
-      const { injured } = weeklyDevelopment(rng, p, own, { minutesLastWeek: minutes.get(p.id) ?? 0, coachQuality: coach, physioQuality: physio(clubId), skipFitness: isUser });
+      const { injured } = weeklyDevelopment(rng, p, own, { minutesLastWeek: minutes.get(p.id) ?? 0, coachQuality: coach, physioQuality: physio(clubId), skipFitness: isUser, skipTrainingInjury: isUser });
       if (isUser && boost) {
         p.devProgress += 0.03;
         p.morale = Math.min(100, p.morale + 1);

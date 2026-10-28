@@ -134,7 +134,10 @@ export async function scheduleSeason(db: Db, career: CareerRow) {
   for (const c of clubs) byLeague.set(c.league_id, [...(byLeague.get(c.league_id) ?? []), c.id]);
   const userClub = clubs.find((c) => c.id === career.club_id);
   const userLeague = userClub ? leagueById.get(userClub.league_id) : undefined;
-  const leagueWeeks = userLeague ? roundsFor(userLeague.size) : career.season_weeks;
+  // Ohne eigenen Verein zählt die oberste Liga des Heimatlandes – nicht die Länge der Vorsaison:
+  // die enthält Pokal-, Länderspiel- und Relegationswochen und würde jedes Jahr um leere Spielwochen wachsen
+  const calendarLeague = userLeague ?? leagues.filter((l) => l.country_code === career.country_code).sort((a, b) => a.tier - b.tier)[0];
+  const leagueWeeks = calendarLeague ? roundsFor(calendarLeague.size) : career.season_weeks;
 
   // Pokal: alle Vereine aus dem Land des Nutzers
   const cupCountry = userLeague?.country_code ?? career.country_code;

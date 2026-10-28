@@ -51,4 +51,33 @@ if (process.argv.includes("--conditions")) {
   run("Strenger Schiri 65/65", 65, 65, n, undefined, 1.3);
   run("Grosszügiger Schiri 65/65", 65, 65, n, undefined, 0.75);
 }
+if (process.argv.includes("--styles")) styles(n);
 console.log(`${((Date.now() - t0) / (n * runs)).toFixed(1)} ms pro Spiel`);
+
+/** Karten und Verletzungen je Team bei verschiedenen Spielstilen und Fitness (Team A gegen Standard). */
+function styles(n: number) {
+  const variants: [string, Record<string, number>, number][] = [
+    ["Standard", {}, 100],
+    ["Gegenpressing (Pressing 85, Härte 60)", { pressing: 85, tempo: 75, hardness: 60 }, 100],
+    ["Pressing 100, Härte 100", { pressing: 100, tempo: 90, hardness: 100 }, 100],
+    ["Fair (Härte 0)", { hardness: 0 }, 100],
+    ["Müde (Fitness 70)", {}, 70],
+    ["Müde und hart (Fitness 70, Härte 90)", { hardness: 90, pressing: 80 }, 70],
+  ];
+  for (const [label, style, fitness] of variants) {
+    let y = 0, r = 0, inj = 0, injOpp = 0, fouls = 0;
+    for (let i = 0; i < n; i++) {
+      const h = team(3000 + (i % 20), 65);
+      const a = team(4000 + (i % 20), 65);
+      h.tactic = { ...h.tactic, style: { ...h.tactic.style, ...style } };
+      for (const p of h.players) p.fitness = fitness;
+      const res = playMatch({ seed: 777 + i, home: h, away: a });
+      y += res.stats[0].yellow; r += res.stats[0].red; fouls += res.stats[0].fouls;
+      inj += res.events.filter((e) => e.type === "injury" && e.side === "home").length;
+      injOpp += res.events.filter((e) => e.type === "injury" && e.side === "away").length;
+    }
+    runs++;
+    const f = (v: number) => (v / n).toFixed(2);
+    console.log(`${label.padEnd(40)} je Team: Fouls ${f(fouls)} Gelb ${f(y)} Rot ${f(r)} Verletzte ${f(inj)} (Gegner ${f(injOpp)})`);
+  }
+}

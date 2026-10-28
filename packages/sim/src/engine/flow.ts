@@ -76,7 +76,9 @@ function updateCondition(state: MatchState, rng: Rng) {
       const isGk = slotDef(team, p.slot).position === "GK";
       const drain = (isGk ? 0.012 : 0.07) * intensity * (1.25 - p.attrs.stamina / 40) * (1.1 - p.attrs.workRate / 100) * (state.staminaFactor ?? 1);
       p.stamina = Math.max(15, p.stamina - drain);
-      if (!isGk && rng.chance(0.000022 * (1 + (100 - p.stamina) / 40) * (0.8 + team.style.hardness / 250) * (p.fragile ?? 1))) {
+      // Verletzungsgefahr: Müdigkeit und die Härte des Gegners (nicht die eigene) erhöhen sie
+      const opp = state.teams[side === 0 ? 1 : 0];
+      if (!isGk && rng.chance(0.000024 * (1 + (100 - p.stamina) / 60) * (0.8 + opp.style.hardness / 250) * (p.fragile ?? 1))) {
         injure(state, side, p);
       }
     }

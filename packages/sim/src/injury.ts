@@ -24,7 +24,8 @@ export function injure(rng: Rng, p: Player, weeks: number, season: number, day: 
 
 /** Ausfalldauer nach einer Verletzung im Spiel, selten auch langfristig. */
 export function matchInjuryLength(rng: Rng, physio: number): number {
-  if (rng.chance(0.02)) return rng.int(18, 30);
-  const base = [1, 1, 2, 2, 3, 4, 6, 8, 12][rng.weighted([20, 18, 15, 12, 10, 8, 6, 4, 2])];
+  // Meist kurze Ausfälle, wenige mittlere, selten lange (Kreuzband, Bruch)
+  if (rng.chance(0.015)) return rng.int(18, 30);
+  const base = [1, 1, 1, 2, 2, 3, 4, 6, 10][rng.weighted([24, 20, 16, 12, 10, 8, 5, 3, 2])];
   return Math.max(1, Math.round(base * (1.15 - physio / 40)));
 }

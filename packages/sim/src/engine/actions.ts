@@ -150,7 +150,10 @@ export function dribble(state: MatchState, rng: Rng, side: Side, carrier: Engine
   // Zweikampf verloren – eventuell Foul
   // „Hart angehen“ als Gegneranweisung: deutlich mehr Fouls am markierten Spieler
   const hardMark = defTeam.marks?.[carrier.id] === "hard" ? 1.6 : 1;
-  const foulP = 0.1 * (0.4 + eff(state, oppSide, def, "aggression") / 14) * (0.5 + hard) * hardMark;
+  // Härte verschiebt die Foulzahl spürbar, aber im realistischen Rahmen (etwa 8 bis 14 je Team);
+  // verwarnte Spieler gehen vorsichtiger in den Zweikampf
+  const booked = def.yellow > 0 ? 0.45 : 1;
+  const foulP = 0.1 * (0.4 + eff(state, oppSide, def, "aggression") / 14) * (0.75 + hard * 0.5) * hardMark * booked;
   if (rng.chance(foulP)) {
     foul(state, rng, side, carrier, oppSide, def);
     return;
@@ -232,8 +235,10 @@ function foul(state: MatchState, rng: Rng, side: Side, victim: EnginePlayer, opp
   const cardRoll = rng.next();
   // Strenge Schiedsrichter zücken öfter Karten
   const strict = state.conditions?.referee.strictness ?? 1;
-  const pYellow = (0.28 + hard * 0.16 + (eff(state, oppSide, offender, "aggression") - 12) / 60) * (inBox ? 1.4 : 1) * strict;
-  const pRed = (0.003 + hard * 0.005) * strict;
+  // Bereits verwarnte Spieler foulen seltener und weniger hart (Gelb-Rot bleibt die Ausnahme)
+  const pYellow = (0.34 + hard * 0.1 + (eff(state, oppSide, offender, "aggression") - 12) / 70) * (inBox ? 1.4 : 1) * strict * (offender.yellow > 0 ? 0.7 : 1);
+  // Glatt Rot ist selten: im Schnitt etwa alle 25 Spiele eines Teams, auch bei harter Gangart kaum öfter als alle 12
+  const pRed = (0.0016 + hard * 0.0022) * strict;
   if (cardRoll < pRed) {
     sendOff(state, oppSide, offender, "red");
   } else if (cardRoll < pRed + pYellow) {

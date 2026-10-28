@@ -262,7 +262,8 @@ async function trainingEvent(db: pg.PoolClient, career: CareerRow, squad: Player
   const fit = squad.filter((p) => p.injuryWeeks === 0);
   if (!fit.length) return null;
   const intensity = career.training.intensity;
-  const injuryChance = (intensity === "high" ? 0.05 : intensity === "low" ? 0.015 : 0.03) * (1.2 - career.staff.physio / 40);
+  // Etwa eine Trainingsverletzung im Monat bei normaler Belastung (vorher zusätzlich wöchentlich gewürfelt)
+  const injuryChance = (intensity === "high" ? 0.026 : intensity === "low" ? 0.006 : 0.013) * (1.2 - career.staff.physio / 40);
   if (rng.chance(injuryChance)) {
     const p = fit[rng.int(0, fit.length - 1)];
     injure(rng, p, rng.chance(0.65) ? 1 : 2, career.season, career.day);
