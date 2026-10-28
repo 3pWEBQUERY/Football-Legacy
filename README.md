@@ -153,6 +153,10 @@ Mehrere Worker-Dienste können parallel laufen; die Aufträge werden über die D
 
 Die Datenbank liegt auf dem Volume `postgres-volume`. Unter Postgres → Volume → *Backups* lassen sich tägliche (6 Tage aufbewahrt) und wöchentliche Sicherungen (1 Monat) einschalten und Stände wiederherstellen. Die Zeitpläne müssen im Railway-Dashboard aktiviert werden.
 
+### Screenshots der Startseite
+
+`DATABASE_URL=… node scripts/landing-shots.mjs` (Server muss laufen) spielt eine Karriere an und nimmt Livespiel, Büro, Taktik, Spielerprofil, Transfers, Vorstand, Tabelle, Online-Liga und Smartphone auf – je auf Deutsch und Englisch, als WebP in `apps/web/public/landing/`. Danach den Server neu starten, Next.js liest `public/` beim Start ein.
+
 ### Browser-Tests
 
 Alle drei brauchen einen laufenden Server (`E2E_URL`, Standard `http://localhost:3000`) und laufen in der CI nach dem Build gegen die Testdatenbank:
@@ -168,7 +172,9 @@ Alle drei brauchen einen laufenden Server (`E2E_URL`, Standard `http://localhost
 
 ### Langzeit-Balancing
 
-`pnpm --filter @fl/game balance 10 GER 8 4242 --active --check` simuliert zehn Saisons ohne Eingriffe (eigene Datenbank `BALANCE_DATABASE_URL`) und prüft Grenzwerte: KI-Vereine im Minus, Kontostände, Altersstruktur, Torquote, Vereinslose, Stärke der Startvereine und Rechenzeit pro Saison. Der Workflow „Langzeit-Balancing“ führt das jeden Montag auf dem Standard-Branch aus und lässt sich unter *Actions* auch von Hand starten.
+`pnpm --filter @fl/game balance 10 GER 8 4242 --active --check` simuliert zehn Saisons ohne Eingriffe (eigene Datenbank `BALANCE_DATABASE_URL`) und prüft Grenzwerte: KI-Vereine im Minus, Kontostände, Altersstruktur, Torquote, Vereinslose, Stärke der Startvereine, Anteil der Stars (Stärke ≥ 80, höchstens 30 % über dem Start) und Rechenzeit pro Saison.
+
+**Kalibrierung der Matchengine** (`pnpm sim:calibrate`): gleich starke Teams 2,7–2,8 Tore, rund 25 Schüsse, davon 9 aufs Tor, 9–10 Ecken, rund 11 Fouls und 3 Gelbe Karten pro Team bzw. Spiel, Heimsiege 45–50 %. Die Passquote hängt vom absoluten Niveau ab (Amateure rund 69 %, Spitzenteams rund 82 %, Favoriten deutlich genauer als Aussenseiter), alle übrigen Attribute wirken relativ zum Spielniveau, damit jede Liga spannend bleibt. Neben harten Fouls gibt es kleine Fouls, die nur das Spiel unterbrechen. Der Workflow „Langzeit-Balancing“ führt das jeden Montag auf dem Standard-Branch aus und lässt sich unter *Actions* auch von Hand starten.
 
 ## Nächste Schritte
 

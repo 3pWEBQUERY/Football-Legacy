@@ -17,6 +17,7 @@ import "./styles/matchday.css";
 import "./styles/history.css";
 import "./styles/onboarding.css";
 import "./styles/depth.css";
+import "./styles/landing.css";
 import { ToastProvider } from "@/components/ui";
 import { DialogProvider } from "@/components/Dialog";
 import { PwaRegister } from "@/components/Pwa";

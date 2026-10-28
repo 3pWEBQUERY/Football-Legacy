@@ -35,7 +35,7 @@ export function Radar({ value, gk, size = 220 }: { value: (key: string) => numbe
       ))}
       {cats.map((_, i) => {
         const [x, y] = pt(i, 1);
-        return <line key={i} x1={c} y1={c} x2={x} y2={y} stroke="var(--border)" />;
+        return <line key={i} x1={c} y1={c} x2={x} y2={y} stroke="var(--line)" />;
       })}
       <polygon points={poly} fill="var(--accent-soft)" stroke="var(--accent)" strokeWidth="2" strokeLinejoin="round" />
       {cats.map((cat, i) => {

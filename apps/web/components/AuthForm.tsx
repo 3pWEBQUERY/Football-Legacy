@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { LangSwitch } from "./LangSwitch";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/client/api";
 import { LegalLinks } from "./Legal";
@@ -9,7 +9,6 @@ import { Icon } from "./ui";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
-  const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -23,8 +22,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     setError(null);
     try {
       await api(`auth/${mode}`, { body: { email, password, displayName: name, ...(mode === "register" ? { acceptTerms: consent, ageConfirmed: consent } : {}) } });
-      const next = params.get("next");
-      router.push(next && next.startsWith("/") ? next : mode === "register" ? "/careers/new" : "/careers");
+      // Nur Ziele auf dieser Seite, nicht "//fremde-seite"
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(next && /^\/(?![/\\])/.test(next) ? next : mode === "register" ? "/careers/new" : "/careers");
       router.refresh();
     } catch (err) {
       setError((err as Error).message);

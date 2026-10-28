@@ -85,7 +85,9 @@ export function weeklyDevelopment(rng: Rng, p: Player, plan: TrainingPlan, ctx: 
     const intensityF = plan.intensity === "high" ? 1.25 : plan.intensity === "low" ? 0.75 : 1;
     const focusF = plan.focus === "recovery" ? 0.4 : 1;
     const youthF = plan.youthFocus && p.age <= 21 ? 1.3 : 1;
-    growth = 0.055 * ageF * play * intensityF * focusF * youthF * (0.7 + ctx.coachQuality / 33) * Math.min(1.6, gap / 8) * growthFactor(p);
+    // Weltklasse ist selten: ab 74 wird jeder weitere Schritt mühsamer (bei 80 halb so schnell) – bremst die Inflation an der Spitze
+    const eliteF = p.rating >= 74 ? clamp(1 - (p.rating - 74) / 12, 0.2, 1) : 1;
+    growth = 0.055 * ageF * play * intensityF * focusF * youthF * eliteF * (0.7 + ctx.coachQuality / 33) * Math.min(1.6, gap / 8) * growthFactor(p);
   }
   // Alterung: Physis lässt ab 30 nach
   let decline = 0;
@@ -150,7 +152,8 @@ export function benchMorale(p: Player, squadRank: number) {
 /** Saisonende: Alterung und gelegentliche Potenzial-Überraschungen. */
 export function seasonAging(rng: Rng, p: Player) {
   p.age += 1;
-  if (p.age <= 23 && rng.chance(0.08)) p.potential = clamp(p.potential + rng.int(2, 6), p.rating, 96);
+  // Spätzünder: Potenzialsprünge, bei ohnehin hohem Potenzial seltener
+  if (p.age <= 23 && rng.chance(p.potential >= 84 ? 0.03 : 0.08)) p.potential = clamp(p.potential + rng.int(2, 6), p.rating, 96);
   if (p.age >= 24 && p.potential > p.rating && rng.chance(0.3)) p.potential = Math.max(p.rating, p.potential - rng.int(1, 3));
   p.value = marketValue(p);
 }

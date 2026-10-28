@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** Liniendiagramm (eine Serie) mit Fadenkreuz und Tooltip. */
 export function LineChart({ points, format, height = 200, label }: {
@@ -9,10 +9,19 @@ export function LineChart({ points, format, height = 200, label }: {
   label: string;
 }) {
   const ref = useRef<SVGSVGElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
-  const W = 640;
+  // In echter Breite zeichnen, damit Schrift und Linien nicht mitskalieren
+  const [W, setW] = useState(640);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.max(280, Math.round(e.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const H = height;
-  const pad = { l: 92, r: 12, t: 12, b: 26 };
+  const pad = { l: 84, r: 12, t: 12, b: 26 };
   if (points.length < 2) return <div className="empty">Noch zu wenige Daten – spiele ein paar Wochen.</div>;
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
@@ -34,24 +43,24 @@ export function LineChart({ points, format, height = 200, label }: {
   }
 
   return (
-    <div style={{ position: "relative" }}>
-      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={label} onPointerMove={move} onPointerLeave={() => setHover(null)} style={{ touchAction: "none" }}>
+    <div ref={box} style={{ position: "relative" }}>
+      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} width="100%" height={H} role="img" aria-label={label} onPointerMove={move} onPointerLeave={() => setHover(null)} style={{ touchAction: "none" }}>
         {ticks.map((t, i) => (
           <g key={i}>
-            <line x1={pad.l} x2={W - pad.r} y1={sy(t)} y2={sy(t)} stroke="var(--border)" strokeWidth="1" />
-            <text x={pad.l - 8} y={sy(t)} textAnchor="end" dominantBaseline="middle" fontSize="11" fill="var(--text-faint)">{format(t)}</text>
+            <line x1={pad.l} x2={W - pad.r} y1={sy(t)} y2={sy(t)} stroke="var(--line)" strokeWidth="1" />
+            <text x={pad.l - 8} y={sy(t)} textAnchor="end" dominantBaseline="middle" fontSize="11" fill="var(--text-3)">{format(t)}</text>
           </g>
         ))}
-        {minY < 0 && <line x1={pad.l} x2={W - pad.r} y1={sy(0)} y2={sy(0)} stroke="var(--text-faint)" strokeDasharray="3 3" />}
+        {minY < 0 && <line x1={pad.l} x2={W - pad.r} y1={sy(0)} y2={sy(0)} stroke="var(--text-3)" strokeDasharray="3 3" />}
         <path d={area} fill="var(--accent-soft)" />
         <path d={d} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
         {[points[0], points[points.length - 1]].map((p, i) => (
-          <text key={i} x={sx(p.x)} y={H - 8} textAnchor={i ? "end" : "start"} fontSize="11" fill="var(--text-faint)">Woche {p.x}</text>
+          <text key={i} x={sx(p.x)} y={H - 8} textAnchor={i ? "end" : "start"} fontSize="11" fill="var(--text-3)">Woche {p.x}</text>
         ))}
         {hp && (
           <g>
-            <line x1={sx(hp.x)} x2={sx(hp.x)} y1={pad.t} y2={H - pad.b} stroke="var(--text-faint)" strokeWidth="1" />
-            <circle cx={sx(hp.x)} cy={sy(hp.y)} r="5" fill="var(--accent)" stroke="var(--surface)" strokeWidth="2" />
+            <line x1={sx(hp.x)} x2={sx(hp.x)} y1={pad.t} y2={H - pad.b} stroke="var(--text-3)" strokeWidth="1" />
+            <circle cx={sx(hp.x)} cy={sy(hp.y)} r="5" fill="var(--accent)" stroke="var(--panel)" strokeWidth="2" />
           </g>
         )}
       </svg>
@@ -73,7 +82,7 @@ export function BarList({ rows, format, color = "var(--accent)" }: { rows: { lab
       {rows.map((r) => (
         <div key={r.label} title={`${r.label}: ${format(r.value)}`}>
           <div className="between small"><span className="dim">{r.label}</span><b className="num">{format(r.value)}</b></div>
-          <div style={{ height: 8, background: "var(--surface-3)", borderRadius: 4, overflow: "hidden", marginTop: 3 }}>
+          <div style={{ height: 8, background: "var(--panel-h)", borderRadius: 4, overflow: "hidden", marginTop: 3 }}>
             <div style={{ width: `${(Math.abs(r.value) / max) * 100}%`, height: "100%", background: color, borderRadius: 4 }} />
           </div>
         </div>

@@ -1,61 +1,111 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { langFromCookie } from "@fl/i18n";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LangSwitch } from "@/components/LangSwitch";
 import { LegalLinks } from "@/components/Legal";
+import { Shot } from "@/components/landing/Shot";
+import { ANYWHERE, FACTS, FAQ, FEATURES } from "@/components/landing/content";
 
-const FEATURES = [
-  { title: "155 Länder", text: "Fiktive Ligapyramiden nach echtem Vorbild – von der englischen vierten Liga bis zur Meisterliga der Schweiz. Über 3000 Vereine, regionale Spielernamen." },
-  { title: "Matchengine", text: "540 Spielzüge pro Partie, berechnet aus Attributen, Form, Kondition und Taktik. Abgespielt in der 2D-Taktikansicht mit Halbzeitansprache." },
-  { title: "Taktik", text: "Acht Formationen, verschiebbare Positionen, 18 Rollen, Tempo, Pressing, Abwehrlinie, Risiko und Standardvarianten." },
-  { title: "Transfermarkt", text: "Verhandlungen mit Gegenangeboten, Ausstiegsklauseln, Verträge, Scouting mit unscharfen Werten. KI-Vereine handeln nach denselben Regeln." },
-  { title: "Vereinsführung", text: "Finanzen, Training, Trainerstab, Jugendjahrgänge, Vorstandsziele, Auf- und Abstieg, Entlassung und Jobangebote." },
-  { title: "Karriere", text: "Vom Co-Trainer zum Meistermacher: Manager-Level, Erfolge, Tagesziele, Ranglisten. Spielstände in der Cloud." },
-];
+const NAV = FEATURES.filter((f) => ["spieltag", "taktik", "transfers", "verein", "online"].includes(f.id));
 
 export default async function Landing() {
   const jar = await cookies();
   if (jar.get("fl_session")) redirect("/careers");
+  const lang = langFromCookie(jar.toString());
   return (
-    <div className="landing">
-      <header className="landing-top">
-        <div className="row" style={{ gap: 10 }}>
+    <div className="lp">
+      <header className="lp-nav">
+        <Link href="/" className="row lp-brand" style={{ gap: 10 }}>
           <div className="brand-mark" translate="no">FL</div>
           <div className="brand-name">Football Legacy<small>Manager</small></div>
-        </div>
-        <div className="row">
+        </Link>
+        <nav className="lp-links" aria-label="Bereiche">
+          {NAV.map((f) => <a key={f.id} href={`#${f.id}`}>{f.eyebrow}</a>)}
+        </nav>
+        <div className="row lp-actions">
           <LangSwitch />
           <ThemeToggle compact />
           <Link className="btn btn-ghost" href="/login">Anmelden</Link>
-          <Link className="btn btn-primary" href="/register">Registrieren</Link>
+          <Link className="btn btn-primary" href="/register">Kostenlos spielen</Link>
         </div>
       </header>
-      <section className="hero">
-        <div>
-          <div className="faint up small" style={{ fontWeight: 700 }}>Fussball-Manager im Browser</div>
-          <h1 style={{ marginTop: 10 }}>Schreibe<br />Fussball<br /><em>Geschichte.</em></h1>
-          <p>Du übernimmst als Co-Trainer einen Verein im Mittelfeld der Tabelle. Aufstellung, Taktik, Transfers und Training liegen ab sofort bei dir – jede Entscheidung wirkt im nächsten Spiel.</p>
-          <div className="row" style={{ flexWrap: "wrap" }}>
-            <Link className="btn btn-primary btn-lg" href="/register">Neue Karriere starten</Link>
-            <Link className="btn btn-lg" href="/login">Spielstand laden</Link>
+
+      <main>
+        <section className="lp-hero">
+          <div className="lp-hero-copy">
+            <p className="lp-eyebrow">Fussball-Manager im Browser</p>
+            <h1>Schreibe Fussball Geschichte.</h1>
+            <p className="lp-lead">
+              Übernimm einen Verein in einer von 155 Fussballnationen und führe ihn Saison für Saison nach oben – mit Taktik, Transfers, Training und Nerven an der Seitenlinie.
+            </p>
+            <div className="row lp-cta">
+              <Link className="btn btn-primary btn-lg" href="/register">Neue Karriere starten</Link>
+              <Link className="btn btn-lg" href="/login">Spielstand laden</Link>
+            </div>
+            <p className="lp-note">Kostenlos · ohne Download · Spielstände in der Cloud</p>
           </div>
-        </div>
-        <div className="hero-shot">
-          <img src="/preview-squad.png" alt="Kaderansicht von Football Legacy" style={{ display: "block", width: "100%", height: "auto" }} />
-        </div>
-      </section>
-      <section className="features">
+          <figure className="lp-hero-shot">
+            <Shot name="office" lang={lang} priority alt="Das Büro: Posteingang, nächstes Spiel, Vorstand und Tabelle auf einen Blick" />
+          </figure>
+        </section>
+
+        <section className="lp-facts" aria-label="Football Legacy in Zahlen">
+          {FACTS.map((f) => (
+            <div key={f.label} className="lp-fact"><strong>{f.value}</strong><span>{f.label}</span></div>
+          ))}
+        </section>
+
         {FEATURES.map((f, i) => (
-          <div key={f.title} className="feature">
-            <div className="n">{String(i + 1).padStart(2, "0")}</div>
-            <h3>{f.title}</h3>
-            <p className="dim">{f.text}</p>
-          </div>
+          <section key={f.id} id={f.id} className={`lp-feature ${i % 2 ? "flip" : ""}`} aria-labelledby={`${f.id}-title`}>
+            <div className="lp-feature-copy">
+              <p className="lp-eyebrow"><span className="lp-num">{String(i + 1).padStart(2, "0")}</span> {f.eyebrow}</p>
+              <h2 id={`${f.id}-title`}>{f.title}</h2>
+              <p>{f.text}</p>
+              <ul className="lp-points">{f.points.map((p) => <li key={p}>{p}</li>)}</ul>
+            </div>
+            <figure className="lp-shot">
+              <Shot name={f.shot} lang={lang} alt={f.alt} />
+            </figure>
+          </section>
         ))}
-      </section>
-      <footer className="faint small" style={{ textAlign: "center", padding: "0 24px 32px" }}>
-        Alle Vereine, Ligen und Spieler sind frei erfunden. Ähnlichkeiten mit realen Personen oder Vereinen sind zufällig.
+
+        <section className="lp-anywhere" aria-labelledby="anywhere-title">
+          <figure className="lp-phone"><Shot name="mobile" lang={lang} alt="Das Büro auf dem Smartphone mit Posteingang und nächstem Spiel" /></figure>
+          <div className="lp-feature-copy">
+            <p className="lp-eyebrow">Überall</p>
+            <h2 id="anywhere-title">Weiterspielen, wo du gerade bist</h2>
+            <p>Die Karriere läuft auf dem Server weiter, nicht auf deinem Gerät. Am Abend am Computer die Taktik feilen, in der Mittagspause auf dem Smartphone den nächsten Spieltag spielen.</p>
+            <ul className="lp-points">{ANYWHERE.map((p) => <li key={p}>{p}</li>)}</ul>
+          </div>
+        </section>
+
+        <section className="lp-faq" aria-labelledby="faq-title">
+          <h2 id="faq-title">Häufige Fragen</h2>
+          <div className="lp-faq-list">
+            {FAQ.map((f) => (
+              <details key={f.q}>
+                <summary>{f.q}</summary>
+                <p>{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        <section className="lp-final">
+          <h2>Dein Verein wartet auf dich.</h2>
+          <p>Konto anlegen, Land und Verein wählen, erstes Training ansetzen – in zwei Minuten stehst du an der Seitenlinie.</p>
+          <Link className="btn btn-primary btn-lg" href="/register">Kostenlos spielen</Link>
+        </section>
+      </main>
+
+      <footer className="lp-footer">
+        <div className="row" style={{ gap: 10 }}>
+          <div className="brand-mark" translate="no">FL</div>
+          <span className="dim small">Football Legacy</span>
+        </div>
+        <p className="faint small">Alle Vereine, Ligen und Spieler sind frei erfunden. Ähnlichkeiten mit realen Personen oder Vereinen sind zufällig.</p>
         <LegalLinks />
       </footer>
     </div>

@@ -42,7 +42,7 @@ export default function Finances() {
         </div>
         <div className="card stack">
           <div className="between"><h3>Ausgaben</h3><b className="num">{money(totalOut)}</b></div>
-          {expenses.length ? <BarList rows={expenses.map((k: any) => ({ label: k.label, value: -k.amount }))} format={money} color="var(--text-faint)" /> : <p className="faint">Noch keine Ausgaben.</p>}
+          {expenses.length ? <BarList rows={expenses.map((k: any) => ({ label: k.label, value: -k.amount }))} format={money} color="var(--text-3)" /> : <p className="faint">Noch keine Ausgaben.</p>}
         </div>
       </div>
       <div className="card card-flush">

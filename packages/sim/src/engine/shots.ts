@@ -53,7 +53,7 @@ export function shoot(
       const between = side === 0 ? d.x > shooter.x - 1 && d.x < goalX : d.x < shooter.x + 1 && d.x > goalX;
       if (between && Math.abs(d.y - (shooter.y + PITCH_H / 2) / 2) < 9) blockers++;
     }
-    xg *= Math.pow(0.9, Math.min(6, blockers)) * 0.92;
+    xg *= Math.pow(0.9, Math.min(6, blockers)) * 0.88;
   }
   // Schütze gegen Torwart: relativ, damit das Torniveau ligaunabhängig bleibt
   const kq = keeper
@@ -66,7 +66,7 @@ export function shoot(
   shooter.st.shots++;
 
   const r = rng.next();
-  const pOnTargetMiss = clamp(0.25 + skill / 100, 0.2, 0.45); // gehalten
+  const pOnTargetMiss = clamp(0.17 + skill / 140, 0.14, 0.34); // gehalten (rund 35 % der Schüsse gehen aufs Tor)
   const assistIdx = state.lastPasser;
   const assist = assistIdx !== null ? team.players[assistIdx] : null;
   const where = kind === "header" ? "per Kopf" : kind === "freekick" ? "per Freistoss" : goalDist > 20 ? "aus der Distanz" : "";
@@ -111,7 +111,7 @@ export function shoot(
         playerId: shooter.id, playerName: shooter.name, otherId: keeper?.id, otherName: keeper?.name, xg: round2(xg),
       });
     }
-    if (rng.chance(0.32)) {
+    if (rng.chance(0.42)) {
       corner(state, rng, side);
       return;
     }
@@ -122,7 +122,8 @@ export function shoot(
         playerId: shooter.id, playerName: shooter.name, xg: round2(xg),
       });
     }
-    if (rng.chance(0.18)) {
+    // Abgefälscht oder geblockt: Ecke
+    if (rng.chance(0.3)) {
       corner(state, rng, side);
       return;
     }
@@ -225,7 +226,8 @@ function corner(state: MatchState, rng: Rng, side: Side) {
   const delivery = eff(state, side, taker, "corners");
   const bonus = (routine === "near" ? 0.5 : 1.5) + delivery / 8;
   const duel = aerialDuel(state, rng, side, bonus);
-  if (duel.won && rng.chance(0.75)) {
+  // Nicht jede gewonnene Ecke wird zum Kopfball aufs Tor (rund 3 % der Ecken bringen ein Tor)
+  if (duel.won && rng.chance(0.52)) {
     const header = team.players[duel.attacker];
     const d = routine === "near" ? rng.range(5, 8) : rng.range(8, 12);
     const pos = fromA(side, 1 - d / PITCH_W, 0.5 + rng.normal(0, 0.07));

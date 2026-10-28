@@ -111,7 +111,7 @@ for (let s = 0; s < Number(seasons); s++) {
   console.log(`Spieler: Ø Stärke ${before.p.rating.toFixed(1)} → ${after.p.rating.toFixed(1)} | Stars ≥80 ${before.p.stars} → ${after.p.stars} | Talente ${before.p.talents} → ${after.p.talents} | Ø Alter ${after.p.age.toFixed(1)} | Ø Marktwert ${mio(after.p.value)} | Spieler ${before.p.n} → ${after.p.n}`);
   console.log(`Kader: Median ${after.sq.median} Spieler, grösster ${after.sq.max}, Vereine ${after.sq.clubs} | Vereinslose ${before.sq.free} → ${after.sq.free} | Ø beste Elf ${before.sq.best11.toFixed(1)} → ${after.sq.best11.toFixed(1)} (Startvereine ${before.fixed.best11.toFixed(1)} → ${after.fixed.best11.toFixed(1)})`);
   console.log(`Transfers mit Ablöse: ${tr[0].n} (eigene ${tr[0].own}), Ø ${mio(tr[0].avg)}, Rekord ${mio(tr[0].max)} | Tore/Spiel ${(cs[0]?.gpg ?? 0).toFixed(2)}`);
-  rows.push({ seconds: Math.round((Date.now() - t0) / 1000), aiMinus: +(ai.filter((c) => c.balance < 0).length / Math.max(1, ai.length)).toFixed(2), aiMedianAbs: Math.round(median(aiBal)), age: +after.p.age.toFixed(1), talents: after.p.talents, clubs: after.sq.clubs, season, position: end.position, own: Math.round(ownAfter - ownBefore), aiMedian: Math.round(median(aiBal) - median(beforeAi)), rating: +after.p.rating.toFixed(1), stars: after.p.stars, best11: +after.fixed.best11.toFixed(1), squad: after.sq.median, free: after.sq.free, gpg: +(cs[0]?.gpg ?? 0).toFixed(2), confidence: own.board.confidence });
+  rows.push({ seconds: Math.round((Date.now() - t0) / 1000), aiMinus: +(ai.filter((c) => c.balance < 0).length / Math.max(1, ai.length)).toFixed(2), aiMedianAbs: Math.round(median(aiBal)), age: +after.p.age.toFixed(1), talents: after.p.talents, clubs: after.sq.clubs, season, position: end.position, own: Math.round(ownAfter - ownBefore), aiMedian: Math.round(median(aiBal) - median(beforeAi)), rating: +after.p.rating.toFixed(1), stars: after.p.stars, starShare: +(after.p.stars / Math.max(1, after.p.n)).toFixed(4), best11: +after.fixed.best11.toFixed(1), squad: after.sq.median, free: after.sq.free, gpg: +(cs[0]?.gpg ?? 0).toFixed(2), confidence: own.board.confidence });
   before = after;
 }
 console.log("\nZusammenfassung", JSON.stringify(rows));
@@ -130,6 +130,7 @@ if (check && rows.length) {
     [`Tore pro Spiel in jeder Saison zwischen 2,5 und 3,0`, rows.every((r) => n(r.gpg) >= 2.5 && n(r.gpg) <= 3.0)],
     [`Vereinslose höchstens 1,6 je Verein (${last.free} bei ${last.clubs} Vereinen)`, n(last.free) <= n(last.clubs) * 1.6],
     [`Ø beste Elf der Startvereine stabil (±2: ${n(last.best11)} statt ${start.fixed.best11.toFixed(1)})`, Math.abs(n(last.best11) - start.fixed.best11) <= 2],
+    [`Anteil Stars ≥80 höchstens 30 % über dem Start (${(n(last.starShare) * 100).toFixed(1)} % statt ${(start.p.stars / Math.max(1, start.p.n) * 100).toFixed(1)} %)`, n(last.starShare) <= (start.p.stars / Math.max(1, start.p.n)) * 1.3],
     [`Rechenzeit der letzten Saison höchstens doppelt so lang wie die erste (${last.seconds} s statt ${first.seconds} s)`, n(last.seconds) <= n(first.seconds) * 2],
   ];
   console.log("\nPrüfung Langzeit-Stabilität");

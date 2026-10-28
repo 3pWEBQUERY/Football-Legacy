@@ -36,8 +36,11 @@ export function pass(state: MatchState, rng: Rng, side: Side, carrier: EnginePla
 
   const defTeam = state.teams[oppSide];
   const lineHigh = (defTeam.style.defensiveLine - 50) / 100;
-  let p = 0.92 - (pick.d / PITCH_W) * 0.38
-    + ((eff(state, side, carrier, "passing") - 12) / 20) * 0.1
+  // Absolutes Niveau: Profis der Spitzenklasse passen genauer als Amateure (eff() ist relativ zum Spielniveau)
+  let p = 0.94 - (pick.d / PITCH_W) * 0.38
+    + (state.level - 12) * 0.016
+    + ((eff(state, side, carrier, "passing") - 12) / 20) * 0.35
+    + ((eff(state, side, carrier, "technique") - 12) / 20) * 0.06
     + ((eff(state, side, carrier, "vision") - 12) / 20) * 0.04
     + ((eff(state, side, carrier, "decisions") - 12) / 20) * 0.03
     - (pressureD < 3 ? 0.1 * (0.6 + defTeam.style.pressing / 120) : 0)
@@ -152,6 +155,11 @@ export function dribble(state: MatchState, rng: Rng, side: Side, carrier: Engine
     foul(state, rng, side, carrier, oppSide, def);
     return;
   }
+  // Kleine Fouls (Trikot halten, zu spät): unterbrechen das Spiel, selten eine Karte, nie ein Elfmeter
+  if (rng.chance(foulP * MINOR_FOULS)) {
+    minorFoul(state, rng, side, carrier, oppSide, def);
+    return;
+  }
   def.st.tackles++;
   def.st.rating += 0.08;
   carrier.st.rating -= 0.03;
@@ -190,6 +198,27 @@ function maybeCounter(state: MatchState, rng: Rng, side: Side, loserRisk: number
   giveBall(state, side, best, pos.x, pos.y);
 }
 
+/** Verhältnis kleiner zu harten Fouls – zusammen rund 11 Fouls pro Team und Spiel. */
+const MINOR_FOULS = 2.3;
+
+function minorFoul(state: MatchState, rng: Rng, side: Side, victim: EnginePlayer, oppSide: Side, offender: EnginePlayer) {
+  const defTeam = state.teams[oppSide];
+  defTeam.stats.fouls++;
+  offender.st.fouls++;
+  offender.st.rating -= 0.02;
+  const strict = state.conditions?.referee.strictness ?? 1;
+  const pYellow = (0.02 + (defTeam.style.hardness / 100) * 0.02 + Math.max(0, eff(state, oppSide, offender, "aggression") - 12) / 400) * strict;
+  if (rng.chance(pYellow)) {
+    offender.yellow++;
+    defTeam.stats.yellow++;
+    offender.st.rating -= 0.3;
+    if (offender.yellow >= 2) sendOff(state, oppSide, offender, "second");
+    else pushEvent(state, "yellow", oppSide, `Gelbe Karte für ${offender.short} nach wiederholtem Foulspiel.`, { playerId: offender.id, playerName: offender.name });
+  }
+  state.lastPasser = null;
+  giveBall(state, side, state.teams[side].players.indexOf(victim));
+}
+
 function foul(state: MatchState, rng: Rng, side: Side, victim: EnginePlayer, oppSide: Side, offender: EnginePlayer) {
   const defTeam = state.teams[oppSide];
   const team = state.teams[side];
@@ -203,7 +232,7 @@ function foul(state: MatchState, rng: Rng, side: Side, victim: EnginePlayer, opp
   const cardRoll = rng.next();
   // Strenge Schiedsrichter zücken öfter Karten
   const strict = state.conditions?.referee.strictness ?? 1;
-  const pYellow = (0.3 + hard * 0.16 + (eff(state, oppSide, offender, "aggression") - 12) / 60) * (inBox ? 1.4 : 1) * strict;
+  const pYellow = (0.28 + hard * 0.16 + (eff(state, oppSide, offender, "aggression") - 12) / 60) * (inBox ? 1.4 : 1) * strict;
   const pRed = (0.003 + hard * 0.005) * strict;
   if (cardRoll < pRed) {
     sendOff(state, oppSide, offender, "red");

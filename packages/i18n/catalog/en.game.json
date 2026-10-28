@@ -1571,6 +1571,7 @@
  "Verein: {0}, Stärke {1}, Tabellenplatz {2} von {3} ({4} Punkte, Tore {5}:{6})": "Club: {0}, rating {1}, league position {2} of {3} ({4} points, goals {5}:{6})",
  "Verein: SV Musterberg, Stärke 72, Tabellenplatz 5 von 18 (21 Punkte, Tore 19:14)": "Club: SV Musterberg, rating 72, league position 5 of 18 (21 points, goals 19:14)",
  "Vereinen": "clubs",
+ "Vereinsführung": "Club management",
  "Vereinsidentität geändert": "Club identity changed",
  "Vereinslose für ein Jahr verpflichtet:": "Signed as free agents for one year:",
  "Vereinslose für ein Jahr verpflichtet: {0}": "Signed as free agents for one year: {0}",
